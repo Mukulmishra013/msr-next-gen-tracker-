@@ -1,4 +1,4 @@
-// Netlify Serverless Function: Direct Shiprocket API Order Importer & Auto-Sync
+// Netlify Serverless Function: Direct Shiprocket API Order Importer & CSV Parser
 // Endpoint: https://msrnext.netlify.app/api/shiprocket-fetch
 
 import { createClient } from '@supabase/supabase-js';
@@ -27,6 +27,7 @@ export default async (req) => {
     let email = DEFAULT_SHIPROCKET_EMAIL;
     let password = DEFAULT_SHIPROCKET_PASS;
     let token = '';
+    let rawCsvOrders = null;
 
     if (req.method === 'POST') {
       try {
@@ -34,10 +35,78 @@ export default async (req) => {
         if (body.email) email = body.email.trim();
         if (body.password) password = body.password.trim();
         if (body.token) token = body.token.trim();
+        if (body.csvOrders) rawCsvOrders = body.csvOrders;
       } catch (e) {}
     }
 
-    // 1. Get JWT Token from Shiprocket
+    // 1. If CSV Orders uploaded directly from Shiprocket Order Export
+    if (Array.isArray(rawCsvOrders) && rawCsvOrders.length > 0) {
+      const mappedOrders = rawCsvOrders.map((row, idx) => {
+        const orderId = String(
+          row['Order ID'] ||
+          row['order_id'] ||
+          row['Channel Order ID'] ||
+          row['Order Id'] ||
+          `SR_${Date.now()}_${idx}`
+        );
+
+        const customer = row['Customer Name'] || row['customer_name'] || row['Billing Name'] || row['Consignee Name'] || 'Customer';
+        
+        const rawPhone = String(
+          row['Customer Phone'] ||
+          row['customer_phone'] ||
+          row['Mobile'] ||
+          row['Phone'] ||
+          row['Billing Phone'] ||
+          row['Delivery Phone'] ||
+          row['Consignee Mobile'] ||
+          ''
+        );
+
+        const cleanDigits = rawPhone.replace(/\D/g, '');
+        const validPhone = cleanDigits.length >= 10 ? `+91${cleanDigits.slice(-10)}` : '+91';
+
+        const status = String(row['Status'] || row['Order Status'] || row['Shipment Status'] || 'In Transit');
+        const awb = String(row['AWB'] || row['awb'] || row['Tracking No'] || row['AWB Code'] || '');
+        const amount = Number(row['Order Total'] || row['Amount'] || row['total'] || row['Total'] || 588);
+        const product = row['Product Name'] || row['Product'] || row['Items'] || 'Amparo Pure Shilajit (30g)';
+        const courier = row['Courier Name'] || row['Courier'] || 'Assigned Courier';
+        const city = row['City'] || row['Customer City'] || row['Destination City'] || 'India';
+
+        const statusUpper = status.toUpperCase();
+        const isRto = statusUpper.includes('RTO') || statusUpper.includes('UNDELIVERED') || statusUpper.includes('FAILED');
+        const isDelivered = statusUpper.includes('DELIVERED');
+
+        return {
+          shopify_order_id: orderId,
+          customer_name: customer,
+          phone: validPhone,
+          product,
+          amount,
+          status: isDelivered ? 'confirmed' : (isRto ? 'rto_attempted' : 'pending_confirmation'),
+          urgent_rto: isRto,
+          call_type: isRto ? 'RTO Rescue' : (isDelivered ? 'Delivery Feedback' : 'Order Confirmation'),
+          shiprocket_shipment_id: awb || orderId,
+          notes: `Status: ${status} | City: ${city} | Courier: ${courier} | AWB: ${awb || 'N/A'}`
+        };
+      });
+
+      if (mappedOrders.length > 0) {
+        await supabase.from('amparo_calls').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+        await supabase.from('amparo_calls').insert(mappedOrders);
+      }
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          count: mappedOrders.length,
+          orders: mappedOrders
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
+      );
+    }
+
+    // 2. Otherwise fetch from Shiprocket REST API
     if (!token) {
       const authRes = await fetch('https://apiv2.shiprocket.in/v1/external/auth/login', {
         method: 'POST',
@@ -59,7 +128,6 @@ export default async (req) => {
       }
     }
 
-    // 2. Fetch Orders from Shiprocket
     const ordersRes = await fetch('https://apiv2.shiprocket.in/v1/external/orders?per_page=100', {
       headers: {
         'Content-Type': 'application/json',
