@@ -78,13 +78,25 @@ export default async (req) => {
         ? o.products.map((p) => p.name).join(', ')
         : (o.others && o.others.order_items && o.others.order_items[0] ? o.others.order_items[0].name : 'Amparo Shilajit');
 
-      const phone = o.customer_phone || (o.others && o.others.billing_phone) || '9876543210';
+      // Extract raw phone candidate
+      const rawPhone = String(
+        o.customer_phone ||
+        o.customer_mobile ||
+        o.customer_alternate_phone ||
+        (o.others && o.others.billing_phone) ||
+        (o.others && o.others.billing_phone_number) ||
+        ''
+      );
+
+      const cleanDigits = rawPhone.replace(/\D/g, '');
+      const validPhone = cleanDigits.length >= 10 ? `+91${cleanDigits.slice(-10)}` : '+91';
+
       const custName = o.customer_name || (o.others && o.others.billing_name) || 'Customer';
 
       return {
         shopify_order_id: String(o.channel_order_id || (o.others && o.others.name) || o.id),
         customer_name: custName === 'Not Authorized' ? 'Verified Buyer' : custName,
-        phone: phone.startsWith('+') ? phone : '+91' + phone.replace(/\D/g, '').slice(-10),
+        phone: validPhone,
         product: items,
         amount: Number(o.total || (o.others && o.others.subtotal_price) || 588),
         status: isDelivered ? 'confirmed' : (isRto ? 'rto_attempted' : 'pending_confirmation'),
