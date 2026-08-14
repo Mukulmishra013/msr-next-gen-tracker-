@@ -1,4 +1,4 @@
-// Telecaller Dashboard with Clear Phone Numbers, Dedicated WhatsApp Web & Mobile Links, and Zero Freeze
+// Telecaller Dashboard with Editable Phone Numbers, Unmasking Support, and Direct WhatsApp Web Dispatch
 import React, { useState } from 'react';
 import { useAppData } from '../../context/AppDataContext';
 import { useAuth } from '../../context/AuthContext';
@@ -21,7 +21,10 @@ import {
   X,
   Phone,
   Monitor,
-  Smartphone
+  Smartphone,
+  Edit3,
+  Save,
+  Upload
 } from 'lucide-react';
 
 export function ContentCallingDashboard({ onOpenChat }) {
@@ -32,6 +35,8 @@ export function ContentCallingDashboard({ onOpenChat }) {
   const [activeWhatsappOrder, setActiveWhatsappOrder] = useState(null);
   const [customWaMessage, setCustomWaMessage] = useState('');
   const [targetPhone, setTargetPhone] = useState('');
+  const [editingPhoneId, setEditingPhoneId] = useState(null);
+  const [editingPhoneVal, setEditingPhoneVal] = useState('');
   const [copySuccess, setCopySuccess] = useState(false);
   const [copyPhoneSuccess, setCopyPhoneSuccess] = useState(false);
 
@@ -90,26 +95,48 @@ Dhanyawad!
 
   const handleOpenWhatsappModal = (call) => {
     const msg = generateAiWhatsappText(call);
-    const cleanNumber = String(call.phone).replace(/\D/g, '').slice(-10);
+    const cleanDigits = String(call.phone || '').replace(/\D/g, '');
+    const valid10 = cleanDigits.length >= 10 ? cleanDigits.slice(-10) : '';
+
     setActiveWhatsappOrder(call);
-    setTargetPhone(cleanNumber || '8887521156');
+    setTargetPhone(valid10);
     setCustomWaMessage(msg);
     setCopySuccess(false);
     setCopyPhoneSuccess(false);
   };
 
-  // 1. WhatsApp Web Direct (for PC/Laptops - Guaranteed No Freeze)
+  const handleSavePhoneInline = (callId) => {
+    const cleanDigits = editingPhoneVal.replace(/\D/g, '').slice(-10);
+    if (cleanDigits.length === 10) {
+      updateCallStatus(callId, undefined, undefined); // trigger update
+      const target = amparoCalls.find((c) => c.id === callId);
+      if (target) {
+        target.phone = `+91${cleanDigits}`;
+      }
+    }
+    setEditingPhoneId(null);
+  };
+
+  // 1. WhatsApp Web Direct (PC/Laptop)
   const handleOpenWhatsAppWeb = () => {
     const cleanDigits = targetPhone.replace(/\D/g, '').slice(-10);
+    if (!cleanDigits || cleanDigits.length < 10) {
+      alert('Kripya 10-digit customer mobile number enter karein!');
+      return;
+    }
     const fullPhone = `91${cleanDigits}`;
     const encoded = encodeURIComponent(customWaMessage);
     const url = `https://web.whatsapp.com/send?phone=${fullPhone}&text=${encoded}`;
     window.open(url, '_blank', 'noopener,noreferrer');
   };
 
-  // 2. WhatsApp Mobile / App Direct (for Phones)
+  // 2. WhatsApp Mobile App
   const handleOpenWhatsAppApp = () => {
     const cleanDigits = targetPhone.replace(/\D/g, '').slice(-10);
+    if (!cleanDigits || cleanDigits.length < 10) {
+      alert('Kripya 10-digit customer mobile number enter karein!');
+      return;
+    }
     const fullPhone = `91${cleanDigits}`;
     const encoded = encodeURIComponent(customWaMessage);
     const url = `https://wa.me/${fullPhone}?text=${encoded}`;
@@ -139,7 +166,7 @@ Dhanyawad!
             <h2 className="text-base sm:text-lg font-black text-white">Telecaller Operations & Calling Queue</h2>
           </div>
           <p className="text-xs text-slate-300">
-            Assigned: <strong className="text-emerald-400">{currentUser.name}</strong> — Customer Mobile, AI WhatsApp & RTO Rescue.
+            Assigned: <strong className="text-emerald-400">{currentUser.name}</strong> — 1-Tap Calling, WhatsApp Web & Address Verification.
           </p>
         </div>
 
@@ -199,9 +226,9 @@ Dhanyawad!
           <div>
             <h3 className="font-extrabold text-base text-white flex items-center gap-2">
               <PhoneCall className="w-4 h-4 text-emerald-400" />
-              <span>Customer Calling Queue ({amparoCalls.length} Orders)</span>
+              <span>Customer Calling Queue ({amparoCalls.length} Real Orders)</span>
             </h3>
-            <p className="text-xs text-slate-400">Customer Mobile, Direct Dial & AI WhatsApp Dispatcher</p>
+            <p className="text-xs text-slate-400">Customer Mobile, Direct Dial & WhatsApp Web Dispatcher</p>
           </div>
 
           <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
@@ -228,89 +255,127 @@ Dhanyawad!
 
         {/* Calls List */}
         <div className="space-y-3">
-          {filteredCalls.map((call) => (
-            <div
-              key={call.id || call.shopify_order_id}
-              className={`p-4 rounded-2xl border transition ${
-                call.urgent_rto
-                  ? 'bg-red-950/30 border-red-500/60 shadow-lg shadow-red-950/30'
-                  : 'bg-slate-950/60 border-slate-800'
-              }`}
-            >
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-                
-                {/* Customer Details & Prominent Mobile Number */}
-                <div className="space-y-1.5">
+          {filteredCalls.map((call) => {
+            const isMasked = !call.phone || call.phone.includes('xxxx') || call.phone === '+91' || call.phone === '91';
+            const displayPhone = isMasked ? 'Enter Mobile' : call.phone;
+
+            return (
+              <div
+                key={call.id || call.shopify_order_id}
+                className={`p-4 rounded-2xl border transition ${
+                  call.urgent_rto
+                    ? 'bg-red-950/30 border-red-500/60 shadow-lg shadow-red-950/30'
+                    : 'bg-slate-950/60 border-slate-800'
+                }`}
+              >
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                  
+                  {/* Customer Details & Editable Mobile Number */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {call.urgent_rto && (
+                        <span className="bg-red-600 text-white text-[10px] font-black px-2 py-0.5 rounded-md animate-pulse">
+                          URGENT RTO
+                        </span>
+                      )}
+                      <span className="font-extrabold text-sm text-white">{call.customer_name}</span>
+                      <span className="text-xs font-mono text-emerald-400 font-bold">₹{call.amount}</span>
+                      <span className="text-[10px] text-slate-400 font-mono">({call.shopify_order_id})</span>
+                    </div>
+
+                    {/* Customer Mobile Number (Editable Inline) */}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {editingPhoneId === call.id ? (
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="tel"
+                            autoFocus
+                            value={editingPhoneVal}
+                            onChange={(e) => setEditingPhoneVal(e.target.value)}
+                            placeholder="Enter 10 digit number"
+                            className="bg-slate-900 border border-emerald-500 rounded-lg px-2 py-0.5 text-xs font-mono text-emerald-300 w-36 focus:outline-none"
+                          />
+                          <button
+                            onClick={() => handleSavePhoneInline(call.id)}
+                            className="p-1 rounded-md bg-emerald-600 text-white hover:bg-emerald-500"
+                            title="Save"
+                          >
+                            <Save className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => {
+                            setEditingPhoneId(call.id);
+                            setEditingPhoneVal(isMasked ? '' : String(call.phone).replace(/\D/g, '').slice(-10));
+                          }}
+                          className={`text-xs font-bold font-mono px-2.5 py-0.5 rounded-lg flex items-center gap-1.5 transition ${
+                            isMasked
+                              ? 'bg-amber-950/80 text-amber-300 border border-amber-500/50 hover:bg-amber-900'
+                              : 'bg-emerald-950/60 text-emerald-300 border border-emerald-500/40'
+                          }`}
+                          title="Click to Edit Number"
+                        >
+                          <Phone className="w-3 h-3 text-amber-400" />
+                          <span>{displayPhone}</span>
+                          <Edit3 className="w-2.5 h-2.5 opacity-60 ml-0.5" />
+                        </button>
+                      )}
+
+                      <p className="text-xs text-slate-300 font-medium truncate max-w-xs">{call.product}</p>
+                    </div>
+
+                    <p className="text-[11px] text-slate-400">{call.notes}</p>
+                  </div>
+
+                  {/* Action Buttons */}
                   <div className="flex items-center gap-2 flex-wrap">
-                    {call.urgent_rto && (
-                      <span className="bg-red-600 text-white text-[10px] font-black px-2 py-0.5 rounded-md animate-pulse">
-                        URGENT RTO
-                      </span>
-                    )}
-                    <span className="font-extrabold text-sm text-white">{call.customer_name}</span>
-                    <span className="text-xs font-mono text-emerald-400 font-bold">₹{call.amount}</span>
-                    <span className="text-[10px] text-slate-400 font-mono">({call.shopify_order_id})</span>
+                    <a
+                      href={`tel:${call.phone}`}
+                      className="tap-target px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs flex items-center gap-1.5 shadow-md shadow-emerald-600/30 transition active:scale-95"
+                    >
+                      <PhoneCall className="w-3.5 h-3.5" />
+                      <span>Call</span>
+                    </a>
+
+                    {/* AI WhatsApp Trigger */}
+                    <button
+                      onClick={() => handleOpenWhatsappModal(call)}
+                      className="tap-target px-3.5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-xs flex items-center gap-1.5 shadow-md shadow-emerald-600/30 transition active:scale-95"
+                    >
+                      <MessageSquare className="w-3.5 h-3.5 text-yellow-300" />
+                      <span>WhatsApp ➔</span>
+                    </button>
+
+                    <button
+                      onClick={() => updateCallStatus(call.id, 'confirmed')}
+                      className="tap-target px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold flex items-center gap-1 transition active:scale-95"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Confirm</span>
+                    </button>
+
+                    <button
+                      onClick={() => updateCallStatus(call.id, 'rto_saved')}
+                      className="tap-target px-3 py-2 rounded-xl bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-500/40 text-emerald-300 text-xs font-bold flex items-center gap-1 transition active:scale-95"
+                    >
+                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>RTO Saved (+₹50)</span>
+                    </button>
+
+                    <button
+                      onClick={() => updateCallStatus(call.id, 'rto_lost')}
+                      className="tap-target px-3 py-2 rounded-xl bg-red-950/60 hover:bg-red-900 border border-red-500/40 text-red-300 text-xs font-bold flex items-center gap-1 transition active:scale-95"
+                    >
+                      <XCircle className="w-3.5 h-3.5 text-red-400" />
+                      <span>Cancel</span>
+                    </button>
                   </div>
 
-                  {/* Prominent Visible Customer Mobile */}
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold font-mono text-amber-300 bg-amber-950/60 border border-amber-500/40 px-2.5 py-0.5 rounded-lg flex items-center gap-1.5">
-                      <Phone className="w-3 h-3 text-amber-400" />
-                      <span>{call.phone}</span>
-                    </span>
-                    <p className="text-xs text-slate-300 font-medium truncate max-w-xs">{call.product}</p>
-                  </div>
-
-                  <p className="text-[11px] text-slate-400">{call.notes}</p>
                 </div>
-
-                {/* Action Buttons */}
-                <div className="flex items-center gap-2 flex-wrap">
-                  <a
-                    href={`tel:${call.phone}`}
-                    className="tap-target px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs flex items-center gap-1.5 shadow-md shadow-emerald-600/30 transition active:scale-95"
-                  >
-                    <PhoneCall className="w-3.5 h-3.5" />
-                    <span>Call</span>
-                  </a>
-
-                  {/* AI WhatsApp Trigger */}
-                  <button
-                    onClick={() => handleOpenWhatsappModal(call)}
-                    className="tap-target px-3.5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-xs flex items-center gap-1.5 shadow-md shadow-emerald-600/30 transition active:scale-95"
-                  >
-                    <MessageSquare className="w-3.5 h-3.5 text-yellow-300" />
-                    <span>WhatsApp ➔</span>
-                  </button>
-
-                  <button
-                    onClick={() => updateCallStatus(call.id, 'confirmed')}
-                    className="tap-target px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold flex items-center gap-1 transition active:scale-95"
-                  >
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>Confirm</span>
-                  </button>
-
-                  <button
-                    onClick={() => updateCallStatus(call.id, 'rto_saved')}
-                    className="tap-target px-3 py-2 rounded-xl bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-500/40 text-emerald-300 text-xs font-bold flex items-center gap-1 transition active:scale-95"
-                  >
-                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>RTO Saved (+₹50)</span>
-                  </button>
-
-                  <button
-                    onClick={() => updateCallStatus(call.id, 'rto_lost')}
-                    className="tap-target px-3 py-2 rounded-xl bg-red-950/60 hover:bg-red-900 border border-red-500/40 text-red-300 text-xs font-bold flex items-center gap-1 transition active:scale-95"
-                  >
-                    <XCircle className="w-3.5 h-3.5 text-red-400" />
-                    <span>Cancel</span>
-                  </button>
-                </div>
-
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
       </div>
@@ -338,30 +403,33 @@ Dhanyawad!
               </button>
             </div>
 
-            {/* Customer Phone Field */}
-            <div className="p-3 rounded-2xl bg-slate-950 border border-slate-800 space-y-1.5">
-              <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between">
+            {/* Customer Phone Field (Direct 10-Digit Input) */}
+            <div className="p-3.5 rounded-2xl bg-slate-950 border border-slate-800 space-y-1.5">
+              <label className="block text-[11px] font-bold text-slate-300 uppercase tracking-wider flex items-center justify-between">
                 <span>Customer Mobile Number (10 Digits):</span>
-                <button
-                  type="button"
-                  onClick={handleCopyPhone}
-                  className="text-[10px] text-amber-400 hover:underline flex items-center gap-1"
-                >
-                  <Copy className="w-3 h-3" />
-                  <span>{copyPhoneSuccess ? 'Number Copied! ✅' : 'Copy Number'}</span>
-                </button>
+                {targetPhone && (
+                  <button
+                    type="button"
+                    onClick={handleCopyPhone}
+                    className="text-[10px] text-amber-400 hover:underline flex items-center gap-1"
+                  >
+                    <Copy className="w-3 h-3" />
+                    <span>{copyPhoneSuccess ? 'Number Copied! ✅' : 'Copy'}</span>
+                  </button>
+                )}
               </label>
 
               <div className="flex items-center gap-2">
-                <span className="font-mono text-xs font-bold text-slate-400 bg-slate-900 px-3 py-2 rounded-xl border border-slate-700">
+                <span className="font-mono text-xs font-bold text-emerald-400 bg-slate-900 px-3 py-2.5 rounded-xl border border-slate-700">
                   +91
                 </span>
                 <input
                   type="tel"
+                  maxLength={10}
                   value={targetPhone}
-                  onChange={(e) => setTargetPhone(e.target.value)}
-                  placeholder="Enter 10 digit mobile"
-                  className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm font-mono font-bold text-amber-300 focus:outline-none focus:border-emerald-500"
+                  onChange={(e) => setTargetPhone(e.target.value.replace(/\D/g, ''))}
+                  placeholder="Enter 10-digit mobile (e.g. 9876543210)"
+                  className="flex-1 bg-slate-900 border border-emerald-500/50 rounded-xl px-3 py-2 text-sm font-mono font-bold text-white placeholder-slate-500 focus:outline-none focus:border-emerald-400"
                 />
               </div>
             </div>
@@ -381,7 +449,7 @@ Dhanyawad!
               </label>
 
               <textarea
-                rows={7}
+                rows={6}
                 value={customWaMessage}
                 onChange={(e) => setCustomWaMessage(e.target.value)}
                 className="w-full bg-slate-950 border border-slate-700 rounded-2xl p-3 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 font-sans leading-relaxed"
@@ -397,7 +465,7 @@ Dhanyawad!
                 className="tap-target py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-600/30 transition active:scale-95"
               >
                 <Monitor className="w-4 h-4" />
-                <span>Open in WhatsApp Web (PC) ➔</span>
+                <span>Open WhatsApp Web (PC) ➔</span>
               </button>
 
               {/* WhatsApp App Button for Mobile */}
