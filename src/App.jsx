@@ -1,9 +1,10 @@
 // Main Application Shell - MSR Next Gen Tracker & Maya AGI
 import React, { useState } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { AppDataProvider } from './context/AppDataContext';
+import { AppDataProvider, useAppData } from './context/AppDataContext';
 import { AgentProvider } from './context/AgentContext';
 
+import { LoginScreen } from './components/auth/LoginScreen';
 import { Header } from './components/common/Header';
 import { BottomNav } from './components/common/BottomNav';
 import { RoleSwitcher } from './components/common/RoleSwitcher';
@@ -22,14 +23,20 @@ import { OwnerDashboard } from './components/dashboards/OwnerDashboard';
 import { CustomRoleDashboard } from './components/dashboards/CustomRoleDashboard';
 
 function MainApp() {
-  const { currentUser } = useAuth();
-  const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard' | 'work' | 'maya_agent_hub' | 'attendance' | 'payroll'
+  const { isAuthenticated, currentUser } = useAuth();
+  const { dbLoading } = useAppData();
+  const [activeTab, setActiveTab] = useState('dashboard');
   
   // Modals state
   const [isGpsOpen, setIsGpsOpen] = useState(false);
   const [isMayaChatOpen, setIsMayaChatOpen] = useState(false);
   const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
   const [selectedPayrollItem, setSelectedPayrollItem] = useState(null);
+
+  // If not authenticated, render dedicated Firebase Phone Login Screen
+  if (!isAuthenticated) {
+    return <LoginScreen onLoginSuccess={() => setActiveTab('dashboard')} />;
+  }
 
   // Render role-specific main view for 'dashboard' or 'work' tab
   const renderDashboardView = () => {
@@ -68,7 +75,7 @@ function MainApp() {
         {/* Psychological Motivational Nudge Banner */}
         <AgentNudgeBanner onOpenChat={() => setIsMayaChatOpen(true)} />
 
-        {/* Desktop Tab Selector (Optional top pills on wider screens) */}
+        {/* Desktop Tab Selector */}
         <div className="hidden sm:flex items-center gap-2 pb-2 border-b border-slate-800/80">
           {[
             { id: 'dashboard', label: '📊 Command Dashboard' },

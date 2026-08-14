@@ -1,4 +1,4 @@
-// Application Data Context - Single Source of Truth with Real-time A2A Graph Handoffs
+// Application Data Context - Live Supabase Sync & Real-time Subscriptions
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import {
   MOCK_AMPARO_CALLS,
@@ -10,6 +10,7 @@ import {
   MOCK_INCENTIVES,
   MOCK_PAYROLL
 } from '../data/mockData';
+import { supabase, isSupabaseConfigured } from '../services/supabase';
 import { agentMesh } from '../services/agentGraph';
 import { checkGeofence } from '../services/geolocation';
 import confetti from 'canvas-confetti';
@@ -17,70 +18,17 @@ import confetti from 'canvas-confetti';
 const AppDataContext = createContext(null);
 
 export function AppDataProvider({ children }) {
-  const [amparoCalls, setAmparoCalls] = useState(() => {
-    const s = localStorage.getItem('msr_amparo_calls');
-    return s ? JSON.parse(s) : MOCK_AMPARO_CALLS;
-  });
+  const [amparoCalls, setAmparoCalls] = useState(MOCK_AMPARO_CALLS);
+  const [msrLeads, setMsrLeads] = useState(MOCK_MSR_LEADS);
+  const [videos, setVideos] = useState(MOCK_VIDEOS);
+  const [fieldVisits, setFieldVisits] = useState(MOCK_FIELD_VISITS);
+  const [attendance, setAttendance] = useState(MOCK_ATTENDANCE);
+  const [revenueLog, setRevenueLog] = useState(MOCK_REVENUE_LOG);
+  const [incentives, setIncentives] = useState(MOCK_INCENTIVES);
+  const [payroll, setPayroll] = useState(MOCK_PAYROLL);
+  const [dbLoading, setDbLoading] = useState(true);
 
-  const [msrLeads, setMsrLeads] = useState(() => {
-    const s = localStorage.getItem('msr_leads');
-    return s ? JSON.parse(s) : MOCK_MSR_LEADS;
-  });
-
-  const [videos, setVideos] = useState(() => {
-    const s = localStorage.getItem('msr_videos');
-    return s ? JSON.parse(s) : MOCK_VIDEOS;
-  });
-
-  const [fieldVisits, setFieldVisits] = useState(() => {
-    const s = localStorage.getItem('msr_field_visits');
-    return s ? JSON.parse(s) : MOCK_FIELD_VISITS;
-  });
-
-  const [attendance, setAttendance] = useState(() => {
-    const s = localStorage.getItem('msr_attendance');
-    return s ? JSON.parse(s) : MOCK_ATTENDANCE;
-  });
-
-  const [revenueLog, setRevenueLog] = useState(() => {
-    const s = localStorage.getItem('msr_revenue');
-    return s ? JSON.parse(s) : MOCK_REVENUE_LOG;
-  });
-
-  const [incentives, setIncentives] = useState(() => {
-    const s = localStorage.getItem('msr_incentives');
-    return s ? JSON.parse(s) : MOCK_INCENTIVES;
-  });
-
-  const [payroll, setPayroll] = useState(() => {
-    const s = localStorage.getItem('msr_payroll');
-    return s ? JSON.parse(s) : MOCK_PAYROLL;
-  });
-
-  // Sync to localStorage
-  useEffect(() => {
-    localStorage.setItem('msr_amparo_calls', JSON.stringify(amparoCalls));
-  }, [amparoCalls]);
-  useEffect(() => {
-    localStorage.setItem('msr_leads', JSON.stringify(msrLeads));
-  }, [msrLeads]);
-  useEffect(() => {
-    localStorage.setItem('msr_videos', JSON.stringify(videos));
-  }, [videos]);
-  useEffect(() => {
-    localStorage.setItem('msr_field_visits', JSON.stringify(fieldVisits));
-  }, [fieldVisits]);
-  useEffect(() => {
-    localStorage.setItem('msr_attendance', JSON.stringify(attendance));
-  }, [attendance]);
-  useEffect(() => {
-    localStorage.setItem('msr_incentives', JSON.stringify(incentives));
-  }, [incentives]);
-  useEffect(() => {
-    localStorage.setItem('msr_payroll', JSON.stringify(payroll));
-  }, [payroll]);
-
-  // Trigger celebration animation
+  // Trigger win celebration confetti
   const triggerWinCelebration = () => {
     try {
       confetti({
@@ -91,8 +39,127 @@ export function AppDataProvider({ children }) {
     } catch (e) {}
   };
 
+  // 1. Initial Data Fetch from Live Supabase
+  useEffect(() => {
+    async function loadSupabaseData() {
+      if (!isSupabaseConfigured()) {
+        setDbLoading(false);
+        return;
+      }
+
+      try {
+        setDbLoading(true);
+
+        // Fetch all tables in parallel
+        const [
+          callsRes,
+          leadsRes,
+          videosRes,
+          visitsRes,
+          attRes,
+          revRes,
+          incRes,
+          payRes
+        ] = await Promise.all([
+          supabase.from('amparo_calls').select('*').order('created_at', { ascending: false }),
+          supabase.from('msr_leads').select('*').order('created_at', { ascending: false }),
+          supabase.from('videos').select('*').order('created_at', { ascending: false }),
+          supabase.from('field_visits').select('*').order('created_at', { ascending: false }),
+          supabase.from('attendance').select('*').order('created_at', { ascending: false }),
+          supabase.from('revenue_log').select('*').limit(1),
+          supabase.from('incentive_ledger').select('*').order('created_at', { ascending: false }),
+          supabase.from('payroll').select('*').order('created_at', { ascending: false })
+        ]);
+
+        if (callsRes.data && callsRes.data.length > 0) {
+          setAmparoCalls(callsRes.data);
+        } else {
+          // If empty, seed initial data to Supabase
+          await supabase.from('amparo_calls').insert(
+            MOCK_AMPARO_CALLS.map(({ id, ...rest }) => rest)
+          );
+        }
+
+        if (leadsRes.data && leadsRes.data.length > 0) {
+          setMsrLeads(leadsRes.data);
+        } else {
+          await supabase.from('msr_leads').insert(
+            MOCK_MSR_LEADS.map(({ id, ...rest }) => rest)
+          );
+        }
+
+        if (videosRes.data && videosRes.data.length > 0) {
+          setVideos(videosRes.data);
+        }
+
+        if (visitsRes.data && visitsRes.data.length > 0) {
+          setFieldVisits(visitsRes.data);
+        }
+
+        if (attRes.data && attRes.data.length > 0) {
+          setAttendance(attRes.data);
+        }
+
+        if (revRes.data && revRes.data.length > 0) {
+          setRevenueLog(revRes.data[0]);
+        }
+
+        if (incRes.data && incRes.data.length > 0) {
+          setIncentives(incRes.data);
+        }
+
+        if (payRes.data && payRes.data.length > 0) {
+          setPayroll(payRes.data);
+        }
+      } catch (err) {
+        console.warn('Supabase initial fetch fallback to local store:', err);
+      } finally {
+        setDbLoading(false);
+      }
+    }
+
+    loadSupabaseData();
+
+    // 2. Real-time Subscription to Live Database Changes (Shiprocket Webhook & Team actions)
+    if (isSupabaseConfigured()) {
+      const channel = supabase
+        .channel('msr_realtime_sync')
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'amparo_calls' },
+          (payload) => {
+            if (payload.eventType === 'INSERT') {
+              setAmparoCalls((prev) => [payload.new, ...prev]);
+            } else if (payload.eventType === 'UPDATE') {
+              setAmparoCalls((prev) =>
+                prev.map((c) => (c.id === payload.new.id ? payload.new : c))
+              );
+            }
+          }
+        )
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'msr_leads' },
+          (payload) => {
+            if (payload.eventType === 'INSERT') {
+              setMsrLeads((prev) => [payload.new, ...prev]);
+            } else if (payload.eventType === 'UPDATE') {
+              setMsrLeads((prev) =>
+                prev.map((l) => (l.id === payload.new.id ? payload.new : l))
+              );
+            }
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }
+  }, []);
+
   // --- Calling / Amparo Actions ---
-  const updateCallStatus = (callId, newStatus, notes = '') => {
+  const updateCallStatus = async (callId, newStatus, notes = '') => {
     setAmparoCalls((prev) =>
       prev.map((call) => {
         if (call.id === callId) {
@@ -112,10 +179,23 @@ export function AppDataProvider({ children }) {
         return call;
       })
     );
+
+    if (isSupabaseConfigured()) {
+      try {
+        await supabase
+          .from('amparo_calls')
+          .update({
+            status: newStatus,
+            notes: notes || undefined,
+            urgent_rto: newStatus === 'rto_saved' || newStatus === 'rto_lost' ? false : undefined
+          })
+          .eq('id', callId);
+      } catch (e) {}
+    }
   };
 
   // --- Lead Actions ---
-  const addLead = (leadData, user) => {
+  const addLead = async (leadData, user) => {
     const newLead = {
       id: `lead_${Date.now()}`,
       sourced_by: user.id,
@@ -126,10 +206,23 @@ export function AppDataProvider({ children }) {
     };
     setMsrLeads((prev) => [newLead, ...prev]);
     agentMesh.broadcastEvent('LEAD_SOURCED', newLead);
+
+    if (isSupabaseConfigured()) {
+      try {
+        await supabase.from('msr_leads').insert({
+          lead_name: leadData.lead_name,
+          phone: leadData.phone,
+          category: leadData.category,
+          deal_amount: leadData.deal_amount,
+          status: 'new'
+        });
+      } catch (e) {}
+    }
+
     return newLead;
   };
 
-  const convertLead = (leadId, convertedByUser, dealAmount = 20000) => {
+  const convertLead = async (leadId, convertedByUser, dealAmount = 20000) => {
     setMsrLeads((prev) =>
       prev.map((lead) => {
         if (lead.id === leadId) {
@@ -144,7 +237,6 @@ export function AppDataProvider({ children }) {
       })
     );
 
-    // Credit ₹400 deal incentive to user
     const newIncentive = {
       id: `inc_${Date.now()}`,
       user_id: convertedByUser.id,
@@ -163,10 +255,19 @@ export function AppDataProvider({ children }) {
       dealAmount,
       convertedBy: convertedByUser.name
     });
+
+    if (isSupabaseConfigured()) {
+      try {
+        await supabase
+          .from('msr_leads')
+          .update({ status: 'converted', deal_amount: Number(dealAmount) })
+          .eq('id', leadId);
+      } catch (e) {}
+    }
   };
 
   // --- Video Actions ---
-  const addVideo = (videoData, user) => {
+  const addVideo = async (videoData, user) => {
     const newVideo = {
       id: `vid_${Date.now()}`,
       user_id: user.id,
@@ -175,10 +276,21 @@ export function AppDataProvider({ children }) {
       ...videoData
     };
     setVideos((prev) => [newVideo, ...prev]);
+
+    if (isSupabaseConfigured()) {
+      try {
+        await supabase.from('videos').insert({
+          client_name: videoData.client_name,
+          type: videoData.type,
+          link: videoData.link,
+          status: 'editing'
+        });
+      } catch (e) {}
+    }
     return newVideo;
   };
 
-  const updateVideoStatus = (videoId, newStatus, link = '') => {
+  const updateVideoStatus = async (videoId, newStatus, link = '') => {
     setVideos((prev) =>
       prev.map((v) => {
         if (v.id === videoId) {
@@ -191,10 +303,16 @@ export function AppDataProvider({ children }) {
         return v;
       })
     );
+
+    if (isSupabaseConfigured()) {
+      try {
+        await supabase.from('videos').update({ status: newStatus, link: link || undefined }).eq('id', videoId);
+      } catch (e) {}
+    }
   };
 
   // --- Field Visit Actions ---
-  const logFieldVisit = (visitData, user, gpsCoordinates) => {
+  const logFieldVisit = async (visitData, user, gpsCoordinates) => {
     const newVisit = {
       id: `fld_${Date.now()}`,
       user_id: user.id,
@@ -205,9 +323,8 @@ export function AppDataProvider({ children }) {
     };
     setFieldVisits((prev) => [newVisit, ...prev]);
 
-    // If gym sale amount was collected, add field incentive
     if (visitData.type === 'gym_silajit' && Number(visitData.amount) > 0) {
-      const comm = Math.round(Number(visitData.amount) * 0.05); // 5% commission
+      const comm = Math.round(Number(visitData.amount) * 0.05);
       setIncentives((prev) => [
         {
           id: `inc_${Date.now()}`,
@@ -225,16 +342,32 @@ export function AppDataProvider({ children }) {
 
     triggerWinCelebration();
     agentMesh.broadcastEvent('FIELD_VISIT_LOGGED', newVisit);
+
+    if (isSupabaseConfigured()) {
+      try {
+        await supabase.from('field_visits').insert({
+          name: visitData.name,
+          type: visitData.type,
+          location: visitData.location,
+          amount: visitData.amount,
+          payment_status: visitData.payment_status,
+          payment_mode: visitData.payment_mode,
+          outcome: visitData.outcome,
+          gps_lat: gpsCoordinates?.lat || 26.7588,
+          gps_lng: gpsCoordinates?.lng || 83.3756
+        });
+      } catch (e) {}
+    }
+
     return newVisit;
   };
 
   // --- Attendance Check-in Action ---
-  const recordAttendanceCheckIn = (user, gpsCoords) => {
+  const recordAttendanceCheckIn = async (user, gpsCoords) => {
     const geo = checkGeofence(gpsCoords.lat, gpsCoords.lng);
     const today = new Date().toISOString().split('T')[0];
     const timeStr = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
 
-    // For field executives, any GPS check-in is valid with coordinates
     const isFieldRole = user.role === 'field_executive';
     const isPresent = isFieldRole || geo.withinGeofence;
 
@@ -263,11 +396,25 @@ export function AppDataProvider({ children }) {
       triggerWinCelebration();
     }
 
+    if (isSupabaseConfigured()) {
+      try {
+        await supabase.from('attendance').insert({
+          date: today,
+          check_in_time: timeStr,
+          check_in_lat: gpsCoords.lat,
+          check_in_lng: gpsCoords.lng,
+          within_geofence: isPresent,
+          distance_meters: geo.distanceMeters,
+          status: isPresent ? 'present' : 'outside_office'
+        });
+      } catch (e) {}
+    }
+
     return newRecord;
   };
 
-  // --- Payroll Status Update (Manual UPI Payout Confirmation) ---
-  const markPayrollPaid = (payrollId, utrNumber) => {
+  // --- Payroll Status Update ---
+  const markPayrollPaid = async (payrollId, utrNumber) => {
     setPayroll((prev) =>
       prev.map((item) => {
         if (item.id === payrollId) {
@@ -282,6 +429,19 @@ export function AppDataProvider({ children }) {
       })
     );
     triggerWinCelebration();
+
+    if (isSupabaseConfigured()) {
+      try {
+        await supabase
+          .from('payroll')
+          .update({
+            payment_status: 'paid',
+            paid_date: new Date().toISOString().split('T')[0],
+            utr_number: utrNumber || `UPI_${Date.now().toString().slice(-6)}`
+          })
+          .eq('id', payrollId);
+      } catch (e) {}
+    }
   };
 
   return (
@@ -295,6 +455,7 @@ export function AppDataProvider({ children }) {
         revenueLog,
         incentives,
         payroll,
+        dbLoading,
         updateCallStatus,
         addLead,
         convertLead,

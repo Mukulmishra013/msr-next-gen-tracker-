@@ -1,10 +1,10 @@
 // Modern Header Component with Maya AGI Indicator & Profile
 import React from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { Sparkles, MapPin, Zap, Flame } from 'lucide-react';
+import { Sparkles, MapPin, Zap, Flame, LogOut } from 'lucide-react';
 
 export function Header({ onOpenGps, onOpenMaya, onOpenRoleModal }) {
-  const { currentUser } = useAuth();
+  const { currentUser, logout } = useAuth();
 
   return (
     <header className="sticky top-0 z-40 bg-slate-950/80 backdrop-blur-md border-b border-slate-800/80 px-4 py-3">
@@ -60,12 +60,22 @@ export function Header({ onOpenGps, onOpenMaya, onOpenRoleModal }) {
           <button
             onClick={onOpenRoleModal}
             className="flex items-center gap-2 pl-2 pr-3 py-1 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700/80 transition active:scale-95"
+            title="Switch Active Role"
           >
             <span className="text-base">{currentUser.avatar || '👤'}</span>
             <div className="text-left hidden sm:block">
               <p className="text-xs font-bold text-slate-100 leading-tight">{currentUser.name}</p>
-              <p className="text-[10px] text-emerald-400 font-semibold uppercase tracking-wider">{currentUser.role.replace('_', ' ')}</p>
+              <p className="text-[10px] text-emerald-400 font-semibold uppercase tracking-wider">{currentUser.role?.replace('_', ' ')}</p>
             </div>
+          </button>
+
+          {/* Logout Button */}
+          <button
+            onClick={logout}
+            className="p-2 rounded-xl bg-slate-900 hover:bg-red-950/60 border border-slate-800 hover:border-red-500/40 text-slate-400 hover:text-red-300 transition active:scale-95"
+            title="Log out"
+          >
+            <LogOut className="w-4 h-4" />
           </button>
         </div>
 

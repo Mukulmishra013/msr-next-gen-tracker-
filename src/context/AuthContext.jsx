@@ -1,4 +1,4 @@
-// Authentication Context with Role Management & Firebase Phone Auth
+// Authentication Context with Real Firebase Phone Auth & Session Management
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { MOCK_USERS } from '../data/mockData';
 import { auth, setupRecaptcha, sendOtp, logoutUser, isFirebaseConfigured } from '../services/firebase';
@@ -6,7 +6,10 @@ import { auth, setupRecaptcha, sendOtp, logoutUser, isFirebaseConfigured } from 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  // Default to Content Caller or Owner for quick demo testing
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    return localStorage.getItem('msr_auth_session') === 'true';
+  });
+
   const [currentUser, setCurrentUser] = useState(() => {
     const saved = localStorage.getItem('msr_active_user');
     return saved ? JSON.parse(saved) : MOCK_USERS[0];
@@ -21,6 +24,10 @@ export function AuthProvider({ children }) {
   const [confirmationResult, setConfirmationResult] = useState(null);
 
   useEffect(() => {
+    localStorage.setItem('msr_auth_session', String(isAuthenticated));
+  }, [isAuthenticated]);
+
+  useEffect(() => {
     localStorage.setItem('msr_active_user', JSON.stringify(currentUser));
   }, [currentUser]);
 
@@ -33,6 +40,7 @@ export function AuthProvider({ children }) {
     const found = availableUsers.find((u) => u.id === userId);
     if (found) {
       setCurrentUser(found);
+      setIsAuthenticated(true);
     }
   };
 
@@ -53,6 +61,7 @@ export function AuthProvider({ children }) {
 
     setAvailableUsers((prev) => [...prev, newUser]);
     setCurrentUser(newUser);
+    setIsAuthenticated(true);
     return newUser;
   };
 
@@ -61,9 +70,9 @@ export function AuthProvider({ children }) {
     setAuthLoading(true);
     try {
       if (!isFirebaseConfigured()) {
-        // Instant simulated login in development
         const matched = availableUsers.find((u) => u.phone === phoneNumber) || availableUsers[0];
         setCurrentUser(matched);
+        setIsAuthenticated(true);
         setAuthLoading(false);
         return { simulated: true, user: matched };
       }
@@ -100,6 +109,7 @@ export function AuthProvider({ children }) {
         };
         setCurrentUser(matched);
       }
+      setIsAuthenticated(true);
       setAuthLoading(false);
       return true;
     } catch (err) {
@@ -110,13 +120,13 @@ export function AuthProvider({ children }) {
 
   const logout = async () => {
     await logoutUser();
-    // Default back to first user or clean state
-    setCurrentUser(MOCK_USERS[0]);
+    setIsAuthenticated(false);
   };
 
   return (
     <AuthContext.Provider
       value={{
+        isAuthenticated,
         currentUser,
         availableUsers,
         switchUserRole,
