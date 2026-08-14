@@ -1,4 +1,4 @@
-// Application Data Context - Live Supabase Sync & Real-time Subscriptions
+// Application Data Context - Live Supabase Sync & Real-time Subscriptions with Phone Updater
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import {
   MOCK_AMPARO_CALLS,
@@ -50,7 +50,6 @@ export function AppDataProvider({ children }) {
       try {
         setDbLoading(true);
 
-        // Fetch all tables in parallel
         const [
           callsRes,
           leadsRes,
@@ -74,7 +73,6 @@ export function AppDataProvider({ children }) {
         if (callsRes.data && callsRes.data.length > 0) {
           setAmparoCalls(callsRes.data);
         } else {
-          // If empty, seed initial data to Supabase
           await supabase.from('amparo_calls').insert(
             MOCK_AMPARO_CALLS.map(({ id, ...rest }) => rest)
           );
@@ -120,7 +118,7 @@ export function AppDataProvider({ children }) {
 
     loadSupabaseData();
 
-    // 2. Real-time Subscription to Live Database Changes (Shiprocket Webhook & Team actions)
+    // 2. Real-time Subscription to Live Database Changes
     if (isSupabaseConfigured()) {
       const channel = supabase
         .channel('msr_realtime_sync')
@@ -137,19 +135,6 @@ export function AppDataProvider({ children }) {
             }
           }
         )
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'msr_leads' },
-          (payload) => {
-            if (payload.eventType === 'INSERT') {
-              setMsrLeads((prev) => [payload.new, ...prev]);
-            } else if (payload.eventType === 'UPDATE') {
-              setMsrLeads((prev) =>
-                prev.map((l) => (l.id === payload.new.id ? payload.new : l))
-              );
-            }
-          }
-        )
         .subscribe();
 
       return () => {
@@ -158,7 +143,7 @@ export function AppDataProvider({ children }) {
     }
   }, []);
 
-  // --- Calling / Amparo Actions ---
+  // Update Call Status
   const updateCallStatus = async (callId, newStatus, notes = '') => {
     setAmparoCalls((prev) =>
       prev.map((call) => {
@@ -191,6 +176,28 @@ export function AppDataProvider({ children }) {
           })
           .eq('id', callId);
       } catch (e) {}
+    }
+  };
+
+  // Update Single Call Phone Number Permanently in Supabase DB
+  const updateCallPhone = async (callId, newPhone) => {
+    const cleanDigits = String(newPhone).replace(/\D/g, '').slice(-10);
+    if (cleanDigits.length < 10) return;
+    const formatted = `+91${cleanDigits}`;
+
+    setAmparoCalls((prev) =>
+      prev.map((c) => (c.id === callId ? { ...c, phone: formatted } : c))
+    );
+
+    if (isSupabaseConfigured()) {
+      try {
+        await supabase
+          .from('amparo_calls')
+          .update({ phone: formatted })
+          .eq('id', callId);
+      } catch (e) {
+        console.error('Error updating phone in DB:', e);
+      }
     }
   };
 
@@ -448,6 +455,7 @@ export function AppDataProvider({ children }) {
     <AppDataContext.Provider
       value={{
         amparoCalls,
+        setAmparoCalls,
         msrLeads,
         videos,
         fieldVisits,
@@ -457,6 +465,7 @@ export function AppDataProvider({ children }) {
         payroll,
         dbLoading,
         updateCallStatus,
+        updateCallPhone,
         addLead,
         convertLead,
         addVideo,
