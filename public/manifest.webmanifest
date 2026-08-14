@@ -1,0 +1,17 @@
+{
+  "name": "MSR Next Gen Tracker & Maya AGI",
+  "short_name": "MSR Tracker",
+  "description": "Smart Agency Ops, GPS Attendance, Live Incentives & Maya AI Team",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
