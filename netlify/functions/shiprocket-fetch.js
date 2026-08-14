@@ -1,6 +1,5 @@
-// Netlify Serverless Function: Direct Shiprocket API Order Importer
+// Netlify Serverless Function: Direct Shiprocket API Order Importer & Token Authenticator
 // Endpoint: https://msrnext.netlify.app/api/shiprocket-fetch
-// Authenticates with Shiprocket API v2 and pulls all existing orders into Supabase & UI
 
 import { createClient } from '@supabase/supabase-js';
 
@@ -24,20 +23,65 @@ export default async (req) => {
   try {
     let email = '';
     let password = '';
-    let apiToken = '';
+    let token = '';
+    let rawCsvOrders = null;
 
     if (req.method === 'POST') {
       try {
         const body = await req.json();
         email = body.email || '';
         password = body.password || '';
-        apiToken = body.token || '';
+        token = body.token || '';
+        rawCsvOrders = body.csvOrders || null;
       } catch (e) {}
     }
 
-    let token = apiToken;
+    // 1. If CSV orders provided directly from Shiprocket Order Export
+    if (Array.isArray(rawCsvOrders) && rawCsvOrders.length > 0) {
+      const mappedOrders = rawCsvOrders.map((row, idx) => {
+        const orderId = String(row['Order ID'] || row['order_id'] || row['Channel Order ID'] || `SR_${Date.now()}_${idx}`);
+        const customer = row['Customer Name'] || row['customer_name'] || row['Billing Name'] || 'Customer';
+        const phone = String(row['Customer Phone'] || row['customer_phone'] || row['Mobile'] || row['Phone'] || '9876543210');
+        const status = String(row['Status'] || row['Order Status'] || 'In Transit');
+        const awb = String(row['AWB'] || row['awb'] || row['Tracking No'] || '');
+        const amount = Number(row['Order Total'] || row['Amount'] || row['total'] || 1499);
+        const product = row['Product Name'] || row['Product'] || 'Amparo Pure Shilajit (30g)';
+        const courier = row['Courier Name'] || row['Courier'] || 'Delhivery / Bluedart';
 
-    // 1. If email & password provided, authenticate with Shiprocket to get JWT token
+        const statusUpper = status.toUpperCase();
+        const isRto = statusUpper.includes('RTO') || statusUpper.includes('UNDELIVERED') || statusUpper.includes('FAILED');
+        const isDelivered = statusUpper.includes('DELIVERED');
+
+        return {
+          shopify_order_id: orderId,
+          customer_name: customer,
+          phone: phone.startsWith('+') ? phone : `+91${phone.replace(/\D/g, '').slice(-10)}`,
+          city: row['City'] || 'India',
+          product,
+          amount,
+          status: isDelivered ? 'confirmed' : isRto ? 'rto_attempted' : 'pending_confirmation',
+          urgent_rto: isRto,
+          call_type: isRto ? 'RTO Rescue' : isDelivered ? 'Delivery Feedback' : 'Order Confirmation',
+          shiprocket_shipment_id: awb || orderId,
+          notes: `Status: ${status} | Courier: ${courier} | AWB: ${awb || 'N/A'}`
+        };
+      });
+
+      for (const ord of mappedOrders) {
+        await supabase.from('amparo_calls').upsert(ord, { onConflict: 'shopify_order_id' });
+      }
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          count: mappedOrders.length,
+          orders: mappedOrders
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
+      );
+    }
+
+    // 2. Authenticate with Shiprocket API Token or Email/Password
     if (!token && email && password) {
       const authRes = await fetch('https://apiv2.shiprocket.in/v1/external/auth/login', {
         method: 'POST',
@@ -52,36 +96,34 @@ export default async (req) => {
         return new Response(
           JSON.stringify({
             success: false,
-            message: authData.message || 'Shiprocket login failed. Please check email and password.'
+            message: authData.message || 'Shiprocket login failed. Aap Shiprocket API Token ya Order Export CSV use kar sakte hain.'
           }),
           { status: 401, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
         );
       }
     }
 
-    // If no direct token, fetch orders using token
     if (!token) {
       return new Response(
         JSON.stringify({
           success: false,
-          message: 'Please provide Shiprocket Email & Password or API Token to sync existing orders.'
+          message: 'Kripya Shiprocket API Token enter karein ya CSV upload karein.'
         }),
         { status: 400, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
       );
     }
 
-    // 2. Fetch existing orders from Shiprocket
-    const ordersRes = await fetch('https://apiv2.shiprocket.in/v1/external/orders?per_page=50', {
+    // 3. Fetch Orders using Bearer Token
+    const ordersRes = await fetch('https://apiv2.shiprocket.in/v1/external/orders?per_page=100', {
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
+        'Authorization': `Bearer ${token.trim()}`
       }
     });
 
     const ordersData = await ordersRes.json();
     const rawOrders = ordersData?.data || [];
 
-    // 3. Map Shiprocket orders to Amparo Calls / Order Ledger Schema
     const mappedOrders = rawOrders.map((order) => {
       const isRto =
         String(order.status).toUpperCase().includes('RTO') ||
@@ -94,8 +136,8 @@ export default async (req) => {
 
       return {
         shopify_order_id: String(order.channel_order_id || order.id || ''),
-        customer_name: order.customer_name || `${order.customer_name || 'Customer'}`,
-        phone: order.customer_phone || order.customer_mobile || '+919876543210',
+        customer_name: order.customer_name || 'Customer',
+        phone: String(order.customer_phone || order.customer_mobile || '+919876543210'),
         city: order.customer_city || 'India',
         product: items,
         amount: Number(order.total) || 1499,
@@ -103,31 +145,21 @@ export default async (req) => {
         urgent_rto: isRto,
         call_type: isRto ? 'RTO Rescue' : isDelivered ? 'Delivery Feedback' : 'Order Confirmation',
         shiprocket_shipment_id: order.shipments && order.shipments[0] ? String(order.shipments[0].awb) : String(order.id),
-        notes: `Status: ${order.status} | Courier: ${order.courier_name || 'Assigned Courier'} | AWB: ${order.shipments && order.shipments[0] ? order.shipments[0].awb : 'N/A'}`
+        notes: `Status: ${order.status} | Courier: ${order.courier_name || 'Courier'} | AWB: ${order.shipments && order.shipments[0] ? order.shipments[0].awb : 'N/A'}`
       };
     });
 
-    // 4. Save/Update records in Supabase
-    if (mappedOrders.length > 0) {
-      for (const ord of mappedOrders) {
-        await supabase.from('amparo_calls').upsert(ord, { onConflict: 'shopify_order_id' });
-      }
+    for (const ord of mappedOrders) {
+      await supabase.from('amparo_calls').upsert(ord, { onConflict: 'shopify_order_id' });
     }
 
     return new Response(
       JSON.stringify({
         success: true,
         count: mappedOrders.length,
-        orders: mappedOrders,
-        token: token
+        orders: mappedOrders
       }),
-      {
-        status: 200,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*'
-        }
-      }
+      { status: 200, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
     );
   } catch (err) {
     return new Response(
