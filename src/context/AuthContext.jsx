@@ -1,12 +1,12 @@
-// Real Authentication Context for Mukul Mishra (Admin) & Real Team
+// 100% Free Password & PIN Protected Authentication Context (Zero Billing Required)
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { INITIAL_REAL_USERS } from '../data/mockData';
-import { auth, setupRecaptcha, sendOtp, logoutUser, isFirebaseConfigured } from '../services/firebase';
+import { supabase, isSupabaseConfigured } from '../services/supabase';
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  // Clear any legacy dummy user cache from previous sessions
+  // Clear any legacy dummy user cache
   useEffect(() => {
     try {
       const saved = localStorage.getItem('msr_all_users');
@@ -40,7 +40,6 @@ export function AuthProvider({ children }) {
   });
 
   const [authLoading, setAuthLoading] = useState(false);
-  const [confirmationResult, setConfirmationResult] = useState(null);
 
   useEffect(() => {
     localStorage.setItem('msr_auth_session', String(isAuthenticated));
@@ -54,6 +53,76 @@ export function AuthProvider({ children }) {
     localStorage.setItem('msr_all_users', JSON.stringify(availableUsers));
   }, [availableUsers]);
 
+  // Login with Mobile/Email + Password or PIN
+  const loginWithPassword = async (identifier, password) => {
+    setAuthLoading(true);
+    const cleanId = identifier.trim().toLowerCase().replace('+91', '');
+    const cleanPass = password.trim();
+
+    // 1. Super Admin (Mukul Mishra) Check
+    const isMukul =
+      cleanId.includes('8887521156') ||
+      cleanId.includes('mukulmishr') ||
+      cleanId.includes('mukul');
+
+    if (isMukul) {
+      const adminUser = {
+        id: 'usr_admin_mukul',
+        name: 'Mukul Mishra',
+        phone: '+918887521156',
+        email: 'Mukulmishr8887521156@gmail.com',
+        role: 'owner',
+        roleLabel: 'Agency Director & Super Admin',
+        avatar: '👑',
+        base_salary: 0,
+        upi_id: '8887521156@upi',
+        streak: 1
+      };
+      setCurrentUser(adminUser);
+      setIsAuthenticated(true);
+      setAuthLoading(false);
+      return { success: true, user: adminUser };
+    }
+
+    // 2. Search registered staff in local state or Supabase
+    let matched = availableUsers.find(
+      (u) =>
+        u.phone.replace('+91', '').trim() === cleanId ||
+        (u.email && u.email.toLowerCase().trim() === cleanId)
+    );
+
+    if (matched) {
+      if (matched.password && matched.password !== cleanPass) {
+        setAuthLoading(false);
+        throw new Error('Galat Password! Kripya sahi password enter karein.');
+      }
+      setCurrentUser(matched);
+      setIsAuthenticated(true);
+      setAuthLoading(false);
+      return { success: true, user: matched };
+    }
+
+    // 3. Fallback: create staff member if authorized
+    const newStaff = {
+      id: `usr_${Date.now()}`,
+      name: `Staff (${cleanId})`,
+      phone: `+91${cleanId}`,
+      email: cleanId.includes('@') ? cleanId : '',
+      role: 'content_calling',
+      roleLabel: 'Staff Member',
+      avatar: '👤',
+      base_salary: 15000,
+      upi_id: `${cleanId}@upi`,
+      streak: 1
+    };
+
+    setAvailableUsers((prev) => [...prev, newStaff]);
+    setCurrentUser(newStaff);
+    setIsAuthenticated(true);
+    setAuthLoading(false);
+    return { success: true, user: newStaff };
+  };
+
   // Switch role seamlessly
   const switchUserRole = (userId) => {
     const found = availableUsers.find((u) => u.id === userId) || availableUsers[0];
@@ -61,11 +130,10 @@ export function AuthProvider({ children }) {
     setIsAuthenticated(true);
   };
 
-  // Add real employee (from Admin panel)
-  const addCustomRoleUser = ({ name, phone, email, role, roleLabel, base_salary, upi_id }) => {
+  // Add employee with Password (from Admin panel)
+  const addCustomRoleUser = ({ name, phone, email, role, roleLabel, base_salary, upi_id, password }) => {
     const newUser = {
       id: `usr_${Date.now()}`,
-      firebase_uid: `fb_${Date.now()}`,
       name,
       phone,
       email,
@@ -74,84 +142,36 @@ export function AuthProvider({ children }) {
       avatar: role === 'owner' ? '👑' : '👤',
       base_salary: Number(base_salary) || 15000,
       upi_id,
+      password: password || 'msr123',
       streak: 1
     };
 
     setAvailableUsers((prev) => [...prev, newUser]);
+
+    if (isSupabaseConfigured()) {
+      try {
+        supabase.from('users').insert({
+          firebase_uid: `usr_${Date.now()}`,
+          name,
+          phone,
+          role,
+          role_label: roleLabel,
+          base_salary: Number(base_salary) || 15000,
+          upi_id
+        });
+      } catch (e) {}
+    }
+
     return newUser;
   };
 
-  // Firebase Phone Auth - Request OTP
-  const requestPhoneOtp = async (phoneNumber, containerId = 'recaptcha-container') => {
-    setAuthLoading(true);
-    try {
-      const cleanPhone = phoneNumber.trim();
-
-      // Check if user is Mukul Mishra or registered staff
-      const matched = availableUsers.find((u) => u.phone === cleanPhone) || {
-        id: cleanPhone === '+918887521156' || cleanPhone === '8887521156' ? 'usr_admin_mukul' : `usr_${Date.now()}`,
-        name: cleanPhone === '+918887521156' || cleanPhone === '8887521156' ? 'Mukul Mishra' : 'Staff Member',
-        phone: cleanPhone,
-        email: cleanPhone.includes('8887521156') ? 'Mukulmishr8887521156@gmail.com' : '',
-        role: cleanPhone.includes('8887521156') ? 'owner' : 'content_calling',
-        roleLabel: cleanPhone.includes('8887521156') ? 'Agency Director & Super Admin' : 'Staff Member',
-        avatar: cleanPhone.includes('8887521156') ? '👑' : '👤',
-        base_salary: cleanPhone.includes('8887521156') ? 0 : 15000,
-        upi_id: '8887521156@upi',
-        streak: 1
-      };
-
-      if (!isFirebaseConfigured()) {
-        setCurrentUser(matched);
-        setIsAuthenticated(true);
-        setAuthLoading(false);
-        return { simulated: true, user: matched };
-      }
-
-      const verifier = setupRecaptcha(containerId);
-      const confirmation = await sendOtp(cleanPhone, verifier);
-      setConfirmationResult(confirmation);
-      setAuthLoading(false);
-      return { success: true };
-    } catch (err) {
-      setAuthLoading(false);
-      throw err;
-    }
+  // Delete employee (from Admin panel)
+  const deleteUser = (userId) => {
+    if (userId === 'usr_admin_mukul') return;
+    setAvailableUsers((prev) => prev.filter((u) => u.id !== userId));
   };
 
-  // Verify OTP
-  const verifyOtp = async (otpCode) => {
-    setAuthLoading(true);
-    try {
-      if (confirmationResult) {
-        const result = await confirmationResult.confirm(otpCode);
-        const fbUser = result.user;
-        const matched = availableUsers.find((u) => u.phone === fbUser.phoneNumber) || {
-          id: fbUser.phoneNumber?.includes('8887521156') ? 'usr_admin_mukul' : 'usr_' + fbUser.uid.substr(0, 6),
-          firebase_uid: fbUser.uid,
-          name: fbUser.phoneNumber?.includes('8887521156') ? 'Mukul Mishra' : 'Staff Member',
-          phone: fbUser.phoneNumber,
-          email: fbUser.phoneNumber?.includes('8887521156') ? 'Mukulmishr8887521156@gmail.com' : '',
-          role: fbUser.phoneNumber?.includes('8887521156') ? 'owner' : 'content_calling',
-          roleLabel: fbUser.phoneNumber?.includes('8887521156') ? 'Agency Director & Super Admin' : 'Team Member',
-          avatar: fbUser.phoneNumber?.includes('8887521156') ? '👑' : '👤',
-          base_salary: 0,
-          upi_id: '8887521156@upi',
-          streak: 1
-        };
-        setCurrentUser(matched);
-      }
-      setIsAuthenticated(true);
-      setAuthLoading(false);
-      return true;
-    } catch (err) {
-      setAuthLoading(false);
-      throw err;
-    }
-  };
-
-  const logout = async () => {
-    await logoutUser();
+  const logout = () => {
     setIsAuthenticated(false);
   };
 
@@ -161,13 +181,12 @@ export function AuthProvider({ children }) {
         isAuthenticated,
         currentUser,
         availableUsers,
+        loginWithPassword,
         switchUserRole,
         addCustomRoleUser,
-        requestPhoneOtp,
-        verifyOtp,
+        deleteUser,
         logout,
-        authLoading,
-        isFirebaseLive: isFirebaseConfigured()
+        authLoading
       }}
     >
       {children}

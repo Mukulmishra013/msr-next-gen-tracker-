@@ -13,11 +13,12 @@ import {
   Phone, 
   Mail, 
   CreditCard,
-  Key
+  Key,
+  Lock
 } from 'lucide-react';
 
 export function EmployeeManagement() {
-  const { availableUsers, addCustomRoleUser, currentUser } = useAuth();
+  const { availableUsers, addCustomRoleUser, deleteUser, currentUser } = useAuth();
   const [showAddForm, setShowAddForm] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
@@ -27,7 +28,7 @@ export function EmployeeManagement() {
     roleLabel: 'Telecaller & Order Confirmation',
     base_salary: 15000,
     upi_id: '',
-    tempPassword: ''
+    password: 'msr' + Math.floor(1000 + Math.random() * 9000)
   });
   const [successMsg, setSuccessMsg] = useState('');
 
@@ -42,11 +43,12 @@ export function EmployeeManagement() {
       role: formData.role,
       roleLabel: formData.roleLabel,
       base_salary: Number(formData.base_salary) || 15000,
-      upi_id: formData.upi_id.trim()
+      upi_id: formData.upi_id.trim(),
+      password: formData.password.trim() || 'msr123'
     });
 
-    setSuccessMsg(`Employee "${formData.name}" successfully created!`);
-    setTimeout(() => setSuccessMsg(''), 3000);
+    setSuccessMsg(`Employee "${formData.name}" successfully created! Login Password: ${formData.password}`);
+    setTimeout(() => setSuccessMsg(''), 5000);
     setFormData({
       name: '',
       phone: '+91',
@@ -55,7 +57,7 @@ export function EmployeeManagement() {
       roleLabel: 'Telecaller & Order Confirmation',
       base_salary: 15000,
       upi_id: '',
-      tempPassword: ''
+      password: 'msr' + Math.floor(1000 + Math.random() * 9000)
     });
     setShowAddForm(false);
   };
@@ -71,7 +73,7 @@ export function EmployeeManagement() {
             <span>Employee & Team Profile Management</span>
           </h3>
           <p className="text-xs text-slate-400">
-            Admin Access: Mukul Mishra ({currentUser.phone}) — Add, assign roles & set salary for real employees.
+            Admin Access: Mukul Mishra ({currentUser.phone}) — Add employees & generate login passwords (100% Free).
           </p>
         </div>
 
@@ -96,7 +98,7 @@ export function EmployeeManagement() {
         <form onSubmit={handleCreateEmployee} className="p-4 sm:p-5 rounded-2xl bg-slate-950 border border-emerald-500/30 space-y-4 animate-fade-in">
           <div className="flex items-center justify-between border-b border-slate-800 pb-2">
             <h4 className="font-bold text-xs text-emerald-400 uppercase tracking-wider">
-              Naye Employee Ki Details Bharein
+              Naye Employee Ki Details & Login Password Set Karein
             </h4>
             <button
               type="button"
@@ -120,7 +122,7 @@ export function EmployeeManagement() {
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">Mobile Number (Login ke liye) *</label>
+              <label className="block text-xs font-semibold text-slate-300 mb-1">Mobile Number (Login ID) *</label>
               <input
                 type="tel"
                 required
@@ -133,16 +135,6 @@ export function EmployeeManagement() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">Email Address</label>
-              <input
-                type="email"
-                placeholder="employee@msrnextgen.com"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
-              />
-            </div>
             <div>
               <label className="block text-xs font-semibold text-slate-300 mb-1">Role / Department *</label>
               <select
@@ -167,6 +159,20 @@ export function EmployeeManagement() {
                 <option value="media_buyer">📈 Media Buyer / Ads Manager</option>
                 <option value="graphic_designer">🎨 Graphic Designer</option>
               </select>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1 flex items-center gap-1">
+                <Lock className="w-3.5 h-3.5 text-purple-400" />
+                <span>Login Password / PIN *</span>
+              </label>
+              <input
+                type="text"
+                required
+                placeholder="msr123"
+                value={formData.password}
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500 font-mono"
+              />
             </div>
           </div>
 
@@ -196,7 +202,7 @@ export function EmployeeManagement() {
             type="submit"
             className="tap-target w-full rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-extrabold text-xs shadow-md shadow-emerald-600/30 transition active:scale-95"
           >
-            Save Employee Profile & Grant Login Access ✅
+            Save Employee Profile & Assign Password ✅
           </button>
         </form>
       )}
@@ -208,10 +214,11 @@ export function EmployeeManagement() {
             <tr>
               <th className="p-3">Employee</th>
               <th className="p-3">Role</th>
-              <th className="p-3">Contact (Login ID)</th>
+              <th className="p-3">Login Mobile</th>
+              <th className="p-3">Password / PIN</th>
               <th className="p-3">Base Salary</th>
               <th className="p-3">UPI ID</th>
-              <th className="p-3">Access Level</th>
+              <th className="p-3 text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-800/60">
@@ -233,18 +240,26 @@ export function EmployeeManagement() {
                 </td>
                 <td className="p-3 font-mono text-slate-300">
                   <p>{user.phone}</p>
-                  {user.email && <p className="text-[10px] text-slate-400">{user.email}</p>}
+                </td>
+                <td className="p-3 font-mono text-purple-300">
+                  {user.password || (user.id === 'usr_admin_mukul' ? 'admin123' : 'msr123')}
                 </td>
                 <td className="p-3 font-semibold text-white">
-                  ₹{user.base_salary ? user.base_salary.toLocaleString('en-IN') : 'N/A'}
+                  ₹{user.base_salary ? user.base_salary.toLocaleString('en-IN') : '0'}
                 </td>
                 <td className="p-3 font-mono text-slate-400">
                   {user.upi_id || 'Not set'}
                 </td>
-                <td className="p-3">
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-950 text-emerald-300 border border-emerald-500/30">
-                    {user.role === 'owner' ? 'Full Admin' : 'Staff Access'}
-                  </span>
+                <td className="p-3 text-right">
+                  {user.id !== 'usr_admin_mukul' && (
+                    <button
+                      onClick={() => deleteUser(user.id)}
+                      className="p-1.5 rounded-lg bg-slate-900 hover:bg-red-950 text-slate-400 hover:text-red-400 transition"
+                      title="Remove Employee"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </td>
               </tr>
             ))}
