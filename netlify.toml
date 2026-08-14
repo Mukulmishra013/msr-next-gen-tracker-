@@ -4,6 +4,11 @@
   functions = "netlify/functions"
 
 [[redirects]]
+  from = "/api/shiprocket-fetch"
+  to = "/.netlify/functions/shiprocket-fetch"
+  status = 200
+
+[[redirects]]
   from = "/api/tracking-webhook"
   to = "/.netlify/functions/tracking-webhook"
   status = 200
