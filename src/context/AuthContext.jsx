@@ -1,27 +1,26 @@
-// High-Security Password & PIN Protected Authentication Context
-import React, { createContext, useContext, useState, useEffect } from 'react';
+// High-Security Password & PIN Protected Authentication Context with 100% Permanent Supabase Database Persistence
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { INITIAL_REAL_USERS } from '../data/mockData';
-import { supabase, isSupabaseConfigured } from '../services/supabase';
+import { supabase } from '../services/supabase';
 
 const AuthContext = createContext(null);
 
-// Default master admin password for Mukul Mishra (Can be updated in Admin Settings)
 const DEFAULT_ADMIN_PASSWORD = 'Mukul@8887';
 
-export function AuthProvider({ children }) {
-  // Clear any legacy dummy user cache
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem('msr_all_users');
-      if (saved && (saved.includes('Saurabh') || saved.includes('Rahul Sharma'))) {
-        localStorage.removeItem('msr_all_users');
-        localStorage.removeItem('msr_active_user');
-        localStorage.removeItem('msr_amparo_calls');
-        localStorage.removeItem('msr_leads');
-      }
-    } catch (e) {}
-  }, []);
+const SUPER_ADMIN_USER = {
+  id: 'usr_admin_mukul',
+  name: 'Mukul Mishra',
+  phone: '+918887521156',
+  email: 'Mukulmishr8887521156@gmail.com',
+  role: 'owner',
+  roleLabel: 'Agency Director & Super Admin',
+  avatar: '👑',
+  base_salary: 0,
+  upi_id: '8887521156@upi',
+  streak: 1
+};
 
+export function AuthProvider({ children }) {
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
     return localStorage.getItem('msr_auth_session') === 'true';
   });
@@ -33,20 +32,75 @@ export function AuthProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(() => {
     const saved = localStorage.getItem('msr_active_user');
     if (saved && !saved.includes('Saurabh') && !saved.includes('Rahul Sharma')) {
-      return JSON.parse(saved);
+      try { return JSON.parse(saved); } catch (e) {}
     }
-    return INITIAL_REAL_USERS[0];
+    return SUPER_ADMIN_USER;
   });
 
   const [availableUsers, setAvailableUsers] = useState(() => {
     const saved = localStorage.getItem('msr_all_users');
     if (saved && !saved.includes('Saurabh') && !saved.includes('Rahul Sharma')) {
-      return JSON.parse(saved);
+      try { return JSON.parse(saved); } catch (e) {}
     }
-    return INITIAL_REAL_USERS;
+    return [SUPER_ADMIN_USER];
   });
 
   const [authLoading, setAuthLoading] = useState(false);
+
+  // 1. Fetch Users directly from Supabase Database on App Load
+  const fetchDbUsers = useCallback(async () => {
+    try {
+      const { data, error } = await supabase.from('users').select('*');
+      if (!error && data && data.length > 0) {
+        const mappedUsers = data.map((u) => {
+          // Extract password from firebase_uid if saved
+          let pass = 'msr123';
+          if (u.firebase_uid && u.firebase_uid.startsWith('pwd:')) {
+            pass = u.firebase_uid.replace('pwd:', '');
+          }
+
+          const isOwner = u.role === 'owner' || u.phone.includes('8887521156');
+          return {
+            id: u.id,
+            name: u.name,
+            phone: u.phone,
+            email: u.email || `${u.name.toLowerCase().replace(/\s+/g, '')}@msragency.in`,
+            role: u.role || 'content_calling',
+            roleLabel: u.role_label || (isOwner ? 'Agency Director & Super Admin' : 'Telecaller Specialist'),
+            avatar: isOwner ? '👑' : '👤',
+            base_salary: Number(u.base_salary) || 15000,
+            upi_id: u.upi_id || `${u.phone.replace(/\D/g, '')}@upi`,
+            password: pass,
+            streak: 1
+          };
+        });
+
+        // Ensure Super Admin is always present
+        const hasAdmin = mappedUsers.some((u) => u.phone.includes('8887521156'));
+        const finalUsersList = hasAdmin ? mappedUsers : [SUPER_ADMIN_USER, ...mappedUsers];
+
+        setAvailableUsers(finalUsersList);
+        localStorage.setItem('msr_all_users', JSON.stringify(finalUsersList));
+      } else {
+        // If DB is empty, insert Mukul Mishra
+        await supabase.from('users').upsert([{
+          firebase_uid: 'mukul_admin_01',
+          name: 'Mukul Mishra',
+          phone: '+918887521156',
+          role: 'owner',
+          role_label: 'Agency Director & Super Admin',
+          base_salary: 0,
+          upi_id: '8887521156@upi'
+        }]);
+      }
+    } catch (e) {
+      console.error('Failed to sync users with database:', e);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchDbUsers();
+  }, [fetchDbUsers]);
 
   useEffect(() => {
     localStorage.setItem('msr_auth_session', String(isAuthenticated));
@@ -82,22 +136,10 @@ export function AuthProvider({ children }) {
         throw new Error('❌ Galat Admin Password! Mukul Mishra ka sahi password enter karein.');
       }
 
-      const adminUser = {
-        id: 'usr_admin_mukul',
-        name: 'Mukul Mishra',
-        phone: '+918887521156',
-        email: 'Mukulmishr8887521156@gmail.com',
-        role: 'owner',
-        roleLabel: 'Agency Director & Super Admin',
-        avatar: '👑',
-        base_salary: 0,
-        upi_id: '8887521156@upi',
-        streak: 1
-      };
-      setCurrentUser(adminUser);
+      setCurrentUser(SUPER_ADMIN_USER);
       setIsAuthenticated(true);
       setAuthLoading(false);
-      return { success: true, user: adminUser };
+      return { success: true, user: SUPER_ADMIN_USER };
     }
 
     // 2. Staff Member Check
@@ -141,30 +183,59 @@ export function AuthProvider({ children }) {
     setCurrentUser(found);
   };
 
-  // Add employee with custom password (from Admin panel)
-  const addCustomRoleUser = ({ name, phone, email, role, roleLabel, base_salary, upi_id, password }) => {
+  // Add employee with custom password & save permanently to Supabase Database
+  const addCustomRoleUser = async ({ name, phone, email, role, roleLabel, base_salary, upi_id, password }) => {
+    const rawPass = password || 'msr123';
+    const cleanPhone = phone.startsWith('+91') ? phone : `+91${phone.replace(/\D/g, '').slice(-10)}`;
+
     const newUser = {
       id: `usr_${Date.now()}`,
       name,
-      phone,
+      phone: cleanPhone,
       email,
       role,
       roleLabel,
       avatar: '👤',
       base_salary: Number(base_salary) || 15000,
       upi_id,
-      password: password || 'msr123',
+      password: rawPass,
       streak: 1
     };
 
+    // Update Local State Instantly
     setAvailableUsers((prev) => [...prev, newUser]);
+
+    // Save Permanently into Supabase DB
+    try {
+      await supabase.from('users').insert([{
+        firebase_uid: `pwd:${rawPass}`,
+        name,
+        phone: cleanPhone,
+        role,
+        role_label: roleLabel,
+        base_salary: Number(base_salary) || 15000,
+        upi_id: upi_id || `${cleanPhone.replace(/\D/g, '')}@upi`
+      }]);
+    } catch (e) {
+      console.error('Error inserting user into DB:', e);
+    }
+
     return newUser;
   };
 
-  // Delete employee (from Admin panel)
-  const deleteUser = (userId) => {
+  // Delete employee (from Admin panel & Supabase DB)
+  const deleteUser = async (userId) => {
     if (userId === 'usr_admin_mukul') return;
+    
+    // Remove from local state
     setAvailableUsers((prev) => prev.filter((u) => u.id !== userId));
+
+    // Remove from Supabase DB
+    try {
+      await supabase.from('users').delete().eq('id', userId);
+    } catch (e) {
+      console.error('Error deleting user from DB:', e);
+    }
   };
 
   const logout = () => {
