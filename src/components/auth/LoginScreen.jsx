@@ -1,11 +1,10 @@
-// Real Authentication Login Screen for Mukul Mishra (Admin) & Agency Team
+// Real Authentication Login Screen for Mukul Mishra (Admin) & Real Staff
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { Phone, Sparkles, ShieldCheck, ArrowRight, Lock, KeyRound, CheckCircle2, Crown, Mail } from 'lucide-react';
 
 export function LoginScreen({ onLoginSuccess }) {
   const { availableUsers, switchUserRole, requestPhoneOtp, verifyOtp, authLoading } = useAuth();
-  const [loginMethod, setLoginMethod] = useState('phone'); // 'phone' | 'admin_direct'
   const [phoneNumber, setPhoneNumber] = useState('+918887521156');
   const [otpCode, setOtpCode] = useState('');
   const [step, setStep] = useState('phone'); // 'phone' | 'otp'
@@ -43,7 +42,7 @@ export function LoginScreen({ onLoginSuccess }) {
     setErrorMsg('');
     try {
       await verifyOtp(otpCode.trim());
-      setSuccessMsg('Authentication Successful! Welcome to MSR Next Gen.');
+      setSuccessMsg('Authentication Successful! Welcome Mukul Mishra.');
       setTimeout(() => {
         if (onLoginSuccess) onLoginSuccess();
       }, 600);
@@ -52,7 +51,7 @@ export function LoginScreen({ onLoginSuccess }) {
     }
   };
 
-  const handleMukulAdminLogin = () => {
+  const handleMukulAdminDirectLogin = () => {
     const adminUser = availableUsers.find((u) => u.phone === '+918887521156') || availableUsers[0];
     switchUserRole(adminUser.id);
     if (onLoginSuccess) onLoginSuccess();
@@ -83,34 +82,34 @@ export function LoginScreen({ onLoginSuccess }) {
         {/* reCAPTCHA Container for Firebase */}
         <div id="recaptcha-container"></div>
 
-        {/* Quick Admin One-Tap Login (Mukul Mishra) */}
-        <div className="p-3.5 rounded-2xl bg-gradient-to-r from-amber-950/40 via-slate-950 to-slate-950 border border-amber-500/40 space-y-2">
+        {/* Super Admin Direct Access Card (Mukul Mishra) */}
+        <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-950/50 via-slate-950 to-slate-950 border border-amber-500/40 space-y-2.5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Crown className="w-4 h-4 text-amber-400" />
-              <span className="text-xs font-bold text-white">Owner / Super Admin Access</span>
+              <span className="text-xs font-bold text-white">Super Admin Quick Access</span>
             </div>
             <span className="text-[10px] bg-amber-950 text-amber-300 font-bold px-2 py-0.5 rounded-md border border-amber-500/30">
               Mukul Mishra
             </span>
           </div>
           <p className="text-[11px] text-slate-300">
-            Login as <strong className="text-emerald-400">Mukul Mishra (+918887521156)</strong> with full administrative & financial control.
+            Director Login: <strong className="text-emerald-400">+918887521156</strong> (Mukulmishr8887521156@gmail.com)
           </p>
           <button
-            onClick={handleMukulAdminLogin}
-            className="tap-target w-full rounded-xl bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-500 hover:to-yellow-500 text-slate-950 font-black text-xs flex items-center justify-center gap-1.5 shadow-md shadow-amber-600/30 transition active:scale-95"
+            onClick={handleMukulAdminDirectLogin}
+            className="tap-target w-full rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-black text-xs flex items-center justify-center gap-1.5 shadow-md shadow-amber-500/30 transition active:scale-95"
           >
-            <span>👑 Enter Admin Command Center ➔</span>
+            <span>👑 Enter Admin Command Center (Mukul Mishra) ➔</span>
           </button>
         </div>
 
-        {/* Phone OTP Login Form (for Mukul or Team Members) */}
+        {/* Phone OTP Login Form (for Mukul or Real Staff) */}
         <div className="space-y-3 pt-2">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
               <Phone className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Mobile OTP Login (Staff & Admin)</span>
+              <span>Staff & Admin Mobile OTP Login</span>
             </span>
           </div>
 

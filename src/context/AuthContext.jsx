@@ -1,23 +1,42 @@
-// Authentication Context with Real Firebase Phone Auth & Session Management
+// Real Authentication Context for Mukul Mishra (Admin) & Real Team
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { MOCK_USERS } from '../data/mockData';
+import { INITIAL_REAL_USERS } from '../data/mockData';
 import { auth, setupRecaptcha, sendOtp, logoutUser, isFirebaseConfigured } from '../services/firebase';
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
+  // Clear any legacy dummy user cache from previous sessions
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('msr_all_users');
+      if (saved && (saved.includes('Saurabh') || saved.includes('Rahul Sharma'))) {
+        localStorage.removeItem('msr_all_users');
+        localStorage.removeItem('msr_active_user');
+        localStorage.removeItem('msr_amparo_calls');
+        localStorage.removeItem('msr_leads');
+      }
+    } catch (e) {}
+  }, []);
+
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
     return localStorage.getItem('msr_auth_session') === 'true';
   });
 
   const [currentUser, setCurrentUser] = useState(() => {
     const saved = localStorage.getItem('msr_active_user');
-    return saved ? JSON.parse(saved) : MOCK_USERS[0];
+    if (saved && !saved.includes('Saurabh') && !saved.includes('Rahul Sharma')) {
+      return JSON.parse(saved);
+    }
+    return INITIAL_REAL_USERS[0];
   });
 
   const [availableUsers, setAvailableUsers] = useState(() => {
     const saved = localStorage.getItem('msr_all_users');
-    return saved ? JSON.parse(saved) : MOCK_USERS;
+    if (saved && !saved.includes('Saurabh') && !saved.includes('Rahul Sharma')) {
+      return JSON.parse(saved);
+    }
+    return INITIAL_REAL_USERS;
   });
 
   const [authLoading, setAuthLoading] = useState(false);
@@ -37,31 +56,28 @@ export function AuthProvider({ children }) {
 
   // Switch role seamlessly
   const switchUserRole = (userId) => {
-    const found = availableUsers.find((u) => u.id === userId);
-    if (found) {
-      setCurrentUser(found);
-      setIsAuthenticated(true);
-    }
+    const found = availableUsers.find((u) => u.id === userId) || availableUsers[0];
+    setCurrentUser(found);
+    setIsAuthenticated(true);
   };
 
-  // Add custom dynamic role
-  const addCustomRoleUser = ({ name, phone, role, roleLabel, base_salary, upi_id }) => {
+  // Add real employee (from Admin panel)
+  const addCustomRoleUser = ({ name, phone, email, role, roleLabel, base_salary, upi_id }) => {
     const newUser = {
-      id: `usr_cust_${Date.now()}`,
-      firebase_uid: `fb_cust_${Date.now()}`,
+      id: `usr_${Date.now()}`,
+      firebase_uid: `fb_${Date.now()}`,
       name,
       phone,
+      email,
       role,
       roleLabel,
-      avatar: '💼',
+      avatar: role === 'owner' ? '👑' : '👤',
       base_salary: Number(base_salary) || 15000,
       upi_id,
       streak: 1
     };
 
     setAvailableUsers((prev) => [...prev, newUser]);
-    setCurrentUser(newUser);
-    setIsAuthenticated(true);
     return newUser;
   };
 
@@ -69,8 +85,23 @@ export function AuthProvider({ children }) {
   const requestPhoneOtp = async (phoneNumber, containerId = 'recaptcha-container') => {
     setAuthLoading(true);
     try {
+      const cleanPhone = phoneNumber.trim();
+
+      // Check if user is Mukul Mishra or registered staff
+      const matched = availableUsers.find((u) => u.phone === cleanPhone) || {
+        id: cleanPhone === '+918887521156' || cleanPhone === '8887521156' ? 'usr_admin_mukul' : `usr_${Date.now()}`,
+        name: cleanPhone === '+918887521156' || cleanPhone === '8887521156' ? 'Mukul Mishra' : 'Staff Member',
+        phone: cleanPhone,
+        email: cleanPhone.includes('8887521156') ? 'Mukulmishr8887521156@gmail.com' : '',
+        role: cleanPhone.includes('8887521156') ? 'owner' : 'content_calling',
+        roleLabel: cleanPhone.includes('8887521156') ? 'Agency Director & Super Admin' : 'Staff Member',
+        avatar: cleanPhone.includes('8887521156') ? '👑' : '👤',
+        base_salary: cleanPhone.includes('8887521156') ? 0 : 15000,
+        upi_id: '8887521156@upi',
+        streak: 1
+      };
+
       if (!isFirebaseConfigured()) {
-        const matched = availableUsers.find((u) => u.phone === phoneNumber) || availableUsers[0];
         setCurrentUser(matched);
         setIsAuthenticated(true);
         setAuthLoading(false);
@@ -78,7 +109,7 @@ export function AuthProvider({ children }) {
       }
 
       const verifier = setupRecaptcha(containerId);
-      const confirmation = await sendOtp(phoneNumber, verifier);
+      const confirmation = await sendOtp(cleanPhone, verifier);
       setConfirmationResult(confirmation);
       setAuthLoading(false);
       return { success: true };
@@ -96,15 +127,16 @@ export function AuthProvider({ children }) {
         const result = await confirmationResult.confirm(otpCode);
         const fbUser = result.user;
         const matched = availableUsers.find((u) => u.phone === fbUser.phoneNumber) || {
-          id: 'usr_' + fbUser.uid.substr(0, 6),
+          id: fbUser.phoneNumber?.includes('8887521156') ? 'usr_admin_mukul' : 'usr_' + fbUser.uid.substr(0, 6),
           firebase_uid: fbUser.uid,
-          name: 'Team Member',
+          name: fbUser.phoneNumber?.includes('8887521156') ? 'Mukul Mishra' : 'Staff Member',
           phone: fbUser.phoneNumber,
-          role: 'content_calling',
-          roleLabel: 'Team Executive',
-          avatar: '👤',
-          base_salary: 15000,
-          upi_id: 'member@upi',
+          email: fbUser.phoneNumber?.includes('8887521156') ? 'Mukulmishr8887521156@gmail.com' : '',
+          role: fbUser.phoneNumber?.includes('8887521156') ? 'owner' : 'content_calling',
+          roleLabel: fbUser.phoneNumber?.includes('8887521156') ? 'Agency Director & Super Admin' : 'Team Member',
+          avatar: fbUser.phoneNumber?.includes('8887521156') ? '👑' : '👤',
+          base_salary: 0,
+          upi_id: '8887521156@upi',
           streak: 1
         };
         setCurrentUser(matched);
