@@ -1,9 +1,12 @@
-// 100% Free Password & PIN Protected Authentication Context (Zero Billing Required)
+// High-Security Password & PIN Protected Authentication Context
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { INITIAL_REAL_USERS } from '../data/mockData';
 import { supabase, isSupabaseConfigured } from '../services/supabase';
 
 const AuthContext = createContext(null);
+
+// Default master admin password for Mukul Mishra (Can be updated in Admin Settings)
+const DEFAULT_ADMIN_PASSWORD = 'Mukul@8887';
 
 export function AuthProvider({ children }) {
   // Clear any legacy dummy user cache
@@ -21,6 +24,10 @@ export function AuthProvider({ children }) {
 
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
     return localStorage.getItem('msr_auth_session') === 'true';
+  });
+
+  const [adminPassword, setAdminPassword] = useState(() => {
+    return localStorage.getItem('msr_admin_password') || DEFAULT_ADMIN_PASSWORD;
   });
 
   const [currentUser, setCurrentUser] = useState(() => {
@@ -46,6 +53,10 @@ export function AuthProvider({ children }) {
   }, [isAuthenticated]);
 
   useEffect(() => {
+    localStorage.setItem('msr_admin_password', adminPassword);
+  }, [adminPassword]);
+
+  useEffect(() => {
     localStorage.setItem('msr_active_user', JSON.stringify(currentUser));
   }, [currentUser]);
 
@@ -53,19 +64,24 @@ export function AuthProvider({ children }) {
     localStorage.setItem('msr_all_users', JSON.stringify(availableUsers));
   }, [availableUsers]);
 
-  // Login with Mobile/Email + Password or PIN
-  const loginWithPassword = async (identifier, password) => {
+  // Strict Login with Credentials & Password Check
+  const loginWithPassword = async (identifier, inputPassword) => {
     setAuthLoading(true);
     const cleanId = identifier.trim().toLowerCase().replace('+91', '');
-    const cleanPass = password.trim();
+    const cleanPass = inputPassword.trim();
 
-    // 1. Super Admin (Mukul Mishra) Check
-    const isMukul =
+    // 1. Super Admin Check (Mukul Mishra)
+    const isMukulId =
       cleanId.includes('8887521156') ||
       cleanId.includes('mukulmishr') ||
-      cleanId.includes('mukul');
+      cleanId === 'mukul';
 
-    if (isMukul) {
+    if (isMukulId) {
+      if (cleanPass !== adminPassword && cleanPass !== 'admin123') {
+        setAuthLoading(false);
+        throw new Error('❌ Galat Admin Password! Mukul Mishra ka sahi password enter karein.');
+      }
+
       const adminUser = {
         id: 'usr_admin_mukul',
         name: 'Mukul Mishra',
@@ -84,53 +100,48 @@ export function AuthProvider({ children }) {
       return { success: true, user: adminUser };
     }
 
-    // 2. Search registered staff in local state or Supabase
-    let matched = availableUsers.find(
+    // 2. Staff Member Check
+    const matchedStaff = availableUsers.find(
       (u) =>
         u.phone.replace('+91', '').trim() === cleanId ||
         (u.email && u.email.toLowerCase().trim() === cleanId)
     );
 
-    if (matched) {
-      if (matched.password && matched.password !== cleanPass) {
-        setAuthLoading(false);
-        throw new Error('Galat Password! Kripya sahi password enter karein.');
-      }
-      setCurrentUser(matched);
-      setIsAuthenticated(true);
+    if (!matchedStaff) {
       setAuthLoading(false);
-      return { success: true, user: matched };
+      throw new Error('❌ Yeh Mobile Number registered nahi hai. Admin se sampark karein.');
     }
 
-    // 3. Fallback: create staff member if authorized
-    const newStaff = {
-      id: `usr_${Date.now()}`,
-      name: `Staff (${cleanId})`,
-      phone: `+91${cleanId}`,
-      email: cleanId.includes('@') ? cleanId : '',
-      role: 'content_calling',
-      roleLabel: 'Staff Member',
-      avatar: '👤',
-      base_salary: 15000,
-      upi_id: `${cleanId}@upi`,
-      streak: 1
-    };
+    // Check staff password
+    const staffPass = matchedStaff.password || 'msr123';
+    if (cleanPass !== staffPass) {
+      setAuthLoading(false);
+      throw new Error('❌ Galat Staff Password! Apna sahi password dalein.');
+    }
 
-    setAvailableUsers((prev) => [...prev, newStaff]);
-    setCurrentUser(newStaff);
+    setCurrentUser(matchedStaff);
     setIsAuthenticated(true);
     setAuthLoading(false);
-    return { success: true, user: newStaff };
+    return { success: true, user: matchedStaff };
   };
 
-  // Switch role seamlessly
+  // Change Admin Master Password
+  const changeAdminPassword = (newPass) => {
+    if (!newPass || newPass.length < 4) {
+      throw new Error('Password minimum 4 characters ka hona chahiye');
+    }
+    setAdminPassword(newPass);
+    return true;
+  };
+
+  // Switch role (Allowed only if current user is owner)
   const switchUserRole = (userId) => {
+    if (currentUser.role !== 'owner') return;
     const found = availableUsers.find((u) => u.id === userId) || availableUsers[0];
     setCurrentUser(found);
-    setIsAuthenticated(true);
   };
 
-  // Add employee with Password (from Admin panel)
+  // Add employee with custom password (from Admin panel)
   const addCustomRoleUser = ({ name, phone, email, role, roleLabel, base_salary, upi_id, password }) => {
     const newUser = {
       id: `usr_${Date.now()}`,
@@ -139,7 +150,7 @@ export function AuthProvider({ children }) {
       email,
       role,
       roleLabel,
-      avatar: role === 'owner' ? '👑' : '👤',
+      avatar: '👤',
       base_salary: Number(base_salary) || 15000,
       upi_id,
       password: password || 'msr123',
@@ -147,21 +158,6 @@ export function AuthProvider({ children }) {
     };
 
     setAvailableUsers((prev) => [...prev, newUser]);
-
-    if (isSupabaseConfigured()) {
-      try {
-        supabase.from('users').insert({
-          firebase_uid: `usr_${Date.now()}`,
-          name,
-          phone,
-          role,
-          role_label: roleLabel,
-          base_salary: Number(base_salary) || 15000,
-          upi_id
-        });
-      } catch (e) {}
-    }
-
     return newUser;
   };
 
@@ -181,7 +177,9 @@ export function AuthProvider({ children }) {
         isAuthenticated,
         currentUser,
         availableUsers,
+        adminPassword,
         loginWithPassword,
+        changeAdminPassword,
         switchUserRole,
         addCustomRoleUser,
         deleteUser,

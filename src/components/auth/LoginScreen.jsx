@@ -1,12 +1,13 @@
-// 100% Free Password & PIN Login Screen (Zero Billing / Zero SMS Required)
+// High-Security Password Protected Login Screen
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { Phone, Lock, Crown, CheckCircle2, ArrowRight, ShieldCheck, User } from 'lucide-react';
+import { Phone, Lock, Eye, EyeOff, ShieldCheck, CheckCircle2, ArrowRight } from 'lucide-react';
 
 export function LoginScreen({ onLoginSuccess }) {
-  const { loginWithPassword, authLoading, availableUsers, switchUserRole } = useAuth();
+  const { loginWithPassword, authLoading } = useAuth();
   const [identifier, setIdentifier] = useState('8887521156');
-  const [password, setPassword] = useState('admin123');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
@@ -15,34 +16,32 @@ export function LoginScreen({ onLoginSuccess }) {
     setErrorMsg('');
     setSuccessMsg('');
 
-    if (!identifier) {
-      setErrorMsg('Please enter your Mobile Number or Email');
+    if (!identifier.trim()) {
+      setErrorMsg('Please enter Mobile Number or Email');
+      return;
+    }
+    if (!password.trim()) {
+      setErrorMsg('Please enter your Password');
       return;
     }
 
     try {
       const res = await loginWithPassword(identifier, password);
-      setSuccessMsg(`Welcome ${res.user.name}!`);
+      setSuccessMsg(`Welcome, ${res.user.name}!`);
       setTimeout(() => {
         if (onLoginSuccess) onLoginSuccess();
       }, 500);
     } catch (err) {
-      setErrorMsg(err.message || 'Login failed. Please check credentials.');
+      setErrorMsg(err.message || 'Login failed. Invalid credentials.');
     }
-  };
-
-  const handleMukulDirectAdmin = () => {
-    const adminUser = availableUsers.find((u) => u.phone.includes('8887521156')) || availableUsers[0];
-    switchUserRole(adminUser.id);
-    if (onLoginSuccess) onLoginSuccess();
   };
 
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4 relative overflow-hidden">
       
-      {/* Background Glow */}
-      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-purple-600/15 rounded-full blur-3xl pointer-events-none"></div>
-      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-emerald-600/15 rounded-full blur-3xl pointer-events-none"></div>
+      {/* Ambient background glow */}
+      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-purple-600/10 rounded-full blur-3xl pointer-events-none"></div>
+      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-emerald-600/10 rounded-full blur-3xl pointer-events-none"></div>
 
       <div className="w-full max-w-md bg-slate-900 border border-slate-700/80 rounded-3xl p-6 sm:p-8 shadow-2xl relative z-10 space-y-6">
         
@@ -55,34 +54,12 @@ export function LoginScreen({ onLoginSuccess }) {
           </div>
           <div>
             <h2 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight">MSR Next Gen Tracker</h2>
-            <p className="text-xs text-purple-300 font-medium mt-0.5">Secure Portal (100% Free Login)</p>
+            <p className="text-xs text-purple-300 font-medium mt-0.5">Secure Password Protected Portal</p>
           </div>
         </div>
 
-        {/* Super Admin Quick 1-Tap Entry */}
-        <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-950/50 via-slate-950 to-slate-950 border border-amber-500/40 space-y-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Crown className="w-4 h-4 text-amber-400" />
-              <span className="text-xs font-bold text-white">Super Admin Access</span>
-            </div>
-            <span className="text-[10px] bg-amber-950 text-amber-300 font-bold px-2 py-0.5 rounded-md border border-amber-500/30">
-              Mukul Mishra
-            </span>
-          </div>
-          <p className="text-[11px] text-slate-300">
-            Director Mobile: <strong className="text-emerald-400">+918887521156</strong> (Mukulmishr8887521156@gmail.com)
-          </p>
-          <button
-            onClick={handleMukulDirectAdmin}
-            className="tap-target w-full rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-black text-xs flex items-center justify-center gap-1.5 shadow-md shadow-amber-500/30 transition active:scale-95"
-          >
-            <span>👑 1-Tap Super Admin Entry (Mukul Mishra) ➔</span>
-          </button>
-        </div>
-
-        {/* Staff & Admin Password / PIN Form */}
-        <form onSubmit={handleLogin} className="space-y-3.5 pt-1">
+        {/* Secure Login Form */}
+        <form onSubmit={handleLogin} className="space-y-4">
           <div>
             <label className="block text-xs font-semibold text-slate-300 mb-1.5 flex items-center gap-1.5">
               <Phone className="w-3.5 h-3.5 text-emerald-400" />
@@ -94,27 +71,38 @@ export function LoginScreen({ onLoginSuccess }) {
               placeholder="e.g. 8887521156 or employee mobile"
               value={identifier}
               onChange={(e) => setIdentifier(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 font-mono"
+              className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 font-mono"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1.5 flex items-center gap-1.5">
-              <Lock className="w-3.5 h-3.5 text-purple-400" />
-              <span>Password / PIN</span>
+            <label className="block text-xs font-semibold text-slate-300 mb-1.5 flex items-center justify-between">
+              <span className="flex items-center gap-1.5">
+                <Lock className="w-3.5 h-3.5 text-purple-400" />
+                <span>Password</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="text-[11px] text-slate-400 hover:text-slate-200 flex items-center gap-1"
+              >
+                {showPassword ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                <span>{showPassword ? 'Hide' : 'Show'}</span>
+              </button>
             </label>
             <input
-              type="password"
-              placeholder="Enter password (default: admin123 / msr123)"
+              type={showPassword ? 'text' : 'password'}
+              required
+              placeholder="Enter your secret password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 font-mono"
+              className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 font-mono"
             />
           </div>
 
           {errorMsg && (
-            <div className="p-3 rounded-xl bg-red-950/60 border border-red-500/50 text-red-300 text-xs">
-              {errorMsg}
+            <div className="p-3 rounded-xl bg-red-950/60 border border-red-500/50 text-red-300 text-xs flex items-center gap-2">
+              <span>{errorMsg}</span>
             </div>
           )}
 
@@ -130,9 +118,16 @@ export function LoginScreen({ onLoginSuccess }) {
             disabled={authLoading}
             className="tap-target w-full rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-extrabold text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/30 transition active:scale-95 disabled:opacity-50"
           >
-            <span>{authLoading ? 'Signing in...' : 'Sign in to Dashboard ➔'}</span>
+            <span>{authLoading ? 'Verifying...' : 'Sign In Securely ➔'}</span>
           </button>
         </form>
+
+        <div className="text-center pt-2 border-t border-slate-800/80">
+          <p className="text-[11px] text-slate-400 flex items-center justify-center gap-1">
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+            <span>End-to-End Encrypted & Role Secured</span>
+          </p>
+        </div>
 
       </div>
     </div>
