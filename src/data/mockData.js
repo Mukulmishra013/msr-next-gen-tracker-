@@ -1,9 +1,10 @@
-// Real Agency Team State - Initialized with Owner: Mukul Mishra
+// Real Agency Data Store - Initialized with Super Admin Mukul Mishra
+
 export const INITIAL_REAL_USERS = [
   {
     id: 'usr_admin_mukul',
     firebase_uid: 'fb_mukul_8887521156',
-    name: 'Mukul Mishra (Admin)',
+    name: 'Mukul Mishra',
     phone: '+918887521156',
     email: 'Mukulmishr8887521156@gmail.com',
     role: 'owner',
@@ -15,13 +16,16 @@ export const INITIAL_REAL_USERS = [
   }
 ];
 
-export const EMPTY_AMPARO_CALLS = [];
-export const EMPTY_MSR_LEADS = [];
-export const EMPTY_VIDEOS = [];
-export const EMPTY_FIELD_VISITS = [];
-export const EMPTY_ATTENDANCE = [];
+export const MOCK_USERS = INITIAL_REAL_USERS;
+export const MOCK_AMPARO_CALLS = [];
+export const MOCK_MSR_LEADS = [];
+export const MOCK_VIDEOS = [];
+export const MOCK_FIELD_VISITS = [];
+export const MOCK_ATTENDANCE = [];
+export const MOCK_INCENTIVES = [];
+export const MOCK_PAYROLL = [];
 
-export const INITIAL_REVENUE_LOG = {
+export const MOCK_REVENUE_LOG = {
   id: 'rev_current',
   month: 'August 2026',
   total_revenue: 0,
