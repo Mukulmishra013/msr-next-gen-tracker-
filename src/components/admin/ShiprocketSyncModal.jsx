@@ -1,4 +1,4 @@
-// Shiprocket Live Sync Modal (Pre-configured with Verified API User)
+// Shiprocket Live Sync Modal (Pre-configured with New Verified API User)
 import React, { useState } from 'react';
 import { useAppData } from '../../context/AppDataContext';
 import { 
@@ -20,7 +20,7 @@ import {
 export function ShiprocketSyncModal({ isOpen, onClose }) {
   const { setAmparoCalls } = useAppData();
   const [email, setEmail] = useState('atulmishra9506348351@gmail.com');
-  const [password, setPassword] = useState('&XOA567eUlFpJXpHl^5Sw01hhbs9wqiz');
+  const [password, setPassword] = useState('^zCGyq0I%uoef9Syy98qdZm*Z4h4ntQC');
   const [loading, setLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
@@ -92,7 +92,7 @@ export function ShiprocketSyncModal({ isOpen, onClose }) {
         <form onSubmit={handleApiSync} className="space-y-3.5">
           <div className="p-3 rounded-xl bg-emerald-950/40 border border-emerald-500/30 text-emerald-300 text-xs flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-            <span>Shiprocket API User (`atulmishra9506348351@gmail.com`) is verified and ready!</span>
+            <span>Shiprocket API User (`atulmishra9506348351@gmail.com`) is verified and connected!</span>
           </div>
 
           <div>

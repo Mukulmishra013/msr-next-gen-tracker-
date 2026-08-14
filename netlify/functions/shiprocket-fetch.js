@@ -7,7 +7,7 @@ const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://blnvunejbmkpckwrd
 const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_4sR9yc91hhMMtN9kpIpTqw_n8-muO3Z';
 
 const DEFAULT_SHIPROCKET_EMAIL = 'atulmishra9506348351@gmail.com';
-const DEFAULT_SHIPROCKET_PASS = '&XOA567eUlFpJXpHl^5Sw01hhbs9wqiz';
+const DEFAULT_SHIPROCKET_PASS = '^zCGyq0I%uoef9Syy98qdZm*Z4h4ntQC';
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -78,7 +78,6 @@ export default async (req) => {
         ? o.products.map((p) => p.name).join(', ')
         : (o.others && o.others.order_items && o.others.order_items[0] ? o.others.order_items[0].name : 'Amparo Shilajit');
 
-      // Extract raw phone candidate
       const rawPhone = String(
         o.customer_phone ||
         o.customer_mobile ||
@@ -107,7 +106,6 @@ export default async (req) => {
       };
     });
 
-    // Delete old data & insert fresh batch
     if (mappedOrders.length > 0) {
       await supabase.from('amparo_calls').delete().neq('id', '00000000-0000-0000-0000-000000000000');
       await supabase.from('amparo_calls').insert(mappedOrders);
