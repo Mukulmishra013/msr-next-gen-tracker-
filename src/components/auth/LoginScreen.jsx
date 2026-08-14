@@ -1,11 +1,12 @@
-// Firebase Phone Authentication Login Screen (Hinglish UI)
+// Real Authentication Login Screen for Mukul Mishra (Admin) & Agency Team
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { Phone, Sparkles, ShieldCheck, ArrowRight, Lock, KeyRound, CheckCircle2 } from 'lucide-react';
+import { Phone, Sparkles, ShieldCheck, ArrowRight, Lock, KeyRound, CheckCircle2, Crown, Mail } from 'lucide-react';
 
 export function LoginScreen({ onLoginSuccess }) {
-  const { availableUsers, switchUserRole, requestPhoneOtp, verifyOtp, authLoading, isFirebaseLive } = useAuth();
-  const [phoneNumber, setPhoneNumber] = useState('+91');
+  const { availableUsers, switchUserRole, requestPhoneOtp, verifyOtp, authLoading } = useAuth();
+  const [loginMethod, setLoginMethod] = useState('phone'); // 'phone' | 'admin_direct'
+  const [phoneNumber, setPhoneNumber] = useState('+918887521156');
   const [otpCode, setOtpCode] = useState('');
   const [step, setStep] = useState('phone'); // 'phone' | 'otp'
   const [errorMsg, setErrorMsg] = useState('');
@@ -24,10 +25,10 @@ export function LoginScreen({ onLoginSuccess }) {
     try {
       const res = await requestPhoneOtp(phoneNumber.trim(), 'recaptcha-container');
       if (res.simulated) {
-        setSuccessMsg(`Logged in as ${res.user.name}!`);
+        setSuccessMsg(`Welcome ${res.user.name}!`);
         setTimeout(() => {
           if (onLoginSuccess) onLoginSuccess();
-        }, 800);
+        }, 600);
       } else {
         setStep('otp');
         setSuccessMsg(`OTP sent to ${phoneNumber}!`);
@@ -45,10 +46,16 @@ export function LoginScreen({ onLoginSuccess }) {
       setSuccessMsg('Authentication Successful! Welcome to MSR Next Gen.');
       setTimeout(() => {
         if (onLoginSuccess) onLoginSuccess();
-      }, 800);
+      }, 600);
     } catch (err) {
       setErrorMsg(err.message || 'Invalid OTP. Please enter correct 6-digit code.');
     }
+  };
+
+  const handleMukulAdminLogin = () => {
+    const adminUser = availableUsers.find((u) => u.phone === '+918887521156') || availableUsers[0];
+    switchUserRole(adminUser.id);
+    if (onLoginSuccess) onLoginSuccess();
   };
 
   return (
@@ -58,7 +65,7 @@ export function LoginScreen({ onLoginSuccess }) {
       <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-purple-600/15 rounded-full blur-3xl pointer-events-none"></div>
       <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-emerald-600/15 rounded-full blur-3xl pointer-events-none"></div>
 
-      <div className="w-full max-w-md bg-slate-900 border border-slate-700/80 rounded-3xl p-6 sm:p-8 shadow-2xl relative z-10 space-y-6">
+      <div className="w-full max-w-md bg-slate-900 border border-slate-700/80 rounded-3xl p-6 sm:p-8 shadow-2xl relative z-10 space-y-5">
         
         {/* Brand Header */}
         <div className="text-center space-y-2">
@@ -69,127 +76,105 @@ export function LoginScreen({ onLoginSuccess }) {
           </div>
           <div>
             <h2 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight">MSR Next Gen Tracker</h2>
-            <p className="text-xs text-purple-300 font-medium mt-0.5">Maya AGI Autonomous Operations Suite</p>
+            <p className="text-xs text-purple-300 font-medium mt-0.5">Admin & Agency Operations Portal</p>
           </div>
         </div>
 
         {/* reCAPTCHA Container for Firebase */}
         <div id="recaptcha-container"></div>
 
-        {/* Phone OTP Form */}
-        {step === 'phone' ? (
-          <form onSubmit={handleSendOtp} className="space-y-4">
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5 flex items-center gap-1.5">
-                <Phone className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Mobile Number (Phone OTP)</span>
-              </label>
+        {/* Quick Admin One-Tap Login (Mukul Mishra) */}
+        <div className="p-3.5 rounded-2xl bg-gradient-to-r from-amber-950/40 via-slate-950 to-slate-950 border border-amber-500/40 space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Crown className="w-4 h-4 text-amber-400" />
+              <span className="text-xs font-bold text-white">Owner / Super Admin Access</span>
+            </div>
+            <span className="text-[10px] bg-amber-950 text-amber-300 font-bold px-2 py-0.5 rounded-md border border-amber-500/30">
+              Mukul Mishra
+            </span>
+          </div>
+          <p className="text-[11px] text-slate-300">
+            Login as <strong className="text-emerald-400">Mukul Mishra (+918887521156)</strong> with full administrative & financial control.
+          </p>
+          <button
+            onClick={handleMukulAdminLogin}
+            className="tap-target w-full rounded-xl bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-500 hover:to-yellow-500 text-slate-950 font-black text-xs flex items-center justify-center gap-1.5 shadow-md shadow-amber-600/30 transition active:scale-95"
+          >
+            <span>👑 Enter Admin Command Center ➔</span>
+          </button>
+        </div>
+
+        {/* Phone OTP Login Form (for Mukul or Team Members) */}
+        <div className="space-y-3 pt-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+              <Phone className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Mobile OTP Login (Staff & Admin)</span>
+            </span>
+          </div>
+
+          {step === 'phone' ? (
+            <form onSubmit={handleSendOtp} className="space-y-3">
               <input
                 type="tel"
                 required
-                placeholder="+919876543210"
+                placeholder="+918887521156"
                 value={phoneNumber}
                 onChange={(e) => setPhoneNumber(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 font-mono tracking-wider"
+                className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 font-mono"
               />
-            </div>
 
-            {errorMsg && (
-              <div className="p-3 rounded-xl bg-red-950/60 border border-red-500/50 text-red-300 text-xs">
-                {errorMsg}
-              </div>
-            )}
+              {errorMsg && (
+                <div className="p-2.5 rounded-xl bg-red-950/60 border border-red-500/50 text-red-300 text-xs">
+                  {errorMsg}
+                </div>
+              )}
 
-            {successMsg && (
-              <div className="p-3 rounded-xl bg-emerald-950/60 border border-emerald-500/50 text-emerald-300 text-xs flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                <span>{successMsg}</span>
-              </div>
-            )}
+              {successMsg && (
+                <div className="p-2.5 rounded-xl bg-emerald-950/60 border border-emerald-500/50 text-emerald-300 text-xs flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                  <span>{successMsg}</span>
+                </div>
+              )}
 
-            <button
-              type="submit"
-              disabled={authLoading}
-              className="tap-target w-full rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-extrabold text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/30 transition active:scale-95 disabled:opacity-50"
-            >
-              <span>{authLoading ? 'Sending OTP...' : 'Get OTP on Phone ➔'}</span>
-            </button>
-          </form>
-        ) : (
-          /* OTP Verification Step */
-          <form onSubmit={handleVerifyOtp} className="space-y-4">
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5 flex items-center gap-1.5">
-                <KeyRound className="w-3.5 h-3.5 text-purple-400" />
-                <span>Enter 6-Digit OTP</span>
-              </label>
+              <button
+                type="submit"
+                disabled={authLoading}
+                className="tap-target w-full rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs flex items-center justify-center gap-2 transition active:scale-95 disabled:opacity-50"
+              >
+                <span>{authLoading ? 'Sending OTP...' : 'Send Phone OTP ➔'}</span>
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={handleVerifyOtp} className="space-y-3">
               <input
                 type="text"
                 required
                 maxLength={6}
-                placeholder="123456"
+                placeholder="Enter 6-digit OTP"
                 value={otpCode}
                 onChange={(e) => setOtpCode(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-center text-lg text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 font-mono tracking-widest"
+                className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-center text-base text-white focus:outline-none focus:border-purple-500 font-mono tracking-widest"
               />
-            </div>
 
-            {errorMsg && (
-              <div className="p-3 rounded-xl bg-red-950/60 border border-red-500/50 text-red-300 text-xs">
-                {errorMsg}
-              </div>
-            )}
-
-            {successMsg && (
-              <div className="p-3 rounded-xl bg-emerald-950/60 border border-emerald-500/50 text-emerald-300 text-xs flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                <span>{successMsg}</span>
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={authLoading}
-              className="tap-target w-full rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-extrabold text-sm flex items-center justify-center gap-2 shadow-lg shadow-purple-600/30 transition active:scale-95 disabled:opacity-50"
-            >
-              <span>{authLoading ? 'Verifying...' : 'Verify OTP & Enter App ✅'}</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setStep('phone')}
-              className="w-full text-center text-xs text-slate-400 hover:text-slate-200"
-            >
-              Change Mobile Number
-            </button>
-          </form>
-        )}
-
-        {/* Quick Role Simulator (Instant 1-Tap Access for Team Testing) */}
-        <div className="pt-4 border-t border-slate-800 space-y-2">
-          <p className="text-center text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-            Or Test Direct Role Login:
-          </p>
-          <div className="grid grid-cols-2 gap-2">
-            {availableUsers.map((user) => (
               <button
-                key={user.id}
-                onClick={() => {
-                  switchUserRole(user.id);
-                  if (onLoginSuccess) onLoginSuccess();
-                }}
-                className="p-2.5 rounded-xl bg-slate-950/80 hover:bg-slate-800 border border-slate-800 hover:border-emerald-500/40 text-left transition active:scale-95"
+                type="submit"
+                disabled={authLoading}
+                className="tap-target w-full rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-extrabold text-xs flex items-center justify-center gap-2 shadow-lg shadow-purple-600/30 transition active:scale-95 disabled:opacity-50"
               >
-                <div className="flex items-center gap-2">
-                  <span className="text-lg">{user.avatar}</span>
-                  <div>
-                    <p className="font-bold text-xs text-white leading-tight">{user.name.split(' ')[0]}</p>
-                    <p className="text-[10px] text-emerald-400 font-semibold">{user.role.replace('_', ' ')}</p>
-                  </div>
-                </div>
+                <span>{authLoading ? 'Verifying...' : 'Verify OTP & Enter App ✅'}</span>
               </button>
-            ))}
-          </div>
+
+              <button
+                type="button"
+                onClick={() => setStep('phone')}
+                className="w-full text-center text-xs text-slate-400 hover:text-slate-200"
+              >
+                Change Mobile Number
+              </button>
+            </form>
+          )}
         </div>
 
       </div>
