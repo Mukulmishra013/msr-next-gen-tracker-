@@ -109,14 +109,16 @@ export default async (req) => {
         order_amount: cleanAmount,
         amount: cleanAmount,
         delivery_address: cleanAddress,
-        delivery_timeline: 'तीन से पाँच दिन',
-        combo_product: 'Smilika SPF 50 Sunscreen',
-        combo_discount: 'एक सौ रुपये',
+        delivery_timeline: orderData.delivery_timeline || (orderData.courier_name ? `${orderData.courier_name} कूरियर से तीन से पाँच दिन में` : 'तीन से पाँच दिन में'),
+        courier_name: orderData.courier_name || 'कूरियर पार्टनर',
+        expected_delivery_date: orderData.expected_delivery_date || 'तीन से पाँच दिन में',
+        combo_product: orderData.combo_product || 'Smilika SPF 50 Sunscreen',
+        combo_discount: orderData.combo_discount || 'एक सौ रुपये',
         customer_type: determinedPurpose === 'OLD_CUSTOMER_FEEDBACK' ? 'OLD_CUSTOMER' : 'NEW_CUSTOMER',
         call_purpose: determinedPurpose,
         is_rto: isRtoOrder ? 'true' : 'false',
-        discount_value: 'पचास रुपये की छूट',
-        coupon_code: 'AMPARO50'
+        discount_value: orderData.discount_value || 'पचास रुपये की छूट',
+        coupon_code: orderData.coupon_code || 'AMPARO50'
       };
 
       const bolnaPayload = {

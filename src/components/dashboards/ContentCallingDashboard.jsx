@@ -297,7 +297,9 @@ export function ContentCallingDashboard({ onOpenChat }) {
         product_name: call.product || 'Amparo Shilajit Gummies',
         order_amount: call.amount || 449,
         delivery_address: call.notes || 'India',
-        delivery_timeline: 'तीन से पाँच दिन',
+        delivery_timeline: call.delivery_timeline || (call.courier_name ? `${call.courier_name} कूरियर से ${call.expected_delivery_date || 'तीन से पाँच दिन में'}` : 'तीन से पाँच दिन में'),
+        courier_name: call.courier_name || 'कूरियर पार्टनर',
+        expected_delivery_date: call.expected_delivery_date || 'तीन से पाँच दिन में',
         combo_product: 'Smilika SPF 50 Sunscreen',
         combo_discount: 'एक सौ रुपये',
         customer_type: purpose === 'OLD_CUSTOMER_FEEDBACK' ? 'OLD_CUSTOMER' : 'NEW_CUSTOMER',
@@ -831,6 +833,18 @@ Dhanyawad!
                           </button>
                         )}
                         <p className="text-xs text-slate-300 truncate max-w-xs">{task.product}</p>
+                      </div>
+
+                      {/* 🚚 Real Shiprocket Courier & Delivery Timeline Badge */}
+                      <div className="flex items-center gap-2 text-[10px] flex-wrap">
+                        <span className="px-2 py-0.5 rounded-lg bg-blue-950/80 border border-blue-500/40 text-blue-300 font-bold flex items-center gap-1">
+                          <Truck className="w-3 h-3 text-blue-400" />
+                          <span>{task.courier_name || 'Shiprocket Courier'}</span>
+                        </span>
+                        <span className="px-2 py-0.5 rounded-lg bg-indigo-950/80 border border-indigo-500/40 text-indigo-300 font-semibold flex items-center gap-1">
+                          <Clock className="w-3 h-3 text-indigo-400" />
+                          <span>EDD: {task.expected_delivery_date || '3-5 दिन में'}</span>
+                        </span>
                       </div>
                     </div>
 

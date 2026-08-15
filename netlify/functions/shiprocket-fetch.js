@@ -220,8 +220,28 @@ export default async (req) => {
       const validPhone = cleanDigits.length >= 10 ? `+91${cleanDigits.slice(-10)}` : '+91';
       const custName = o.customer_name || (o.others && o.others.billing_name) || 'Customer';
       const awb = o.shipments && o.shipments[0] ? String(o.shipments[0].awb) : '';
-      const courier = o.shipments && o.shipments[0] ? String(o.shipments[0].courier_name || 'Courier') : 'Courier';
+      const rawCourier = o.shipments && o.shipments[0] ? String(o.shipments[0].courier_name || 'Courier') : 'Courier';
+      const cleanCourier = rawCourier.replace(/surface|express|air|b2b/gi, '').trim() || 'कूरियर पार्टनर';
+      const rawEtd = o.shipments && o.shipments[0] ? (o.shipments[0].etd || o.shipments[0].edd || o.shipments[0].expected_delivery_date || '') : '';
       const city = o.customer_city || (o.others && o.others.billing_city) || 'India';
+
+      // Smart Natural Conversational Delivery Timeline from Shiprocket Live Status
+      let smartTimeline = 'तीन से पाँच दिन में';
+      if (statusStr.includes('OUT FOR DELIVERY')) {
+        smartTimeline = 'आज शाम तक (डिलीवरी बॉय एरिया में है)';
+      } else if (statusStr.includes('DESTINATION HUB') || statusStr.includes('UNDELIVERED') || isRtoActive) {
+        smartTimeline = 'आज या कल तक';
+      } else if (rawEtd) {
+        try {
+          const d = new Date(rawEtd);
+          if (!isNaN(d.getTime())) {
+            const months = ['जनवरी', 'फ़रवरी', 'मार्च', 'अप्रैल', 'मई', 'जून', 'जुलाई', 'अगस्त', 'सितंबर', 'अक्टूबर', 'नवंबर', 'दिसंबर'];
+            smartTimeline = `${d.getDate()} ${months[d.getMonth()]} तक`;
+          }
+        } catch (e) {}
+      } else if (statusStr.includes('IN TRANSIT') || statusStr.includes('SHIPPED')) {
+        smartTimeline = 'दो से तीन दिन में';
+      }
 
       return {
         shopify_order_id: String(o.channel_order_id || (o.others && o.others.name) || o.id),
@@ -233,8 +253,11 @@ export default async (req) => {
         urgent_rto: isRtoActive,
         call_type: isRtoActive ? 'RTO Rescue' : (isDelivered ? 'Old Customer Feedback' : 'Order Confirmation'),
         shiprocket_shipment_id: awb || String(o.id),
+        courier_name: cleanCourier,
+        expected_delivery_date: rawEtd || smartTimeline,
+        delivery_timeline: `${cleanCourier} कूरियर से ${smartTimeline}`,
         created_at: o.created_at || new Date().toISOString(),
-        notes: `Status: ${o.status || 'Active'} | City: ${city} | Courier: ${courier} | AWB: ${awb || 'Pending'}`
+        notes: `Status: ${o.status || 'Active'} | City: ${city} | Courier: ${cleanCourier} | AWB: ${awb || 'Pending'} | EDD: ${smartTimeline}`
       };
     });
 
