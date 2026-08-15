@@ -661,8 +661,8 @@ Dhanyawad!
                   <div
                     key={task.id || task.shopify_order_id || idx}
                     className={`p-4 rounded-2xl border transition relative space-y-3 ${
-                      isCompleted
-                        ? 'bg-emerald-950/30 border-emerald-500/60'
+                      isClaimed
+                        ? (isDelivered ? 'bg-emerald-950/30 border-emerald-500/60' : 'bg-amber-950/20 border-amber-500/50')
                         : task.task_type === 'RTO_RESCUE'
                         ? 'bg-red-950/20 border-red-500/50 hover:border-red-400'
                         : task.task_type === 'OLD_CUSTOMER_REORDER'
