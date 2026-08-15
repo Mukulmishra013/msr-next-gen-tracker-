@@ -133,7 +133,7 @@ export function AppDataProvider({ children }) {
           setRevenueLog(revRes.data[0]);
         }
 
-        if (incRes.data && incRes.data.length > 0) {
+        if (incRes.data) {
           setIncentives(incRes.data);
           localStorage.setItem('msr_local_incentives', JSON.stringify(incRes.data));
         }
