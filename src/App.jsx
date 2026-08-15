@@ -139,14 +139,18 @@ function MainApp() {
   );
 }
 
+import { ErrorBoundary } from './components/common/ErrorBoundary';
+
 export default function App() {
   return (
-    <AuthProvider>
-      <AppDataProvider>
-        <AgentProvider>
-          <MainApp />
-        </AgentProvider>
-      </AppDataProvider>
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <AppDataProvider>
+          <AgentProvider>
+            <MainApp />
+          </AgentProvider>
+        </AppDataProvider>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }
