@@ -278,7 +278,7 @@ export function AppDataProvider({ children }) {
     }
   };
 
-  // Claim Telecaller Task Incentive (Locks action and sends to Pending Delivery Escrow)
+  // Claim Telecaller Task Incentive (Locks action and applies AI vs Manual incentive rules)
   const claimTelecallerTaskIncentive = async (callId, amount, taskTitle, user) => {
     // Check if already claimed
     const existingCall = amparoCalls.find((c) => c.id === callId || c.shopify_order_id === callId);
@@ -287,6 +287,12 @@ export function AppDataProvider({ children }) {
       return;
     }
 
+    const isAiUsed = Boolean(existingCall?.call_source === 'ai_agent' || existingCall?.ai_dialed || (existingCall?.notes && existingCall.notes.includes('[AI_LOG]')));
+    // If AI did the calling, give reduced AI-Assisted incentive (₹20 for RTO, ₹10 for Others) to prevent double cost!
+    const effectiveAmount = isAiUsed 
+      ? (Number(amount) >= 50 ? 20 : 10) 
+      : Number(amount || 50);
+
     const newInc = {
       id: `inc_${Date.now()}`,
       order_id: callId,
@@ -294,9 +300,9 @@ export function AppDataProvider({ children }) {
       user_id: user?.id || 'telecaller_1',
       userName: user?.name || 'Telecaller',
       month: 'August 2026',
-      type: 'amparo_calling',
-      amount: Number(amount || 50),
-      title: taskTitle || 'Task Completed (Pending Delivery)',
+      type: isAiUsed ? 'ai_assisted_calling' : 'amparo_calling',
+      amount: effectiveAmount,
+      title: isAiUsed ? `🤖 AI-Assisted: ${taskTitle}` : `👤 Manual Direct: ${taskTitle}`,
       status: 'pending_delivery', // Stored in pending escrow until delivered!
       paid: false,
       created_at: new Date().toISOString()
@@ -319,9 +325,9 @@ export function AppDataProvider({ children }) {
             incentive_status: 'pending_delivery',
             status: taskTitle.includes('RTO') ? 'rto_saved' : (c.status === 'delivered' ? 'delivered' : 'confirmed'),
             handled_by: user?.name || 'Telecaller',
-            call_source: 'telecaller_manual',
+            call_source: isAiUsed ? 'ai_agent' : 'telecaller_manual',
             urgent_rto: false,
-            notes: `✅ Manually Handled by ${user?.name || 'Telecaller'} (₹${amount} Incentive Pending on Delivery)`
+            notes: `✅ ${isAiUsed ? '🤖 Maya AI Call' : '👤 Manual Call'} by ${user?.name || 'Telecaller'} (₹${effectiveAmount} Incentive Pending on Delivery)`
           };
         }
         return c;

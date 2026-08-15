@@ -295,9 +295,12 @@ export function ContentCallingDashboard({ onOpenChat }) {
         coupon_code: 'AMPARO50'
       });
 
+      setAmparoCalls((prev) =>
+        prev.map((c) => (c.id === call.id ? { ...c, call_source: 'ai_agent', ai_dialed: true } : c))
+      );
       setAiModalOrder(null);
       const purposeLabel = purpose === 'OLD_CUSTOMER_FEEDBACK' ? '🌿 Feedback & Repeat Sales' : (isRto ? '🚨 Urgent RTO Rescue' : '📦 Order Confirmation');
-      setAiCallMessage(`🤖 Maya AI calling ${call.customer_name} (${formattedPhone}) [Type: ${purposeLabel} | Note: AI call par telecaller incentive ₹0 hota hai]`);
+      setAiCallMessage(`🤖 Maya AI calling ${call.customer_name} (${formattedPhone}) [Type: ${purposeLabel} | Note: AI call use karne par telecaller incentive auto-reduce hokar ₹20 AI-Assist ho jata hai]`);
       setTimeout(() => setAiCallMessage(''), 6000);
     } catch (err) {
       alert(`AI Call Error: ${err.message}`);
@@ -851,7 +854,7 @@ Dhanyawad!
                         {isClaimed && isDelivered ? (
                           <span className="px-3 py-1.5 rounded-xl bg-emerald-600 text-white text-xs font-black flex items-center gap-1 shadow-md shadow-emerald-600/30">
                             <Check className="w-3.5 h-3.5" />
-                            <span>✅ Delivered (+₹{task.incentive_amount} Paid)</span>
+                            <span>✅ Delivered ({task.call_source === 'ai_agent' || task.ai_dialed ? '+₹20 AI-Assist' : `+₹${task.incentive_amount} Paid`})</span>
                           </span>
                         ) : isClaimed ? (
                           <button
@@ -860,27 +863,36 @@ Dhanyawad!
                             title="Task Done! Customer ko delivery hone par yeh incentive automatic release ho jayega."
                           >
                             <Clock className="w-3.5 h-3.5 text-amber-400" />
-                            <span>⏳ Done (+₹{task.incentive_amount} Pending Delivery)</span>
+                            <span>⏳ Done ({task.call_source === 'ai_agent' || task.ai_dialed ? '+₹20 AI-Assist' : `+₹${task.incentive_amount}`} Pending)</span>
+                          </button>
+                        ) : task.call_source === 'ai_agent' || task.ai_dialed ? (
+                          <button
+                            onClick={() => claimTelecallerTaskIncentive(task.id || task.shopify_order_id, 20, task.task_title, currentUser)}
+                            className="tap-target px-3 py-1.5 rounded-xl bg-purple-950 hover:bg-purple-900 border border-purple-500/50 text-purple-200 font-bold text-xs flex items-center gap-1 shadow-md transition active:scale-95"
+                            title="AI ne call kiya hai - Telecaller ko supervision/review incentive (+₹20) milega"
+                          >
+                            <Bot className="w-3.5 h-3.5 text-purple-400" />
+                            <span>Done (AI-Assist +₹20)</span>
                           </button>
                         ) : (
                           <>
-                            {/* Claim Manual Incentive (1-Time Action Lock) */}
+                            {/* Claim Manual Full Incentive (1-Time Action Lock) */}
                             <button
                               onClick={() => claimTelecallerTaskIncentive(task.id || task.shopify_order_id, task.incentive_amount, task.task_title, currentUser)}
                               className="tap-target px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-xs flex items-center gap-1 shadow-md shadow-emerald-600/30 transition active:scale-95"
                             >
                               <Award className="w-3.5 h-3.5 text-yellow-300" />
-                              <span>Done (Claim +₹{task.incentive_amount})</span>
+                              <span>Done (Manual +₹{task.incentive_amount})</span>
                             </button>
 
-                            {/* Delegate to Maya AI (0 Incentive) */}
+                            {/* Delegate to Maya AI (Zero/Half Cost Prevention) */}
                             <button
                               onClick={() => handleAiCallButtonClick(task, task.task_type)}
                               className="tap-target px-2.5 py-1.5 rounded-xl bg-purple-950/80 hover:bg-purple-900 text-purple-300 border border-purple-500/40 text-[11px] font-bold flex items-center gap-1"
-                              title="Maya AI ko call karne dein (0 Telecaller Incentive)"
+                              title="Maya AI ko call karne dein (Incentive reduces to ₹20 AI-Assist)"
                             >
                               <Bot className="w-3 h-3 text-purple-400" />
-                              <span>AI Dial (₹0)</span>
+                              <span>AI Dial</span>
                             </button>
                           </>
                         )}
