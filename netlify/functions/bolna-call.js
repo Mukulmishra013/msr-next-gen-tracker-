@@ -67,31 +67,48 @@ export default async (req) => {
         throw new Error(`Invalid phone number: ${orderData.phone}`);
       }
 
-      const cleanName = (orderData.customer_name && orderData.customer_name !== 'Verified Buyer') 
-        ? orderData.customer_name 
+      const cleanName = (orderData.customer_name && orderData.customer_name !== 'Verified Buyer' && !orderData.customer_name.includes('Customer')) 
+        ? orderData.customer_name.replace(/[^a-zA-Z\s]/g, '').trim()
         : 'Customer';
 
       const isRtoOrder = orderData.urgent_rto || orderData.is_rto || orderData.call_purpose === 'RTO_RESCUE' || orderData.call_type === 'RTO Rescue';
       const isOldCustomer = orderData.customer_type === 'OLD_CUSTOMER' || orderData.status === 'confirmed';
       const determinedPurpose = isRtoOrder ? 'RTO_RESCUE' : (isOldCustomer ? 'OLD_CUSTOMER_FEEDBACK' : 'ORDER_CONFIRMATION');
 
+      // Clean amount: numbers only (e.g. '449')
+      const cleanAmount = String(orderData.order_amount || orderData.amount || '449').replace(/\D/g, '') || '449';
+      
+      // Clean order ID: '1295'
+      const cleanOrderId = String(orderData.shopify_order_id || orderData.order_id || '101').replace('#', '').trim();
+
+      // Clean product: Remove (x1), packaging tags
+      const rawProduct = orderData.product_name || orderData.product || 'Amparo Shilajit Gummies';
+      const cleanProduct = rawProduct.replace(/\(x\d+\)/gi, '').replace(/[^\w\s]/gi, '').trim() || 'Amparo Shilajit Gummies';
+
+      // Clean address / city
+      let cleanAddress = orderData.delivery_address || orderData.city || 'India';
+      if (cleanAddress.includes('City:')) {
+        cleanAddress = cleanAddress.split('City:')[1]?.trim() || 'India';
+      }
+      cleanAddress = cleanAddress.replace(/[\[\]\{\}\(\)]/g, '').trim() || 'India';
+
       const userData = {
         customer_name: cleanName,
         name: cleanName,
-        order_id: String(orderData.shopify_order_id || orderData.order_id || 'AMPARO-ORDER'),
-        product_name: orderData.product_name || orderData.product || 'Amparo Shilajit Gummies',
-        product: orderData.product_name || orderData.product || 'Amparo Shilajit Gummies',
-        order_amount: String(orderData.order_amount || orderData.amount || '449'),
-        amount: String(orderData.order_amount || orderData.amount || '449'),
-        delivery_address: orderData.delivery_address || orderData.city || orderData.notes || 'India',
-        delivery_timeline: orderData.delivery_timeline || 'तीन से पाँच दिन',
-        combo_product: orderData.combo_product || 'Smilika SPF 50 Sunscreen',
-        combo_discount: orderData.combo_discount || 'एक सौ रुपये',
+        order_id: cleanOrderId,
+        product_name: cleanProduct,
+        product: cleanProduct,
+        order_amount: cleanAmount,
+        amount: cleanAmount,
+        delivery_address: cleanAddress,
+        delivery_timeline: 'तीन से पाँच दिन',
+        combo_product: 'Smilika SPF 50 Sunscreen',
+        combo_discount: 'एक सौ रुपये',
         customer_type: determinedPurpose === 'OLD_CUSTOMER_FEEDBACK' ? 'OLD_CUSTOMER' : 'NEW_CUSTOMER',
         call_purpose: determinedPurpose,
         is_rto: isRtoOrder ? 'true' : 'false',
-        discount_value: orderData.discount_value || 'पचास रुपये की छूट',
-        coupon_code: orderData.coupon_code || 'AMPARO50'
+        discount_value: 'पचास रुपये की छूट',
+        coupon_code: 'AMPARO50'
       };
 
       const bolnaPayload = {
