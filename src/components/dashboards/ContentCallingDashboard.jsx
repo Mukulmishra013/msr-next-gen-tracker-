@@ -864,7 +864,7 @@ Dhanyawad!
       )}
 
       {/* VIEW 2: 📦 ALL ORDERS CENTER & SEARCH */}
-      {activeCallTab !== 'daily_duty' && (
+      {activeCallTab !== 'daily_duty' && activeCallTab !== 'master_archive' && (
         <div className="glass-card rounded-3xl border border-slate-800 p-5 space-y-4">
           
           {/* Search Bar & Filter Tabs */}
@@ -1168,6 +1168,8 @@ Dhanyawad!
               })
             )}
           </div>
+        </div>
+      )}
 
       {/* 📜 DEDICATED 947+ HISTORICAL SHIPMENTS ARCHIVE (100% SEPARATE FROM ACTIVE DAILY WORK) */}
       {activeCallTab === 'master_archive' && (
