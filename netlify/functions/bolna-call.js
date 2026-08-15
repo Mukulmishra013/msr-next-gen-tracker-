@@ -67,8 +67,8 @@ export default async (req) => {
         throw new Error(`Invalid phone number: ${orderData.phone}`);
       }
 
-      const cleanName = (orderData.customer_name && orderData.customer_name !== 'Verified Buyer' && !orderData.customer_name.includes('Customer')) 
-        ? orderData.customer_name.replace(/[^a-zA-Z\s]/g, '').trim()
+      const cleanName = (orderData.customer_name && orderData.customer_name !== 'Verified Buyer' && orderData.customer_name !== 'Customer') 
+        ? String(orderData.customer_name).replace(/[\r\n\t]/g, '').trim() 
         : 'Customer';
 
       // Strict Priority-Based Call Purpose Determination
@@ -90,13 +90,15 @@ export default async (req) => {
       const cleanOrderId = String(orderData.shopify_order_id || orderData.order_id || '101').replace('#', '').trim();
 
       // Clean product: Remove (x1), packaging tags
-      const rawProduct = orderData.product_name || orderData.product || 'Amparo Shilajit Gummies';
-      const cleanProduct = rawProduct.replace(/\(x\d+\)/gi, '').replace(/[^\w\s]/gi, '').trim() || 'Amparo Shilajit Gummies';
+      const rawProduct = String(orderData.product_name || orderData.product || 'Amparo Shilajit Gummies');
+      const cleanProduct = rawProduct.replace(/\(x\d+\)/gi, '').replace(/[\r\n\t]/g, '').trim() || 'Amparo Shilajit Gummies';
 
       // Clean address / city
-      let cleanAddress = orderData.delivery_address || orderData.city || 'India';
+      let cleanAddress = String(orderData.delivery_address || orderData.city || orderData.notes || 'India');
       if (cleanAddress.includes('City:')) {
-        cleanAddress = cleanAddress.split('City:')[1]?.trim() || 'India';
+        cleanAddress = cleanAddress.split('City:')[1]?.split('|')[0]?.trim() || 'India';
+      } else if (cleanAddress.includes('Status:')) {
+        cleanAddress = cleanAddress.replace(/Status:.*?\|/gi, '').replace(/Courier:.*?\|/gi, '').replace(/AWB:.*?\|/gi, '').replace(/EDD:.*?$/gi, '').trim() || 'India';
       }
       const amountWithRupees = `${cleanAmount} रुपये`;
 
@@ -130,6 +132,8 @@ export default async (req) => {
         recipient_data: userData
       };
 
+      console.log('>>> [BOLNA API DISPATCH] Calling:', recipientPhone, 'Payload:', JSON.stringify(bolnaPayload, null, 2));
+
       const bolnaRes = await fetch('https://api.bolna.ai/call', {
         method: 'POST',
         headers: {
@@ -140,6 +144,7 @@ export default async (req) => {
       });
 
       const bolnaResult = await bolnaRes.json();
+      console.log('<<< [BOLNA API RESPONSE]:', JSON.stringify(bolnaResult, null, 2));
 
       if (!bolnaRes.ok) {
         throw new Error(bolnaResult.message || bolnaResult.detail || 'Bolna API calling error');

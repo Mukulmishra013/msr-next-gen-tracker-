@@ -293,21 +293,21 @@ export function ContentCallingDashboard({ onOpenChat }) {
         id: call.id,
         shopify_order_id: call.shopify_order_id,
         phone: formattedPhone,
-        customer_name: call.customer_name || 'Customer',
+        customer_name: call.customer_name && call.customer_name !== 'Verified Buyer' ? call.customer_name : 'Customer',
         product_name: call.product || 'Amparo Shilajit Gummies',
         order_amount: call.amount || 449,
-        delivery_address: call.notes || 'India',
+        delivery_address: call.city || (call.notes && call.notes.includes('City:') ? call.notes.split('City:')[1]?.split('|')[0]?.trim() : 'India'),
         delivery_timeline: call.delivery_timeline || (call.courier_name ? `${call.courier_name} कूरियर से ${call.expected_delivery_date || 'तीन से पाँच दिन में'}` : 'तीन से पाँच दिन में'),
         courier_name: call.courier_name || 'कूरियर पार्टनर',
         expected_delivery_date: call.expected_delivery_date || 'तीन से पाँच दिन में',
         combo_product: 'Smilika SPF 50 Sunscreen',
-        combo_discount: 'एक सौ रुपये',
+        combo_discount: 'एक सौ रुपये की छूट',
         customer_type: purpose === 'OLD_CUSTOMER_FEEDBACK' ? 'OLD_CUSTOMER' : 'NEW_CUSTOMER',
         call_purpose: purpose,
         is_rto: isRto,
         urgent_rto: isRto,
-        discount_value: 'पचास रुपये की छूट',
-        coupon_code: 'AMPARO50'
+        discount_value: mayaConfig?.enableDiscounts ? (isRto ? mayaConfig.rtoDiscountText : mayaConfig.vipDiscountText) : 'कोई अतिरिक्त छूट नहीं',
+        coupon_code: mayaConfig?.enableDiscounts ? (isRto ? mayaConfig.rtoCouponCode : mayaConfig.vipCouponCode) : ''
       });
 
       setAmparoCalls((prev) =>
