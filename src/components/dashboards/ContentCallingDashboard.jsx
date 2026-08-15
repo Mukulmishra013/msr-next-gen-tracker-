@@ -85,9 +85,13 @@ export function ContentCallingDashboard({ onOpenChat }) {
   const [aiModalPhone, setAiModalPhone] = useState('');
   const [aiModalPurpose, setAiModalPurpose] = useState('ORDER_CONFIRMATION');
 
-  // Stats & Performance
+  // Stats & Performance - Anti-Fraud Delivery Verified Incentives
   const userIncentives = incentives.filter((i) => i.user_id === currentUser.id);
-  const totalIncentive = userIncentives.reduce((sum, item) => sum + item.amount, 0);
+  const approvedIncentives = userIncentives.filter((i) => i.status === 'approved_paid' || i.paid === true);
+  const pendingIncentives = userIncentives.filter((i) => i.status === 'pending_delivery');
+
+  const totalApprovedIncentive = approvedIncentives.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const totalPendingIncentive = pendingIncentives.reduce((sum, item) => sum + Number(item.amount || 0), 0);
 
   const confirmedCalls = amparoCalls.filter((c) => c.status === 'confirmed' || c.status === 'rto_saved').length;
   const urgentCount = amparoCalls.filter((c) => (c.urgent_rto || c.call_type === 'RTO Rescue') && c.status !== 'rto_saved' && c.status !== 'rto_lost').length;
@@ -640,7 +644,14 @@ Dhanyawad!
             {/* 10 Duty Tasks Cards Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {daily10Tasks.map((task, idx) => {
-                const isCompleted = task.handled_by === currentUser.name || task.status === 'rto_saved' || task.call_source === 'telecaller_manual';
+                const isClaimed = Boolean(
+                  task.is_claimed || 
+                  task.incentive_status === 'pending_delivery' || 
+                  task.handled_by === currentUser.name || 
+                  task.call_source === 'telecaller_manual' ||
+                  incentives.some(i => (i.order_id === task.id || i.order_id === task.shopify_order_id) && i.user_id === currentUser.id)
+                );
+                const isDelivered = task.status === 'confirmed' || task.status === 'delivered';
                 const cleanDigits = String(task.phone || '').replace(/\D/g, '');
                 const isMasked = cleanDigits.length < 10 || String(task.phone || '').includes('xxx');
                 const displayPhone = isMasked ? 'Enter Mobile' : task.phone;
@@ -751,20 +762,29 @@ Dhanyawad!
 
                       {/* Claim Incentive Button vs AI Auto-Dial */}
                       <div className="flex items-center gap-1.5">
-                        {isCompleted ? (
-                          <span className="px-3 py-1.5 rounded-xl bg-emerald-600 text-white text-xs font-black flex items-center gap-1 shadow-md">
+                        {isClaimed && isDelivered ? (
+                          <span className="px-3 py-1.5 rounded-xl bg-emerald-600 text-white text-xs font-black flex items-center gap-1 shadow-md shadow-emerald-600/30">
                             <Check className="w-3.5 h-3.5" />
-                            <span>Done (+₹{task.incentive_amount})</span>
+                            <span>✅ Delivered (+₹{task.incentive_amount} Paid)</span>
                           </span>
+                        ) : isClaimed ? (
+                          <button
+                            disabled
+                            className="px-3 py-1.5 rounded-xl bg-amber-950/80 border border-amber-500/50 text-amber-300 text-xs font-black flex items-center gap-1 cursor-not-allowed opacity-90 shadow-sm"
+                            title="Task Done! Customer ko delivery hone par yeh incentive automatic release ho jayega."
+                          >
+                            <Clock className="w-3.5 h-3.5 text-amber-400" />
+                            <span>⏳ Done (+₹{task.incentive_amount} Pending Delivery)</span>
+                          </button>
                         ) : (
                           <>
-                            {/* Claim Manual Incentive */}
+                            {/* Claim Manual Incentive (1-Time Action Lock) */}
                             <button
                               onClick={() => claimTelecallerTaskIncentive(task.id || task.shopify_order_id, task.incentive_amount, task.task_title, currentUser)}
                               className="tap-target px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-xs flex items-center gap-1 shadow-md shadow-emerald-600/30 transition active:scale-95"
                             >
                               <Award className="w-3.5 h-3.5 text-yellow-300" />
-                              <span>Done (+₹{task.incentive_amount})</span>
+                              <span>Done (Claim +₹{task.incentive_amount})</span>
                             </button>
 
                             {/* Delegate to Maya AI (0 Incentive) */}
@@ -863,6 +883,14 @@ Dhanyawad!
               </div>
             ) : (
               filteredCalls.map((call) => {
+                const isCallClaimed = Boolean(
+                  call.is_claimed || 
+                  call.incentive_status === 'pending_delivery' || 
+                  call.handled_by === currentUser.name || 
+                  call.call_source === 'telecaller_manual' ||
+                  incentives.some(i => (i.order_id === call.id || i.order_id === call.shopify_order_id) && i.user_id === currentUser.id)
+                );
+                const isCallDelivered = call.status === 'confirmed' || call.status === 'delivered';
                 const cleanDigits = String(call.phone || '').replace(/\D/g, '');
                 const isMasked = cleanDigits.length < 10 || String(call.phone || '').includes('xxx');
                 const displayPhone = isMasked ? 'Enter Mobile' : call.phone;
@@ -1048,13 +1076,29 @@ Dhanyawad!
                           <span>Confirm</span>
                         </button>
 
-                        <button
-                          onClick={() => updateCallStatus(call.id, 'rto_saved')}
-                          className="tap-target px-3 py-2 rounded-xl bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-500/40 text-emerald-300 text-xs font-bold flex items-center gap-1 transition active:scale-95"
-                        >
-                          <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                          <span>RTO Saved (+₹50)</span>
-                        </button>
+                        {isCallClaimed && isCallDelivered ? (
+                          <span className="px-3 py-2 rounded-xl bg-emerald-600 text-white text-xs font-black flex items-center gap-1 shadow-md shadow-emerald-600/30">
+                            <Check className="w-3.5 h-3.5" />
+                            <span>✅ Delivered (+₹{call.urgent_rto ? 50 : 30} Paid)</span>
+                          </span>
+                        ) : isCallClaimed ? (
+                          <button
+                            disabled
+                            className="px-3 py-2 rounded-xl bg-amber-950/80 border border-amber-500/50 text-amber-300 text-xs font-black flex items-center gap-1 cursor-not-allowed opacity-90 shadow-sm"
+                            title="Task Done! Customer delivery hone par incentive automatic add ho jayega."
+                          >
+                            <Clock className="w-3.5 h-3.5 text-amber-400" />
+                            <span>⏳ Done (Pending Delivery)</span>
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => claimTelecallerTaskIncentive(call.id, call.urgent_rto ? 50 : (call.call_type === 'Old Customer Feedback' ? 30 : 20), call.urgent_rto ? '🚨 RTO Rescued' : 'Order Done', currentUser)}
+                            className="tap-target px-3 py-2 rounded-xl bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-500/40 text-emerald-300 text-xs font-bold flex items-center gap-1 transition active:scale-95"
+                          >
+                            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                            <span>{call.urgent_rto ? 'Save RTO (+₹50)' : 'Done (Claim)'}</span>
+                          </button>
+                        )}
 
                         <button
                           onClick={() => updateCallStatus(call.id, 'rto_lost')}

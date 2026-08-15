@@ -200,16 +200,108 @@ export function AppDataProvider({ children }) {
     }
   };
 
-  // Claim Telecaller Task Incentive (Manual Completion with Live Incentive Credit)
+  // Verify and Release Pending Incentive for Specific Delivered Order
+  const verifyAndApproveDeliveryIncentive = async (orderId) => {
+    setIncentives((prev) =>
+      prev.map((inc) => {
+        if ((inc.order_id === orderId || inc.call_id === orderId) && inc.status === 'pending_delivery') {
+          return { ...inc, status: 'approved_paid', paid: true, approved_at: new Date().toISOString() };
+        }
+        return inc;
+      })
+    );
+
+    if (isSupabaseConfigured()) {
+      try {
+        await supabase
+          .from('incentive_ledger')
+          .update({ status: 'approved_paid', paid: true })
+          .or(`order_id.eq.${orderId},call_id.eq.${orderId}`)
+          .eq('status', 'pending_delivery');
+      } catch (e) {}
+    }
+  };
+
+  // Forfeit/Cancel Incentive if Order is Cancelled or RTO Lost
+  const forfeitPendingIncentive = async (orderId) => {
+    setIncentives((prev) =>
+      prev.map((inc) => {
+        if ((inc.order_id === orderId || inc.call_id === orderId) && inc.status === 'pending_delivery') {
+          return { ...inc, status: 'forfeited_cancelled', paid: false };
+        }
+        return inc;
+      })
+    );
+
+    if (isSupabaseConfigured()) {
+      try {
+        await supabase
+          .from('incentive_ledger')
+          .update({ status: 'forfeited_cancelled', paid: false })
+          .or(`order_id.eq.${orderId},call_id.eq.${orderId}`)
+          .eq('status', 'pending_delivery');
+      } catch (e) {}
+    }
+  };
+
+  // Update Call Status with automatic incentive release
+  const updateCallStatus = async (callId, newStatus, notes = '') => {
+    setAmparoCalls((prev) =>
+      prev.map((call) => {
+        if (call.id === callId || call.shopify_order_id === callId) {
+          const updated = {
+            ...call,
+            status: newStatus,
+            notes: notes || call.notes,
+            urgent_rto: newStatus === 'rto_saved' || newStatus === 'rto_lost' ? false : call.urgent_rto
+          };
+
+          if (newStatus === 'rto_saved' || newStatus === 'confirmed' || newStatus === 'delivered') {
+            triggerWinCelebration();
+            verifyAndApproveDeliveryIncentive(callId);
+          } else if (newStatus === 'rto_lost' || newStatus === 'cancelled') {
+            forfeitPendingIncentive(callId);
+          }
+          return updated;
+        }
+        return call;
+      })
+    );
+
+    if (isSupabaseConfigured()) {
+      try {
+        await supabase
+          .from('amparo_calls')
+          .update({
+            status: newStatus,
+            notes: notes || undefined,
+            urgent_rto: newStatus === 'rto_saved' || newStatus === 'rto_lost' ? false : undefined
+          })
+          .or(`id.eq.${callId},shopify_order_id.eq.${callId}`);
+      } catch (e) {}
+    }
+  };
+
+  // Claim Telecaller Task Incentive (Locks action and sends to Pending Delivery Escrow)
   const claimTelecallerTaskIncentive = async (callId, amount, taskTitle, user) => {
+    // Check if already claimed
+    const existingCall = amparoCalls.find((c) => c.id === callId || c.shopify_order_id === callId);
+    if (existingCall?.is_claimed || existingCall?.incentive_status === 'pending_delivery') {
+      alert('Is order ka task pehle hi complete ho chuka hai.');
+      return;
+    }
+
     const newInc = {
       id: `inc_${Date.now()}`,
+      order_id: callId,
+      call_id: callId,
       user_id: user?.id || 'telecaller_1',
       userName: user?.name || 'Telecaller',
       month: 'August 2026',
       type: 'amparo_calling',
       amount: Number(amount || 50),
-      title: taskTitle || 'Task Completed (Manual Call)',
+      title: taskTitle || 'Task Completed (Pending Delivery)',
+      status: 'pending_delivery', // Stored in pending escrow until delivered!
       paid: false,
       created_at: new Date().toISOString()
     };
@@ -221,11 +313,13 @@ export function AppDataProvider({ children }) {
         if (c.id === callId || c.shopify_order_id === callId) {
           return {
             ...c,
+            is_claimed: true,
+            incentive_status: 'pending_delivery',
             status: taskTitle.includes('RTO') ? 'rto_saved' : 'confirmed',
             handled_by: user?.name || 'Telecaller',
             call_source: 'telecaller_manual',
             urgent_rto: false,
-            notes: `✅ Manually Completed by ${user?.name || 'Telecaller'} (+₹${amount} Incentive Claimed)`
+            notes: `✅ Manually Handled by ${user?.name || 'Telecaller'} (₹${amount} Incentive Pending on Delivery)`
           };
         }
         return c;
@@ -237,20 +331,25 @@ export function AppDataProvider({ children }) {
     if (isSupabaseConfigured()) {
       try {
         await supabase.from('incentive_ledger').insert({
+          order_id: callId,
+          call_id: callId,
           user_id: user?.id || 'telecaller_1',
           userName: user?.name || 'Telecaller',
           month: 'August 2026',
           type: 'amparo_calling',
           amount: Number(amount || 50),
-          title: taskTitle || 'Task Completed (Manual Call)',
+          title: taskTitle || 'Task Completed (Pending Delivery)',
+          status: 'pending_delivery',
           paid: false
         });
 
         await supabase.from('amparo_calls').update({
+          is_claimed: true,
+          incentive_status: 'pending_delivery',
           status: taskTitle.includes('RTO') ? 'rto_saved' : 'confirmed',
           handled_by: user?.name || 'Telecaller',
           urgent_rto: false,
-          notes: `✅ Manually Completed by ${user?.name || 'Telecaller'} (+₹${amount} Incentive Claimed)`
+          notes: `✅ Manually Handled by ${user?.name || 'Telecaller'} (₹${amount} Incentive Pending on Delivery)`
         }).or(`id.eq.${callId},shopify_order_id.eq.${callId}`);
       } catch (e) {
         console.error('Error claiming incentive in Supabase:', e);

@@ -1,4 +1,4 @@
-// Netlify Serverless Function: Direct Shiprocket API Order Importer & CSV Parser
+// Netlify Serverless Function: Direct Shiprocket Multi-Page Full 900+ Orders Importer & CSV Parser
 // Endpoint: https://msrnext.netlify.app/api/shiprocket-fetch
 
 import { createClient } from '@supabase/supabase-js';
@@ -72,10 +72,12 @@ export default async (req) => {
         const product = row['Product Name'] || row['Product'] || row['Items'] || 'Amparo Pure Shilajit (30g)';
         const courier = row['Courier Name'] || row['Courier'] || 'Assigned Courier';
         const city = row['City'] || row['Customer City'] || row['Destination City'] || 'India';
+        const createdAt = row['Created Date'] || row['Order Date'] || row['Date'] || new Date().toISOString();
 
         const statusUpper = status.toUpperCase();
         const isRto = statusUpper.includes('RTO') || statusUpper.includes('UNDELIVERED') || statusUpper.includes('FAILED');
         const isDelivered = statusUpper.includes('DELIVERED');
+        const isCancelled = statusUpper.includes('CANCEL');
 
         return {
           shopify_order_id: orderId,
@@ -83,17 +85,21 @@ export default async (req) => {
           phone: validPhone,
           product,
           amount,
-          status: isDelivered ? 'confirmed' : (isRto ? 'rto_attempted' : 'pending_confirmation'),
+          status: isDelivered ? 'confirmed' : (isRto ? 'rto_attempted' : (isCancelled ? 'rto_lost' : 'pending_confirmation')),
           urgent_rto: isRto,
-          call_type: isRto ? 'RTO Rescue' : (isDelivered ? 'Delivery Feedback' : 'Order Confirmation'),
+          call_type: isRto ? 'RTO Rescue' : (isDelivered ? 'Old Customer Feedback' : 'Order Confirmation'),
           shiprocket_shipment_id: awb || orderId,
+          created_at: createdAt,
           notes: `Status: ${status} | City: ${city} | Courier: ${courier} | AWB: ${awb || 'N/A'}`
         };
       });
 
       if (mappedOrders.length > 0) {
         await supabase.from('amparo_calls').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-        await supabase.from('amparo_calls').insert(mappedOrders);
+        // Chunk insert 100 at a time for large datasets
+        for (let i = 0; i < mappedOrders.length; i += 100) {
+          await supabase.from('amparo_calls').insert(mappedOrders.slice(i, i + 100));
+        }
       }
 
       return new Response(
@@ -106,7 +112,7 @@ export default async (req) => {
       );
     }
 
-    // 2. Otherwise fetch from Shiprocket REST API
+    // 2. Otherwise fetch from Shiprocket REST API Multi-Page Pagination
     if (!token) {
       const authRes = await fetch('https://apiv2.shiprocket.in/v1/external/auth/login', {
         method: 'POST',
@@ -128,23 +134,47 @@ export default async (req) => {
       }
     }
 
-    const ordersRes = await fetch('https://apiv2.shiprocket.in/v1/external/orders?per_page=100', {
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
+    // Fetch All Pages (up to 1000 orders)
+    let allRawOrders = [];
+    let page = 1;
+    let hasMore = true;
+
+    while (hasMore && page <= 10) {
+      try {
+        const ordersRes = await fetch(`https://apiv2.shiprocket.in/v1/external/orders?page=${page}&per_page=100`, {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        const ordersData = await ordersRes.json();
+        const pageOrders = ordersData?.data || [];
+
+        if (Array.isArray(pageOrders) && pageOrders.length > 0) {
+          allRawOrders = allRawOrders.concat(pageOrders);
+          if (pageOrders.length < 100) {
+            hasMore = false;
+          } else {
+            page++;
+          }
+        } else {
+          hasMore = false;
+        }
+      } catch (e) {
+        hasMore = false;
       }
-    });
+    }
 
-    const ordersData = await ordersRes.json();
-    const rawOrders = ordersData?.data || [];
-
-    const mappedOrders = rawOrders.map((o) => {
-      const isRto = String(o.status).toUpperCase().includes('RTO') || String(o.status).toUpperCase().includes('UNDELIVERED');
-      const isDelivered = String(o.status).toUpperCase().includes('DELIVERED');
+    const mappedOrders = allRawOrders.map((o) => {
+      const statusStr = String(o.status || '').toUpperCase();
+      const isRto = statusStr.includes('RTO') || statusStr.includes('UNDELIVERED') || statusStr.includes('FAILED');
+      const isDelivered = statusStr.includes('DELIVERED');
+      const isCancelled = statusStr.includes('CANCEL');
 
       const items = Array.isArray(o.products) && o.products.length > 0
         ? o.products.map((p) => p.name).join(', ')
-        : (o.others && o.others.order_items && o.others.order_items[0] ? o.others.order_items[0].name : 'Amparo Shilajit');
+        : (o.others && o.others.order_items && o.others.order_items[0] ? o.others.order_items[0].name : 'Amparo Pure Shilajit');
 
       const rawPhone = String(
         o.customer_phone ||
@@ -157,8 +187,10 @@ export default async (req) => {
 
       const cleanDigits = rawPhone.replace(/\D/g, '');
       const validPhone = cleanDigits.length >= 10 ? `+91${cleanDigits.slice(-10)}` : '+91';
-
       const custName = o.customer_name || (o.others && o.others.billing_name) || 'Customer';
+      const awb = o.shipments && o.shipments[0] ? String(o.shipments[0].awb) : '';
+      const courier = o.shipments && o.shipments[0] ? String(o.shipments[0].courier_name || 'Courier') : 'Assigned Courier';
+      const city = o.customer_city || (o.others && o.others.billing_city) || 'India';
 
       return {
         shopify_order_id: String(o.channel_order_id || (o.others && o.others.name) || o.id),
@@ -166,17 +198,21 @@ export default async (req) => {
         phone: validPhone,
         product: items,
         amount: Number(o.total || (o.others && o.others.subtotal_price) || 588),
-        status: isDelivered ? 'confirmed' : (isRto ? 'rto_attempted' : 'pending_confirmation'),
+        status: isDelivered ? 'confirmed' : (isRto ? 'rto_attempted' : (isCancelled ? 'rto_lost' : 'pending_confirmation')),
         urgent_rto: isRto,
-        call_type: isRto ? 'RTO Rescue' : (isDelivered ? 'Delivery Feedback' : 'Order Confirmation'),
-        shiprocket_shipment_id: o.shipments && o.shipments[0] ? String(o.shipments[0].awb) : String(o.id),
-        notes: 'Status: ' + o.status + ' | City: ' + (o.customer_city || (o.others && o.others.billing_city) || 'India') + ' | AWB: ' + (o.shipments && o.shipments[0] ? o.shipments[0].awb : 'Pending')
+        call_type: isRto ? 'RTO Rescue' : (isDelivered ? 'Old Customer Feedback' : 'Order Confirmation'),
+        shiprocket_shipment_id: awb || String(o.id),
+        created_at: o.created_at || new Date().toISOString(),
+        notes: `Status: ${o.status || 'Active'} | City: ${city} | Courier: ${courier} | AWB: ${awb || 'Pending'}`
       };
     });
 
     if (mappedOrders.length > 0) {
       await supabase.from('amparo_calls').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-      await supabase.from('amparo_calls').insert(mappedOrders);
+      // Chunk insert in batches of 100
+      for (let i = 0; i < mappedOrders.length; i += 100) {
+        await supabase.from('amparo_calls').insert(mappedOrders.slice(i, i + 100));
+      }
     }
 
     return new Response(
