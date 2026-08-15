@@ -89,35 +89,34 @@ export function ContentCallingDashboard({ onOpenChat }) {
   const userIncentives = incentives.filter((i) => i.user_id === currentUser.id);
   const totalIncentive = userIncentives.reduce((sum, item) => sum + item.amount, 0);
 
-  const confirmedCalls = amparoCalls.filter((c) => c.status === 'confirmed').length;
-  const rtoSavedCalls = amparoCalls.filter((c) => c.status === 'rto_saved').length;
-  const urgentCount = amparoCalls.filter((c) => c.urgent_rto).length;
-  const pendingCount = amparoCalls.filter((c) => c.status === 'pending_confirmation').length;
+  const confirmedCalls = amparoCalls.filter((c) => c.status === 'confirmed' || c.status === 'rto_saved').length;
+  const urgentCount = amparoCalls.filter((c) => (c.urgent_rto || c.call_type === 'RTO Rescue') && c.status !== 'rto_saved' && c.status !== 'rto_lost').length;
+  const pendingCount = amparoCalls.filter((c) => c.status === 'pending_confirmation' && !c.urgent_rto && c.call_type !== 'RTO Rescue' && c.call_type !== 'Old Customer Feedback').length;
+  const oldCustomersCount = amparoCalls.filter((c) => (c.call_type === 'Old Customer Feedback' || c.status === 'delivered') && !c.urgent_rto).length;
+  const fakeCancelledCount = amparoCalls.filter((c) => c.status === 'rto_lost' || c.ai_decision === 'fake_order' || c.ai_decision === 'cancelled').length;
   const aiCallsCount = amparoCalls.filter((c) => c.call_source === 'ai_agent' || c.recording_url || c.transcript || (c.notes && c.notes.includes('[AI_LOG]'))).length;
-  const oldCustomersCount = amparoCalls.filter((c) => c.call_type === 'Old Customer Feedback' || c.status === 'confirmed' || c.status === 'delivered').length;
-  const fakeCancelledCount = amparoCalls.filter((c) => c.status === 'rto_lost' || c.ai_decision === 'fake_order').length;
 
   // 🎯 Maya AI HR: Dynamic Generation of 10 Daily Duty Targets
   const daily10Tasks = useMemo(() => {
-    const rtoTargets = amparoCalls.filter((c) => c.urgent_rto).slice(0, 4).map((c) => ({
+    const rtoTargets = amparoCalls.filter((c) => (c.urgent_rto || c.call_type === 'RTO Rescue') && c.status !== 'rto_saved' && c.status !== 'rto_lost').slice(0, 4).map((c) => ({
       ...c,
       task_type: 'RTO_RESCUE',
       task_title: '🚨 Urgent RTO Rescue',
       incentive_amount: 50,
       badge_color: 'bg-red-600',
-      ai_tip: `Parcel delivery attempt fail hui hai. Customer se politely confirm karein ki delivery boy aaj re-attempt deliver karwa de. Manually save karne par +₹50 Live Incentive milega!`
+      ai_tip: `Parcel delivery attempt fail hui hai. Customer se confirm karein ki delivery boy aaj re-attempt deliver karwa de (+₹50 Live Incentive)!`
     }));
 
-    const oldTargets = amparoCalls.filter((c) => (c.call_type === 'Old Customer Feedback' || c.status === 'confirmed' || c.status === 'delivered') && !c.urgent_rto).slice(0, 4).map((c) => ({
+    const oldTargets = amparoCalls.filter((c) => (c.call_type === 'Old Customer Feedback' || c.status === 'delivered') && !c.urgent_rto).slice(0, 4).map((c) => ({
       ...c,
       task_type: 'OLD_CUSTOMER_REORDER',
       task_title: '🌿 Customer Feedback & Re-Order',
       incentive_amount: 30,
       badge_color: 'bg-teal-600',
-      ai_tip: `Purane customer se health results & experience puchiye. Agar satisfied hain toh ₹50 OFF coupon (AMPARO50) dekar COD repeat order book karein (+₹30 Incentive)!`
+      ai_tip: `Purane customer se results puchiye aur ₹50 OFF coupon (AMPARO50) dekar repeat order book karein (+₹30 Incentive)!`
     }));
 
-    const pendingTargets = amparoCalls.filter((c) => c.status === 'pending_confirmation' && !c.urgent_rto).slice(0, 2).map((c) => ({
+    const pendingTargets = amparoCalls.filter((c) => c.status === 'pending_confirmation' && !c.urgent_rto && c.call_type !== 'RTO Rescue' && c.call_type !== 'Old Customer Feedback').slice(0, 2).map((c) => ({
       ...c,
       task_type: 'ORDER_CONFIRMATION',
       task_title: '⏳ COD Order Confirmation',
@@ -130,7 +129,7 @@ export function ContentCallingDashboard({ onOpenChat }) {
   }, [amparoCalls]);
 
   const completedDutyTasksCount = daily10Tasks.filter((t) => t.handled_by === currentUser.name || t.status === 'rto_saved' || t.call_source === 'telecaller_manual').length;
-  const dutyIncentiveEarned = completedDutyTasksCount * 45; // average incentive
+  const dutyIncentiveEarned = completedDutyTasksCount * 45;
 
   const sortedCalls = [...amparoCalls].sort((a, b) => (b.urgent_rto ? 1 : 0) - (a.urgent_rto ? 1 : 0));
   
@@ -144,13 +143,25 @@ export function ContentCallingDashboard({ onOpenChat }) {
       if (!matchName && !matchOrder && !matchPhone && !matchProd) return false;
     }
 
-    if (activeCallTab === 'daily_duty') return true; // Handled separately in dedicated view
-    if (activeCallTab === 'urgent_rto') return c.urgent_rto;
-    if (activeCallTab === 'pending') return c.status === 'pending_confirmation';
-    if (activeCallTab === 'old_customers') return c.call_type === 'Old Customer Feedback' || c.status === 'confirmed' || c.status === 'delivered';
-    if (activeCallTab === 'ai_history') return Boolean(c.recording_url || c.transcript || c.call_source === 'ai_agent' || (c.notes && c.notes.includes('[AI_LOG]')));
-    if (activeCallTab === 'ai_confirmed') return c.status === 'confirmed' || c.status === 'rto_saved';
-    if (activeCallTab === 'ai_fake_cancelled') return c.status === 'rto_lost' || c.ai_decision === 'fake_order';
+    if (activeCallTab === 'daily_duty') return true;
+    if (activeCallTab === 'urgent_rto') {
+      return (c.urgent_rto || c.call_type === 'RTO Rescue') && c.status !== 'rto_saved' && c.status !== 'rto_lost';
+    }
+    if (activeCallTab === 'pending') {
+      return c.status === 'pending_confirmation' && !c.urgent_rto && c.call_type !== 'RTO Rescue' && c.call_type !== 'Old Customer Feedback';
+    }
+    if (activeCallTab === 'old_customers') {
+      return (c.call_type === 'Old Customer Feedback' || c.status === 'delivered') && !c.urgent_rto;
+    }
+    if (activeCallTab === 'ai_confirmed') {
+      return c.status === 'confirmed' || c.status === 'rto_saved';
+    }
+    if (activeCallTab === 'ai_fake_cancelled') {
+      return c.status === 'rto_lost' || c.ai_decision === 'fake_order' || c.ai_decision === 'cancelled';
+    }
+    if (activeCallTab === 'ai_history') {
+      return Boolean(c.recording_url || c.transcript || c.call_source === 'ai_agent' || (c.notes && c.notes.includes('[AI_LOG]')));
+    }
     return true;
   });
 
