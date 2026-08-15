@@ -165,40 +165,7 @@ export function AppDataProvider({ children }) {
     }
   }, []);
 
-  // Update Call Status
-  const updateCallStatus = async (callId, newStatus, notes = '') => {
-    setAmparoCalls((prev) =>
-      prev.map((call) => {
-        if (call.id === callId) {
-          const updated = {
-            ...call,
-            status: newStatus,
-            notes: notes || call.notes,
-            urgent_rto: newStatus === 'rto_saved' || newStatus === 'rto_lost' ? false : call.urgent_rto
-          };
 
-          if (newStatus === 'rto_saved') {
-            triggerWinCelebration();
-            agentMesh.broadcastEvent('URGENT_RTO_DETECTED', { callId, status: 'SAVED' });
-          }
-          return updated;
-        }
-        return call;
-      })
-    );
-
-    if (isSupabaseConfigured()) {
-      try {
-        await supabase
-          .from('amparo_calls')
-          .update({
-            status: newStatus,
-            notes: notes || undefined,
-            urgent_rto: newStatus === 'rto_saved' || newStatus === 'rto_lost' ? false : undefined
-          })
-      } catch (e) {}
-    }
-  };
 
   // Verify and Release Pending Incentive for Specific Delivered Order
   const verifyAndApproveDeliveryIncentive = async (orderId) => {
