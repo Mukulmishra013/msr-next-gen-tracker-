@@ -242,8 +242,14 @@ export function ContentCallingDashboard({ onOpenChat }) {
 
   // Handle Maya AI Call Click
   const handleAiCallButtonClick = (call, forcedPurpose = null) => {
-    const isRto = Boolean(call.urgent_rto || call.call_type === 'RTO Rescue');
-    const isOldCust = Boolean(call.call_type === 'Old Customer Feedback' || call.status === 'confirmed' || call.status === 'delivered');
+    const isRto = Boolean(
+      call.urgent_rto || 
+      call.call_type === 'RTO Rescue' || 
+      (call.notes && (call.notes.includes('UNDELIVERED') || call.notes.includes('RTO')))
+    );
+    const isOldCust = Boolean(
+      !isRto && (call.call_type === 'Old Customer Feedback' || call.status === 'delivered')
+    );
     const purpose = forcedPurpose || (isRto ? 'RTO_RESCUE' : (isOldCust ? 'OLD_CUSTOMER_FEEDBACK' : 'ORDER_CONFIRMATION'));
 
     setAiModalPurpose(purpose);
@@ -272,8 +278,15 @@ export function ContentCallingDashboard({ onOpenChat }) {
 
     await updateCallPhone(call.id, cleanDigits);
 
-    const isRto = Boolean(call.urgent_rto || call.call_type === 'RTO Rescue');
-    const purpose = purposeToUse || aiModalPurpose || (isRto ? 'RTO_RESCUE' : (call.status === 'confirmed' ? 'OLD_CUSTOMER_FEEDBACK' : 'ORDER_CONFIRMATION'));
+    const isRto = Boolean(
+      call.urgent_rto || 
+      call.call_type === 'RTO Rescue' || 
+      (call.notes && (call.notes.includes('UNDELIVERED') || call.notes.includes('RTO')))
+    );
+    const isOldCust = Boolean(
+      !isRto && (call.call_type === 'Old Customer Feedback' || call.status === 'delivered')
+    );
+    const purpose = purposeToUse || (isRto ? 'RTO_RESCUE' : (isOldCust ? 'OLD_CUSTOMER_FEEDBACK' : 'ORDER_CONFIRMATION'));
 
     try {
       const res = await triggerAiCall({

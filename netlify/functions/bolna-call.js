@@ -71,9 +71,17 @@ export default async (req) => {
         ? orderData.customer_name.replace(/[^a-zA-Z\s]/g, '').trim()
         : 'Customer';
 
-      const isRtoOrder = orderData.urgent_rto || orderData.is_rto || orderData.call_purpose === 'RTO_RESCUE' || orderData.call_type === 'RTO Rescue';
-      const isOldCustomer = orderData.customer_type === 'OLD_CUSTOMER' || orderData.status === 'confirmed';
-      const determinedPurpose = isRtoOrder ? 'RTO_RESCUE' : (isOldCustomer ? 'OLD_CUSTOMER_FEEDBACK' : 'ORDER_CONFIRMATION');
+      // Strict Priority-Based Call Purpose Determination
+      let determinedPurpose = 'ORDER_CONFIRMATION';
+      if (orderData.call_purpose === 'RTO_RESCUE' || orderData.urgent_rto || orderData.is_rto || orderData.call_type === 'RTO Rescue') {
+        determinedPurpose = 'RTO_RESCUE';
+      } else if (orderData.call_purpose === 'OLD_CUSTOMER_FEEDBACK' || orderData.customer_type === 'OLD_CUSTOMER' || orderData.call_type === 'Old Customer Feedback' || orderData.status === 'delivered') {
+        determinedPurpose = 'OLD_CUSTOMER_FEEDBACK';
+      } else if (orderData.call_purpose === 'ORDER_CONFIRMATION' || orderData.call_type === 'Order Confirmation') {
+        determinedPurpose = 'ORDER_CONFIRMATION';
+      }
+
+      const isRtoOrder = determinedPurpose === 'RTO_RESCUE';
 
       // Clean amount: numbers only (e.g. '449')
       const cleanAmount = String(orderData.order_amount || orderData.amount || '449').replace(/\D/g, '') || '449';
