@@ -98,26 +98,28 @@ export default async (req) => {
       if (cleanAddress.includes('City:')) {
         cleanAddress = cleanAddress.split('City:')[1]?.trim() || 'India';
       }
-      cleanAddress = cleanAddress.replace(/[\[\]\{\}\(\)]/g, '').trim() || 'India';
+      const amountWithRupees = `${cleanAmount} रुपये`;
 
       const userData = {
         customer_name: cleanName,
         name: cleanName,
+        customer_display_name: cleanName === 'Customer' ? 'सर' : cleanName,
         order_id: cleanOrderId,
         product_name: cleanProduct,
         product: cleanProduct,
         order_amount: cleanAmount,
         amount: cleanAmount,
+        order_amount_words: amountWithRupees,
         delivery_address: cleanAddress,
         delivery_timeline: orderData.delivery_timeline || (orderData.courier_name ? `${orderData.courier_name} कूरियर से तीन से पाँच दिन में` : 'तीन से पाँच दिन में'),
         courier_name: orderData.courier_name || 'कूरियर पार्टनर',
         expected_delivery_date: orderData.expected_delivery_date || 'तीन से पाँच दिन में',
         combo_product: orderData.combo_product || 'Smilika SPF 50 Sunscreen',
-        combo_discount: orderData.combo_discount || 'एक सौ रुपये',
+        combo_discount: orderData.combo_discount || 'एक सौ रुपये की छूट',
         customer_type: determinedPurpose === 'OLD_CUSTOMER_FEEDBACK' ? 'OLD_CUSTOMER' : 'NEW_CUSTOMER',
         call_purpose: determinedPurpose,
         is_rto: isRtoOrder ? 'true' : 'false',
-        discount_value: orderData.discount_value || 'पचास रुपये की छूट',
+        discount_value: orderData.discount_value || 'पचास रुपये की विशेष छूट',
         coupon_code: orderData.coupon_code || 'AMPARO50'
       };
 
