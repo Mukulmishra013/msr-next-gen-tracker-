@@ -611,7 +611,7 @@ Dhanyawad!
             <span className="text-[10px] font-bold text-blue-300 uppercase tracking-wider">Confirmed</span>
             <CheckCircle2 className="w-4 h-4 text-blue-400" />
           </div>
-          <p className="text-xl font-black text-white mt-1">{confirmedCalls + rtoSavedCalls}</p>
+          <p className="text-xl font-black text-white mt-1">{confirmedCalls}</p>
           <p className="text-[10px] text-blue-300 font-semibold mt-0.5">Dispatched</p>
         </div>
       </div>
@@ -835,7 +835,7 @@ Dhanyawad!
                   { id: 'pending', label: `⏳ Pending (${pendingCount})` },
                   { id: 'old_customers', label: `🌿 Old Customers (${oldCustomersCount})` },
                   { id: 'ai_history', label: `🎧 AI Logs & Audio (${aiCallsCount})` },
-                  { id: 'ai_confirmed', label: `🟢 Confirmed (${confirmedCalls + rtoSavedCalls})` },
+                  { id: 'ai_confirmed', label: `🟢 Confirmed (${confirmedCalls})` },
                   { id: 'ai_fake_cancelled', label: `🔴 Cancelled (${fakeCancelledCount})` }
                 ].map((tab) => (
                   <button
