@@ -62,12 +62,14 @@ export function ContentCallingDashboard({ onOpenChat }) {
   const [csvLoading, setCsvLoading] = useState(false);
   const [importStatus, setImportStatus] = useState('');
 
-  // AI Calling States
+  // AI Calling States & Direct Dial Modal
   const [callingOrderId, setCallingOrderId] = useState(null);
   const [isBatchCalling, setIsBatchCalling] = useState(false);
   const [selectedAudioCall, setSelectedAudioCall] = useState(null);
   const [selectedTranscriptCall, setSelectedTranscriptCall] = useState(null);
   const [aiCallMessage, setAiCallMessage] = useState('');
+  const [aiModalOrder, setAiModalOrder] = useState(null);
+  const [aiModalPhone, setAiModalPhone] = useState('');
 
   // Stats & Performance
   const userIncentives = incentives.filter((i) => i.user_id === currentUser.id);
@@ -91,18 +93,42 @@ export function ContentCallingDashboard({ onOpenChat }) {
     return true;
   });
 
-  // 1-Click Single AI Call Trigger
-  const handleTriggerSingleAiCall = async (call) => {
+  // Handle Maya AI Call Click
+  const handleAiCallButtonClick = (call) => {
+    const cleanDigits = String(call.phone || '').replace(/\D/g, '');
+    const isMasked = cleanDigits.length < 10 || String(call.phone || '').includes('xxx');
+
+    if (isMasked) {
+      setAiModalOrder(call);
+      setAiModalPhone('');
+    } else {
+      executeAiCall(call, call.phone);
+    }
+  };
+
+  // Execute Maya AI Phone Call
+  const executeAiCall = async (call, phoneToUse) => {
+    const cleanDigits = String(phoneToUse || '').replace(/\D/g, '').slice(-10);
+    if (cleanDigits.length < 10) {
+      alert('Kripya valid 10-digit mobile number enter karein.');
+      return;
+    }
+
+    const formattedPhone = `+91${cleanDigits}`;
     setCallingOrderId(call.id || call.shopify_order_id);
     setAiCallMessage('');
+
+    // Save phone to DB
+    await updateCallPhone(call.id, cleanDigits);
+
     try {
       const res = await triggerAiCall({
         id: call.id,
         shopify_order_id: call.shopify_order_id,
-        phone: call.phone,
-        customer_name: call.customer_name,
-        product_name: call.product,
-        order_amount: call.amount,
+        phone: formattedPhone,
+        customer_name: call.customer_name || 'Customer',
+        product_name: call.product || 'Amparo Shilajit Gummies',
+        order_amount: call.amount || 449,
         delivery_address: call.notes || 'India',
         delivery_timeline: 'तीन से पाँच दिन',
         combo_product: 'Smilika SPF 50 Sunscreen',
@@ -112,8 +138,9 @@ export function ContentCallingDashboard({ onOpenChat }) {
         coupon_code: 'AMPARO50'
       });
 
-      setAiCallMessage(`✅ Maya is calling ${call.customer_name} (${call.phone})...`);
-      setTimeout(() => setAiCallMessage(''), 4000);
+      setAiModalOrder(null);
+      setAiCallMessage(`✅ Maya AI call initiated for ${call.customer_name} (${formattedPhone})!`);
+      setTimeout(() => setAiCallMessage(''), 5000);
     } catch (err) {
       alert(`AI Call Error: ${err.message}`);
     } finally {
@@ -203,7 +230,7 @@ Dhanyawad!
     setEditingPhoneId(null);
   };
 
-  // WhatsApp Web Direct (PC/Laptop)
+  // 1. WhatsApp Web Direct (PC/Laptop)
   const handleOpenWhatsAppWeb = async () => {
     const cleanDigits = targetPhone.replace(/\D/g, '').slice(-10);
     if (!cleanDigits || cleanDigits.length < 10) {
@@ -221,7 +248,7 @@ Dhanyawad!
     window.open(url, '_blank', 'noopener,noreferrer');
   };
 
-  // WhatsApp Mobile App
+  // 2. WhatsApp Mobile App
   const handleOpenWhatsAppApp = async () => {
     const cleanDigits = targetPhone.replace(/\D/g, '').slice(-10);
     if (!cleanDigits || cleanDigits.length < 10) {
@@ -305,121 +332,115 @@ Dhanyawad!
   return (
     <div className="space-y-5 pb-20">
       
-      {/* Top Telecaller & AI Header */}
-      <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-slate-900 via-emerald-950/40 to-slate-900 border border-emerald-500/30 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      {/* Top Telecaller Header & Action Buttons */}
+      <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-slate-900 via-purple-950/40 to-slate-900 border border-purple-500/30 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
-            <span className="text-xl">🤖</span>
+            <Bot className="w-5 h-5 text-purple-400 animate-pulse" />
             <h2 className="text-base sm:text-lg font-black text-white">Maya AI Voice Calling & Telecaller Center</h2>
-            <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px] font-black px-2 py-0.5 rounded-full flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-              Bolna.ai Live
-            </span>
           </div>
           <p className="text-xs text-slate-300">
-            Assigned: <strong className="text-emerald-400">{currentUser.name}</strong> — Auto-COD Confirmation, RTO Prevention & Recordings.
+            Assigned: <strong className="text-emerald-400">{currentUser.name}</strong> — Autonomous AI Calling (Bolna.ai), Audio Transcripts & NDR Rescue.
           </p>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
-          {/* ⚡ Batch Auto-Dialer Button */}
+          
+          {/* ⚡ Batch Auto-Dial All Pending Orders Button */}
           <button
             onClick={handleTriggerBatchAiCalls}
             disabled={isBatchCalling}
-            className={`tap-target px-4 py-2 rounded-xl text-white font-extrabold text-xs flex items-center gap-1.5 shadow-lg transition active:scale-95 ${
-              isBatchCalling
-                ? 'bg-amber-600 cursor-wait'
-                : 'bg-gradient-to-r from-purple-600 via-indigo-600 to-emerald-600 hover:from-purple-500 hover:to-emerald-500 shadow-purple-600/30'
-            }`}
+            className="tap-target px-4 py-2 rounded-xl bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black text-xs flex items-center gap-1.5 shadow-lg shadow-purple-600/30 transition active:scale-95 disabled:opacity-50"
           >
-            <Zap className={`w-4 h-4 text-yellow-300 ${isBatchCalling ? 'animate-spin' : 'animate-bounce-subtle'}`} />
-            <span>{isBatchCalling ? 'Auto-Calling in Progress...' : `⚡ Auto-Dial All Pending (${pendingCount})`}</span>
+            <Zap className="w-4 h-4 text-yellow-300 animate-bounce-subtle" />
+            <span>{isBatchCalling ? 'Batch Calling in Progress...' : '⚡ Auto-Dial All Pending Orders'}</span>
           </button>
 
-          {/* 1-Click Import CSV Button */}
+          {/* 📁 Import CSV Button */}
           <button
             onClick={() => setShowImportModal(true)}
-            className="tap-target px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold flex items-center gap-1.5 transition active:scale-95"
+            className="tap-target px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-extrabold text-xs flex items-center gap-1.5 transition active:scale-95"
           >
-            <Upload className="w-3.5 h-3.5 text-emerald-400" />
-            <span>📁 Import CSV</span>
+            <Upload className="w-4 h-4 text-emerald-400" />
+            <span>Import CSV</span>
           </button>
 
+          {/* 📖 SOP Guide Button */}
           <button
             onClick={() => setShowSopModal(true)}
-            className="tap-target px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-purple-300 border border-purple-500/40 text-xs font-bold flex items-center gap-1.5 transition active:scale-95"
+            className="tap-target px-3.5 py-2 rounded-xl bg-purple-950/80 hover:bg-purple-900 border border-purple-500/40 text-purple-300 font-extrabold text-xs flex items-center gap-1.5 transition active:scale-95"
           >
-            <BookOpen className="w-3.5 h-3.5 text-purple-400" />
-            <span>📖 SOP Scripts</span>
+            <BookOpen className="w-4 h-4" />
+            <span>SOP Scripts</span>
           </button>
         </div>
       </div>
 
-      {/* Floating Status Notification */}
+      {/* AI Call Feedback Alert Bar */}
       {aiCallMessage && (
-        <div className="p-3 rounded-xl bg-emerald-950/90 border border-emerald-500 text-xs font-bold text-emerald-200 flex items-center gap-2 shadow-lg animate-fade-in">
-          <Bot className="w-4 h-4 text-emerald-400 animate-bounce-subtle" />
+        <div className="p-3.5 rounded-2xl bg-purple-950/80 border border-purple-500/60 text-purple-200 text-xs font-bold flex items-center gap-2 shadow-lg shadow-purple-950/40 animate-scale-up">
+          <Bot className="w-4 h-4 text-yellow-300 animate-spin" />
           <span>{aiCallMessage}</span>
         </div>
       )}
 
-      {/* Live Caller & AI KPI Stats */}
+      {/* Live Caller KPI Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-        <div className="glass-card p-3.5 rounded-2xl border border-emerald-500/40 bg-gradient-to-br from-emerald-950/50 to-slate-900">
+        <div className="glass-card p-4 rounded-2xl border border-purple-500/40 bg-gradient-to-br from-purple-950/50 to-slate-900">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold text-emerald-300 uppercase tracking-wider">Live Incentive</span>
-            <Flame className="w-3.5 h-3.5 text-emerald-400 animate-bounce-subtle" />
+            <span className="text-[11px] font-bold text-purple-300 uppercase tracking-wider">Maya AI Calls</span>
+            <Bot className="w-4 h-4 text-purple-400" />
           </div>
-          <p className="text-xl font-black text-white mt-1">₹{totalIncentive.toLocaleString('en-IN')}</p>
+          <p className="text-xl sm:text-2xl font-black text-white mt-1">{aiCallsCount}</p>
+          <p className="text-[10px] text-purple-300 font-semibold mt-0.5">Autonomous Bolna.ai calls</p>
+        </div>
+
+        <div className="glass-card p-4 rounded-2xl border border-emerald-500/40 bg-gradient-to-br from-emerald-950/50 to-slate-900">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-emerald-300 uppercase tracking-wider">Live Incentive</span>
+            <Flame className="w-4 h-4 text-emerald-400 animate-bounce-subtle" />
+          </div>
+          <p className="text-xl sm:text-2xl font-black text-white mt-1">₹{totalIncentive.toLocaleString('en-IN')}</p>
           <p className="text-[10px] text-emerald-400 font-semibold mt-0.5">+₹50 per RTO saved</p>
         </div>
 
-        <div className="glass-card p-3.5 rounded-2xl border border-purple-500/40 bg-gradient-to-br from-purple-950/50 to-slate-900">
+        <div className="glass-card p-4 rounded-2xl border border-red-500/40 bg-gradient-to-br from-red-950/50 to-slate-900">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold text-purple-300 uppercase tracking-wider">🤖 AI Calls</span>
-            <Bot className="w-3.5 h-3.5 text-purple-400" />
+            <span className="text-[11px] font-bold text-red-300 uppercase tracking-wider">Urgent RTOs</span>
+            <AlertCircle className="w-4 h-4 text-red-400 animate-pulse" />
           </div>
-          <p className="text-xl font-black text-white mt-1">{aiCallsCount}</p>
-          <p className="text-[10px] text-purple-300 font-semibold mt-0.5">Maya autonomous calls</p>
+          <p className="text-xl sm:text-2xl font-black text-white mt-1">{urgentCount}</p>
+          <p className="text-[10px] text-red-300 font-semibold mt-0.5">High return risk</p>
         </div>
 
-        <div className="glass-card p-3.5 rounded-2xl border border-red-500/40 bg-gradient-to-br from-red-950/50 to-slate-900">
+        <div className="glass-card p-4 rounded-2xl border border-amber-500/40 bg-gradient-to-br from-amber-950/50 to-slate-900">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold text-red-300 uppercase tracking-wider">Urgent RTOs</span>
-            <AlertCircle className="w-3.5 h-3.5 text-red-400 animate-pulse" />
+            <span className="text-[11px] font-bold text-amber-300 uppercase tracking-wider">Pending Calls</span>
+            <Clock className="w-4 h-4 text-amber-400" />
           </div>
-          <p className="text-xl font-black text-white mt-1">{urgentCount}</p>
-          <p className="text-[10px] text-red-300 font-semibold mt-0.5">High risk orders</p>
+          <p className="text-xl sm:text-2xl font-black text-white mt-1">{pendingCount}</p>
+          <p className="text-[10px] text-amber-300 font-semibold mt-0.5">Awaiting verification</p>
         </div>
 
-        <div className="glass-card p-3.5 rounded-2xl border border-amber-500/40 bg-gradient-to-br from-amber-950/50 to-slate-900">
+        <div className="glass-card p-4 rounded-2xl border border-blue-500/40 bg-gradient-to-br from-blue-950/50 to-slate-900">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold text-amber-300 uppercase tracking-wider">Pending Calls</span>
-            <Clock className="w-3.5 h-3.5 text-amber-400" />
+            <span className="text-[11px] font-bold text-blue-300 uppercase tracking-wider">Confirmed</span>
+            <CheckCircle2 className="w-4 h-4 text-blue-400" />
           </div>
-          <p className="text-xl font-black text-white mt-1">{pendingCount}</p>
-          <p className="text-[10px] text-amber-300 font-semibold mt-0.5">Ready to auto-dial</p>
-        </div>
-
-        <div className="glass-card p-3.5 rounded-2xl border border-blue-500/40 bg-gradient-to-br from-blue-950/50 to-slate-900 col-span-2 sm:col-span-1">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold text-blue-300 uppercase tracking-wider">Confirmed</span>
-            <CheckCircle2 className="w-3.5 h-3.5 text-blue-400" />
-          </div>
-          <p className="text-xl font-black text-white mt-1">{confirmedCalls + rtoSavedCalls}</p>
+          <p className="text-xl sm:text-2xl font-black text-white mt-1">{confirmedCalls + rtoSavedCalls}</p>
           <p className="text-[10px] text-blue-300 font-semibold mt-0.5">{rtoSavedCalls} RTOs Rescued</p>
         </div>
       </div>
 
-      {/* Customer Calling Queue */}
+      {/* Customer Calling Queue with Maya AI & Audio/Transcript Actions */}
       <div className="glass-card rounded-2xl border border-slate-800 p-4 sm:p-5 space-y-4">
         
         {/* Filter Tabs */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
           <div>
             <h3 className="font-extrabold text-base text-white flex items-center gap-2">
-              <PhoneCall className="w-4 h-4 text-emerald-400" />
-              <span>Live Order & Calling Feed ({amparoCalls.length})</span>
+              <PhoneCall className="w-4 h-4 text-purple-400" />
+              <span>Customer Calling Queue ({amparoCalls.length} Real Orders)</span>
             </h3>
             <p className="text-xs text-slate-400">1-Click Maya AI Calling, Recording Player & Shopify Sync</p>
           </div>
@@ -437,7 +458,7 @@ Dhanyawad!
                 onClick={() => setActiveCallTab(tab.id)}
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition ${
                   activeCallTab === tab.id
-                    ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/20'
+                    ? 'bg-purple-600 text-white shadow-md shadow-purple-600/20'
                     : 'bg-slate-900 text-slate-400 hover:text-slate-200'
                 }`}
               >
@@ -456,7 +477,8 @@ Dhanyawad!
             </div>
           ) : (
             filteredCalls.map((call) => {
-              const isMasked = !call.phone || call.phone.includes('xxxx') || call.phone === '+91' || call.phone === '91';
+              const cleanDigits = String(call.phone || '').replace(/\D/g, '');
+              const isMasked = cleanDigits.length < 10 || String(call.phone || '').includes('xxx');
               const displayPhone = isMasked ? 'Enter Mobile' : call.phone;
               const isCallingThis = callingOrderId === (call.id || call.shopify_order_id);
 
@@ -558,33 +580,27 @@ Dhanyawad!
                         <p className="text-xs text-slate-300 font-medium truncate max-w-xs">{call.product}</p>
                       </div>
 
-                      {/* Notes & Transcript snippet */}
-                      <div className="flex items-center gap-3 text-[11px] text-slate-400 flex-wrap">
-                        <span>{call.notes}</span>
-                        {call.call_duration_seconds > 0 && (
-                          <span className="text-emerald-400 font-mono">⏱️ {call.call_duration_seconds}s call</span>
-                        )}
-                        {call.cancellation_reason && (
-                          <span className="text-red-400 font-semibold">⚠️ Reason: {call.cancellation_reason}</span>
-                        )}
+                      {/* AI Conversation Snippet / Notes */}
+                      <div className="flex items-center gap-2">
+                        <p className="text-[11px] text-slate-400 truncate max-w-md">
+                          {call.ai_summary ? `🤖 Maya: "${call.ai_summary}"` : call.notes}
+                        </p>
                       </div>
                     </div>
 
                     {/* Action Buttons Matrix */}
                     <div className="flex items-center gap-2 flex-wrap">
                       
-                      {/* 🤖 Trigger Maya AI Call Button */}
+                      {/* 🤖 Trigger Maya AI Call Button (Always Clickable) */}
                       <button
-                        onClick={() => handleTriggerSingleAiCall(call)}
-                        disabled={isCallingThis || isMasked}
+                        onClick={() => handleAiCallButtonClick(call)}
+                        disabled={isCallingThis}
                         className={`tap-target px-3.5 py-2 rounded-xl text-white font-extrabold text-xs flex items-center gap-1.5 shadow-md transition active:scale-95 ${
                           isCallingThis
                             ? 'bg-purple-700 cursor-wait animate-pulse'
-                            : isMasked
-                            ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
                             : 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 shadow-purple-600/30'
                         }`}
-                        title={isMasked ? 'Pehle phone number enter karein' : 'Maya AI se direct call lagayein'}
+                        title="Maya AI se direct call lagayein"
                       >
                         <Bot className={`w-3.5 h-3.5 text-yellow-300 ${isCallingThis ? 'animate-spin' : ''}`} />
                         <span>{isCallingThis ? 'Calling...' : 'Maya AI Call'}</span>
@@ -606,47 +622,54 @@ Dhanyawad!
                       {call.transcript && (
                         <button
                           onClick={() => setSelectedTranscriptCall(call)}
-                          className="tap-target px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold text-xs flex items-center gap-1 transition active:scale-95"
-                          title="Read Conversation Transcript"
+                          className="tap-target px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs flex items-center gap-1 transition active:scale-95"
+                          title="Read Full Dialogue Transcript"
                         >
-                          <FileText className="w-3.5 h-3.5 text-slate-400" />
+                          <FileText className="w-3.5 h-3.5 text-purple-400" />
                           <span>Transcript</span>
                         </button>
                       )}
 
-                      {/* Direct Manual Phone Call */}
+                      {/* Manual Phone Call Link */}
                       <a
                         href={`tel:${call.phone}`}
-                        className="tap-target p-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs flex items-center shadow-md shadow-emerald-600/30 transition active:scale-95"
-                        title="Manual Call from Phone"
+                        className="tap-target px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs flex items-center gap-1 transition active:scale-95"
                       >
-                        <PhoneCall className="w-3.5 h-3.5" />
+                        <PhoneCall className="w-3.5 h-3.5 text-slate-400" />
+                        <span>Manual</span>
                       </a>
 
                       {/* AI WhatsApp Trigger */}
                       <button
                         onClick={() => handleOpenWhatsappModal(call)}
-                        className="tap-target p-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-black text-xs flex items-center shadow-md transition active:scale-95"
-                        title="Send WhatsApp Message"
+                        className="tap-target px-3.5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-xs flex items-center gap-1.5 shadow-md shadow-emerald-600/30 transition active:scale-95"
                       >
-                        <MessageSquare className="w-3.5 h-3.5" />
+                        <MessageSquare className="w-3.5 h-3.5 text-yellow-300" />
+                        <span>WhatsApp ➔</span>
                       </button>
 
-                      {/* Manual Confirm & Cancel */}
                       <button
                         onClick={() => updateCallStatus(call.id, 'confirmed')}
-                        className="tap-target p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-slate-700 text-xs font-bold transition active:scale-95"
-                        title="Mark Confirmed"
+                        className="tap-target px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold flex items-center gap-1 transition active:scale-95"
                       >
-                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>Confirm</span>
+                      </button>
+
+                      <button
+                        onClick={() => updateCallStatus(call.id, 'rto_saved')}
+                        className="tap-target px-3 py-2 rounded-xl bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-500/40 text-emerald-300 text-xs font-bold flex items-center gap-1 transition active:scale-95"
+                      >
+                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>RTO Saved (+₹50)</span>
                       </button>
 
                       <button
                         onClick={() => updateCallStatus(call.id, 'rto_lost')}
-                        className="tap-target p-2 rounded-xl bg-slate-800 hover:bg-red-950 text-red-400 border border-slate-700 text-xs font-bold transition active:scale-95"
-                        title="Mark Cancelled / Fake"
+                        className="tap-target px-3 py-2 rounded-xl bg-red-950/60 hover:bg-red-900 border border-red-500/40 text-red-300 text-xs font-bold flex items-center gap-1 transition active:scale-95"
                       >
-                        <XCircle className="w-3.5 h-3.5" />
+                        <XCircle className="w-3.5 h-3.5 text-red-400" />
+                        <span>Cancel</span>
                       </button>
                     </div>
 
@@ -659,17 +682,75 @@ Dhanyawad!
 
       </div>
 
-      {/* 🎧 Audio Recording Modal */}
-      {selectedAudioCall && (
-        <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-slate-900 border border-emerald-500/50 rounded-3xl p-6 shadow-2xl space-y-4 animate-scale-up">
+      {/* Maya AI Direct Dial Modal (If Phone Missing or Confirming) */}
+      {aiModalOrder && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-slate-900 border border-purple-500/60 rounded-3xl p-6 shadow-2xl space-y-4 animate-scale-up">
             
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <div className="flex items-center gap-2">
-                <Volume2 className="w-5 h-5 text-emerald-400 animate-bounce-subtle" />
+                <Bot className="w-5 h-5 text-purple-400 animate-pulse" />
                 <div>
-                  <h3 className="font-extrabold text-base text-white">Call Recording Player</h3>
-                  <p className="text-[10px] text-slate-400">{selectedAudioCall.customer_name} ({selectedAudioCall.phone})</p>
+                  <h3 className="font-extrabold text-base text-white">Maya AI Voice Calling</h3>
+                  <p className="text-[10px] text-slate-400">Order: {aiModalOrder.customer_name} ({aiModalOrder.shopify_order_id})</p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setAiModalOrder(null)}
+                className="p-1.5 rounded-xl bg-slate-800 text-slate-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-slate-950 border border-slate-800 space-y-2">
+              <label className="block text-xs font-bold text-slate-300">
+                Customer Mobile Number to Dial:
+              </label>
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-xs font-bold text-purple-400 bg-slate-900 px-3 py-2.5 rounded-xl border border-slate-700">
+                  +91
+                </span>
+                <input
+                  type="tel"
+                  autoFocus
+                  maxLength={10}
+                  value={aiModalPhone}
+                  onChange={(e) => setAiModalPhone(e.target.value.replace(/\D/g, ''))}
+                  placeholder="Enter 10-digit mobile number"
+                  className="flex-1 bg-slate-900 border border-purple-500/50 rounded-xl px-3 py-2 text-sm font-mono font-bold text-white placeholder-slate-500 focus:outline-none focus:border-purple-400"
+                />
+              </div>
+              <p className="text-[10px] text-slate-400">
+                Product: {aiModalOrder.product} (COD: ₹{aiModalOrder.amount})
+              </p>
+            </div>
+
+            <button
+              onClick={() => executeAiCall(aiModalOrder, aiModalPhone)}
+              disabled={callingOrderId !== null || aiModalPhone.length < 10}
+              className="tap-target w-full py-3 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-extrabold text-xs flex items-center justify-center gap-2 shadow-lg shadow-purple-600/30 transition active:scale-95 disabled:opacity-50"
+            >
+              <Bot className="w-4 h-4 text-yellow-300" />
+              <span>{callingOrderId ? 'Calling In Progress...' : '🚀 Start Maya AI Voice Call Now'}</span>
+            </button>
+
+          </div>
+        </div>
+      )}
+
+      {/* 🎧 In-App Audio Recording Player Modal */}
+      {selectedAudioCall && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="w-full max-w-lg bg-slate-900 border border-slate-700/80 rounded-3xl p-6 shadow-2xl space-y-4 animate-scale-up">
+            
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <Volume2 className="w-5 h-5 text-emerald-400" />
+                <div>
+                  <h3 className="font-extrabold text-base text-white">Maya AI Call Audio Recording</h3>
+                  <p className="text-[10px] text-slate-400">Customer: {selectedAudioCall.customer_name} ({selectedAudioCall.phone})</p>
                 </div>
               </div>
 
@@ -682,40 +763,23 @@ Dhanyawad!
             </div>
 
             <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-3 text-center">
-              <div className="space-y-1">
-                <span className="text-xs font-mono text-emerald-400 font-bold">Order ID: {selectedAudioCall.shopify_order_id}</span>
-                <p className="text-xs text-slate-300">{selectedAudioCall.product}</p>
-                {selectedAudioCall.call_duration_seconds > 0 && (
-                  <p className="text-[11px] text-slate-400">Duration: {selectedAudioCall.call_duration_seconds} seconds</p>
-                )}
-              </div>
-
-              {/* Native HTML5 Audio Player */}
+              <p className="text-xs text-slate-300">
+                Order: <strong className="text-emerald-400">{selectedAudioCall.shopify_order_id}</strong> | Product: {selectedAudioCall.product}
+              </p>
+              
               <audio
                 controls
                 autoPlay
                 src={selectedAudioCall.recording_url}
                 className="w-full rounded-xl mt-2"
               >
-                Your browser does not support audio playback.
+                Your browser does not support audio element.
               </audio>
-
-              <div className="pt-2 flex justify-center">
-                <a
-                  href={selectedAudioCall.recording_url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-xs text-emerald-400 hover:underline flex items-center gap-1"
-                >
-                  <ExternalLink className="w-3.5 h-3.5" />
-                  <span>Download / Open in New Tab</span>
-                </a>
-              </div>
             </div>
 
             <button
               onClick={() => setSelectedAudioCall(null)}
-              className="tap-target w-full rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs"
+              className="tap-target w-full rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs py-2.5"
             >
               Close Player
             </button>
@@ -724,17 +788,17 @@ Dhanyawad!
         </div>
       )}
 
-      {/* 📜 Conversation Transcript Modal */}
+      {/* 📜 Full Dialogue Transcript Modal */}
       {selectedTranscriptCall && (
-        <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="w-full max-w-lg bg-slate-900 border border-purple-500/50 rounded-3xl p-6 shadow-2xl space-y-4 animate-scale-up max-h-[85vh] flex flex-col">
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="w-full max-w-xl bg-slate-900 border border-purple-500/40 rounded-3xl p-6 shadow-2xl space-y-4 animate-scale-up">
             
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <div className="flex items-center gap-2">
                 <FileText className="w-5 h-5 text-purple-400" />
                 <div>
                   <h3 className="font-extrabold text-base text-white">Maya AI Call Transcript</h3>
-                  <p className="text-[10px] text-slate-400">{selectedTranscriptCall.customer_name} ({selectedTranscriptCall.shopify_order_id})</p>
+                  <p className="text-[10px] text-slate-400">{selectedTranscriptCall.customer_name} ({selectedTranscriptCall.phone})</p>
                 </div>
               </div>
 
@@ -746,21 +810,13 @@ Dhanyawad!
               </button>
             </div>
 
-            {/* AI Decision Summary Banner */}
-            {selectedTranscriptCall.ai_summary && (
-              <div className="p-3 rounded-xl bg-purple-950/50 border border-purple-500/40 text-xs text-purple-200">
-                <strong>🤖 AI Summary:</strong> {selectedTranscriptCall.ai_summary}
-              </div>
-            )}
-
-            {/* Full Transcript Box */}
-            <div className="flex-1 overflow-y-auto p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-2 text-xs font-mono text-slate-200 whitespace-pre-wrap leading-relaxed">
-              {selectedTranscriptCall.transcript || 'Transcript available nahi hai.'}
+            <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 max-h-80 overflow-y-auto space-y-2 text-xs text-slate-200 whitespace-pre-wrap leading-relaxed font-sans">
+              {selectedTranscriptCall.transcript}
             </div>
 
             <button
               onClick={() => setSelectedTranscriptCall(null)}
-              className="tap-target w-full rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs"
+              className="tap-target w-full rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs py-2.5"
             >
               Close Transcript
             </button>
@@ -826,11 +882,12 @@ Dhanyawad!
         </div>
       )}
 
-      {/* WhatsApp Sender Modal */}
+      {/* WhatsApp Sender Modal (With Customer Number, Web Link & Mobile Link) */}
       {activeWhatsappOrder && (
         <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
           <div className="w-full max-w-lg bg-slate-900 border border-slate-700/80 rounded-3xl p-6 shadow-2xl space-y-4 animate-scale-up">
             
+            {/* Header */}
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <div className="flex items-center gap-2">
                 <MessageSquare className="w-5 h-5 text-emerald-400" />
@@ -848,6 +905,7 @@ Dhanyawad!
               </button>
             </div>
 
+            {/* Customer Phone Field (Direct 10-Digit Input) */}
             <div className="p-3.5 rounded-2xl bg-slate-950 border border-slate-800 space-y-1.5">
               <label className="block text-[11px] font-bold text-slate-300 uppercase tracking-wider flex items-center justify-between">
                 <span>Customer Mobile Number (10 Digits):</span>
@@ -878,6 +936,7 @@ Dhanyawad!
               </div>
             </div>
 
+            {/* Message Box */}
             <div>
               <label className="block text-xs font-semibold text-slate-300 mb-1 flex items-center justify-between">
                 <span>AI Sales Message (Ready to Send):</span>
@@ -899,7 +958,9 @@ Dhanyawad!
               />
             </div>
 
+            {/* Action Buttons (PC WhatsApp Web & Mobile App) */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+              {/* WhatsApp Web Button for Laptop / PC */}
               <button
                 type="button"
                 onClick={handleOpenWhatsAppWeb}
@@ -909,6 +970,7 @@ Dhanyawad!
                 <span>Open WhatsApp Web (PC) ➔</span>
               </button>
 
+              {/* WhatsApp App Button for Mobile */}
               <button
                 type="button"
                 onClick={handleOpenWhatsAppApp}
@@ -943,10 +1005,12 @@ Dhanyawad!
 
             <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-2 text-xs text-slate-200 whitespace-pre-wrap leading-relaxed">
               {`🤖 **Maya AI Voice Calling Guidelines:**
-1. **Auto-COD Confirmation:** Maya automatically checks customer name, order items, ₹449 COD amount and delivery address.
-2. **Fake Order Prevention:** If customer says "Maine order nahi kiya" or wants cancel, Maya notes the exact reason and flags "DO NOT SHIP" in the dashboard.
-3. **Cross-sell:** Confirmed customers are offered Smilika Sunscreen combo with official code AMPARO50.
-4. **Live Audio & Transcripts:** After call ends, click "Audio" or "Transcript" to inspect the call.`}
+1. **Autonomous Dialing:** Maya AI Bolna engine customer ko direct Hindi/Hinglish me natural human voice me call karegi.
+2. **Order Confirmation:** Maya customer se product (${filteredCalls[0]?.product || 'Amparo Shilajit'}) & COD amount confirm karegi.
+3. **Auto Action:**
+   • Confirm hone par ➔ Auto Dispatched & Ship Badge.
+   • Cancel / Fake hone par ➔ 🔴 Cancel (Do Not Ship) & Shopify Cancel tag.
+   • Reschedule hone par ➔ Rescheduled date logged in notes.`}
             </div>
 
             <button
