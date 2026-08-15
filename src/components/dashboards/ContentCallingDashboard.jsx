@@ -85,6 +85,43 @@ export function ContentCallingDashboard({ onOpenChat }) {
   const [aiModalPhone, setAiModalPhone] = useState('');
   const [aiModalPurpose, setAiModalPurpose] = useState('ORDER_CONFIRMATION');
 
+  // Dedicated 947+ Historical Shipments Archive States
+  const [archiveList, setArchiveList] = useState(() => {
+    try {
+      const saved = localStorage.getItem('msr_sr_archive');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return [];
+  });
+  const [isArchiveLoading, setIsArchiveLoading] = useState(false);
+  const [archiveFilter, setArchiveFilter] = useState('ALL');
+  const [archiveSearch, setArchiveSearch] = useState('');
+
+  const handleFetchArchive = async () => {
+    setIsArchiveLoading(true);
+    setAiCallMessage('⚡ Shiprocket se All 947 Historical Shipments fetch ho rahe hain...');
+    try {
+      const res = await fetch('/api/shiprocket-fetch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fetchArchive: true })
+      });
+      const data = await res.json();
+      if (data.success && data.archive) {
+        setArchiveList(data.archive);
+        localStorage.setItem('msr_sr_archive', JSON.stringify(data.archive));
+        setAiCallMessage(`✅ SUCCESS: ${data.archive.length} Historical Shipments Archive me load ho gaye!`);
+      } else {
+        throw new Error(data.message || 'Archive fetch failed');
+      }
+    } catch (err) {
+      setAiCallMessage(`❌ Archive Error: ${err.message}`);
+    } finally {
+      setIsArchiveLoading(false);
+      setTimeout(() => setAiCallMessage(''), 5000);
+    }
+  };
+
   // Stats & Performance - Anti-Fraud Delivery Verified Incentives
   const userIncentives = incentives.filter((i) => i.user_id === currentUser.id);
   const approvedIncentives = userIncentives.filter((i) => i.status === 'approved_paid' || i.paid === true);
@@ -528,13 +565,28 @@ Dhanyawad!
           <button
             onClick={() => setActiveCallTab('all')}
             className={`tap-target px-3.5 py-2 rounded-xl font-bold text-xs flex items-center gap-1.5 transition active:scale-95 ${
-              activeCallTab !== 'daily_duty'
+              activeCallTab !== 'daily_duty' && activeCallTab !== 'master_archive'
                 ? 'bg-purple-600 text-white'
                 : 'bg-slate-900 text-slate-300 hover:bg-slate-800'
             }`}
           >
             <ShoppingBag className="w-4 h-4 text-purple-400" />
-            <span>📦 All Orders Center ({amparoCalls.length})</span>
+            <span>⚡ Live Calling Queue ({amparoCalls.length})</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setActiveCallTab('master_archive');
+              if (archiveList.length === 0) handleFetchArchive();
+            }}
+            className={`tap-target px-3.5 py-2 rounded-xl font-bold text-xs flex items-center gap-1.5 transition active:scale-95 ${
+              activeCallTab === 'master_archive'
+                ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
+                : 'bg-slate-900 text-slate-300 hover:bg-slate-800'
+            }`}
+          >
+            <BookOpen className="w-4 h-4 text-blue-400" />
+            <span>📜 947+ Shiprocket Archive {archiveList.length > 0 ? `(${archiveList.length})` : ''}</span>
           </button>
 
           <button
@@ -543,7 +595,7 @@ Dhanyawad!
             className="tap-target px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700 font-extrabold text-xs flex items-center gap-1.5 transition active:scale-95"
           >
             <RefreshCw className={`w-3.5 h-3.5 text-blue-400 ${isSyncingSr ? 'animate-spin' : ''}`} />
-            <span>Sync Shiprocket</span>
+            <span>Sync Live Orders</span>
           </button>
 
           <button
@@ -1117,6 +1169,157 @@ Dhanyawad!
             )}
           </div>
 
+      {/* 📜 DEDICATED 947+ HISTORICAL SHIPMENTS ARCHIVE (100% SEPARATE FROM ACTIVE DAILY WORK) */}
+      {activeCallTab === 'master_archive' && (
+        <div className="space-y-4">
+          <div className="glass-card p-5 rounded-2xl border border-blue-500/40 bg-gradient-to-r from-blue-950/40 via-slate-900 to-slate-900 space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <BookOpen className="w-5 h-5 text-blue-400" />
+                  <h3 className="font-extrabold text-base text-white">Shiprocket Master Historical Shipments Archive</h3>
+                </div>
+                <p className="text-xs text-blue-200/80 mt-0.5">
+                  Shiprocket account ke pichle sabhi 947 shipments ka master database (Yeh data daily telecaller tasks me mix nahi hota).
+                </p>
+              </div>
+
+              <button
+                onClick={handleFetchArchive}
+                disabled={isArchiveLoading}
+                className="tap-target px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-black text-xs flex items-center gap-1.5 shadow-lg shadow-blue-600/30 transition active:scale-95"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isArchiveLoading ? 'animate-spin' : ''}`} />
+                <span>{isArchiveLoading ? 'Fetching 947 Shipments...' : 'Refresh Full 947 Archive'}</span>
+              </button>
+            </div>
+
+            {/* Archive Search & Filters */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-2 border-t border-slate-800">
+              <input
+                type="text"
+                value={archiveSearch}
+                onChange={(e) => setArchiveSearch(e.target.value)}
+                placeholder="Search AWB, Order ID, Product..."
+                className="w-full sm:w-72 bg-slate-950 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-blue-500"
+              />
+
+              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+                {[
+                  { id: 'ALL', label: `All (${archiveList.length})` },
+                  { id: 'DELIVERED', label: `Delivered (${archiveList.filter(s => String(s.status).toUpperCase().includes('DELIVERED') && !String(s.status).toUpperCase().includes('RTO')).length})` },
+                  { id: 'RTO DELIVERED', label: `RTO Returned (${archiveList.filter(s => String(s.status).toUpperCase().includes('RTO')).length})` },
+                  { id: 'PENDING', label: `Pending (${archiveList.filter(s => String(s.status).toUpperCase().includes('PENDING')).length})` },
+                  { id: 'CANCELED', label: `Cancelled (${archiveList.filter(s => String(s.status).toUpperCase().includes('CANCEL')).length})` }
+                ].map((f) => (
+                  <button
+                    key={f.id}
+                    onClick={() => setArchiveFilter(f.id)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition ${
+                      archiveFilter === f.id
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-slate-950 text-slate-400 hover:text-slate-200 border border-slate-800'
+                    }`}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Archive Records Table / List */}
+          <div className="glass-card rounded-2xl border border-slate-800 overflow-hidden">
+            {archiveList.length === 0 ? (
+              <div className="p-12 text-center space-y-3">
+                <BookOpen className="w-10 h-10 text-slate-600 mx-auto animate-bounce-subtle" />
+                <p className="text-sm font-bold text-slate-300">Historical Shipments Archive Abhi Load Nahi Hua Hai</p>
+                <button
+                  onClick={handleFetchArchive}
+                  disabled={isArchiveLoading}
+                  className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-black text-xs inline-flex items-center gap-2 shadow-lg shadow-blue-600/30"
+                >
+                  <RefreshCw className={`w-4 h-4 ${isArchiveLoading ? 'animate-spin' : ''}`} />
+                  <span>Fetch All 947 Shiprocket Shipments</span>
+                </button>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-950 text-slate-400 font-semibold border-b border-slate-800 text-[10px] uppercase">
+                    <tr>
+                      <th className="p-3">#</th>
+                      <th className="p-3">Date</th>
+                      <th className="p-3">Order ID</th>
+                      <th className="p-3">AWB Tracking</th>
+                      <th className="p-3">Product</th>
+                      <th className="p-3">Courier</th>
+                      <th className="p-3">Shipment Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/60 font-mono">
+                    {archiveList
+                      .filter((s) => {
+                        if (archiveFilter !== 'ALL') {
+                          const st = String(s.status).toUpperCase();
+                          if (archiveFilter === 'DELIVERED') {
+                            if (!st.includes('DELIVERED') || st.includes('RTO')) return false;
+                          } else if (archiveFilter === 'RTO DELIVERED') {
+                            if (!st.includes('RTO')) return false;
+                          } else if (archiveFilter === 'PENDING') {
+                            if (!st.includes('PENDING')) return false;
+                          } else if (archiveFilter === 'CANCELED') {
+                            if (!st.includes('CANCEL')) return false;
+                          }
+                        }
+                        if (archiveSearch.trim()) {
+                          const q = archiveSearch.toLowerCase();
+                          const matchAwb = String(s.awb || '').toLowerCase().includes(q);
+                          const matchOrd = String(s.order_id || '').toLowerCase().includes(q);
+                          const matchProd = String(s.product || '').toLowerCase().includes(q);
+                          const matchSt = String(s.status || '').toLowerCase().includes(q);
+                          if (!matchAwb && !matchOrd && !matchProd && !matchSt) return false;
+                        }
+                        return true;
+                      })
+                      .slice(0, 150)
+                      .map((s, idx) => {
+                        const stUpper = String(s.status || '').toUpperCase();
+                        const isDel = stUpper.includes('DELIVERED') && !stUpper.includes('RTO');
+                        const isRto = stUpper.includes('RTO');
+                        const isCanc = stUpper.includes('CANCEL');
+
+                        return (
+                          <tr key={s.id || idx} className="hover:bg-slate-800/40 transition text-slate-300">
+                            <td className="p-3 text-slate-500 font-sans">{idx + 1}</td>
+                            <td className="p-3 text-[11px] text-slate-400 font-sans">{s.created_at || 'Past Order'}</td>
+                            <td className="p-3 font-bold text-white">#{s.order_id}</td>
+                            <td className="p-3 text-blue-400 font-bold">{s.awb || 'N/A'}</td>
+                            <td className="p-3 font-sans text-slate-200 max-w-[200px] truncate">{s.product}</td>
+                            <td className="p-3 text-slate-400 font-sans">{s.courier || 'Shiprocket'}</td>
+                            <td className="p-3">
+                              <span
+                                className={`px-2 py-0.5 rounded-full font-bold text-[10px] inline-flex items-center gap-1 font-sans ${
+                                  isDel
+                                    ? 'bg-emerald-950 text-emerald-300 border border-emerald-500/40'
+                                    : isRto
+                                    ? 'bg-red-950 text-red-300 border border-red-500/40'
+                                    : isCanc
+                                    ? 'bg-slate-800 text-slate-400'
+                                    : 'bg-amber-950 text-amber-300 border border-amber-500/40'
+                                }`}
+                              >
+                                {s.status}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
