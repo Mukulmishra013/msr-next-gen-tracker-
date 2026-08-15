@@ -1,4 +1,4 @@
-// Netlify Serverless Function: Trigger Autonomous AI Voice Calls via Bolna.ai
+// Netlify Serverless Function: Trigger Autonomous AI Voice Calls via Bolna.ai with RTO & Order Confirmation Routing
 // Endpoint: https://msrnext.netlify.app/api/bolna-call
 
 import { createClient } from '@supabase/supabase-js';
@@ -45,7 +45,9 @@ export default async (req) => {
       customer_type,
       discount_value,
       coupon_code,
-      batch_orders // Optional array of orders for batch calling
+      call_purpose, // 'RTO_RESCUE' | 'ORDER_CONFIRMATION' | 'OLD_CUSTOMER_FEEDBACK'
+      is_rto,
+      batch_orders
     } = body;
 
     // Helper to format phone number to E.164 (+91XXXXXXXXXX)
@@ -65,17 +67,29 @@ export default async (req) => {
         throw new Error(`Invalid phone number: ${orderData.phone}`);
       }
 
-      // Map prompt variables for Maya
+      const cleanName = (orderData.customer_name && orderData.customer_name !== 'Verified Buyer') 
+        ? orderData.customer_name 
+        : 'Customer';
+
+      const isRtoOrder = orderData.urgent_rto || orderData.is_rto || orderData.call_purpose === 'RTO_RESCUE' || orderData.call_type === 'RTO Rescue';
+      const isOldCustomer = orderData.customer_type === 'OLD_CUSTOMER' || orderData.status === 'confirmed';
+      const determinedPurpose = isRtoOrder ? 'RTO_RESCUE' : (isOldCustomer ? 'OLD_CUSTOMER_FEEDBACK' : 'ORDER_CONFIRMATION');
+
       const userData = {
-        customer_name: orderData.customer_name || 'Customer',
+        customer_name: cleanName,
+        name: cleanName,
         order_id: String(orderData.shopify_order_id || orderData.order_id || 'AMPARO-ORDER'),
-        product_name: orderData.product_name || orderData.product || 'Amparo Pure Shilajit Gummies',
+        product_name: orderData.product_name || orderData.product || 'Amparo Shilajit Gummies',
+        product: orderData.product_name || orderData.product || 'Amparo Shilajit Gummies',
         order_amount: String(orderData.order_amount || orderData.amount || '449'),
-        delivery_address: orderData.delivery_address || orderData.city || 'India',
+        amount: String(orderData.order_amount || orderData.amount || '449'),
+        delivery_address: orderData.delivery_address || orderData.city || orderData.notes || 'India',
         delivery_timeline: orderData.delivery_timeline || 'तीन से पाँच दिन',
         combo_product: orderData.combo_product || 'Smilika SPF 50 Sunscreen',
         combo_discount: orderData.combo_discount || 'एक सौ रुपये',
-        customer_type: orderData.customer_type || 'NEW_CUSTOMER',
+        customer_type: determinedPurpose === 'OLD_CUSTOMER_FEEDBACK' ? 'OLD_CUSTOMER' : 'NEW_CUSTOMER',
+        call_purpose: determinedPurpose,
+        is_rto: isRtoOrder ? 'true' : 'false',
         discount_value: orderData.discount_value || 'पचास रुपये की छूट',
         coupon_code: orderData.coupon_code || 'AMPARO50'
       };
@@ -83,7 +97,8 @@ export default async (req) => {
       const bolnaPayload = {
         agent_id: BOLNA_AGENT_ID,
         recipient_phone_number: recipientPhone,
-        user_data: userData
+        user_data: userData,
+        recipient_data: userData
       };
 
       const bolnaRes = await fetch('https://api.bolna.ai/call', {
@@ -103,28 +118,40 @@ export default async (req) => {
 
       const executionId = bolnaResult.execution_id || bolnaResult.call_id || bolnaResult.id || null;
 
-      // Update Supabase amparo_calls record
-      if (orderData.id || orderData.shopify_order_id) {
-        const query = orderData.id 
-          ? supabase.from('amparo_calls').update({
-              status: 'calling_in_progress',
-              call_source: 'ai_agent',
-              bolna_call_id: executionId,
-              notes: `🤖 Maya AI Call Initiated (ID: ${executionId || 'pending'}) at ${new Date().toLocaleTimeString('en-IN')}`
-            }).eq('id', orderData.id)
-          : supabase.from('amparo_calls').update({
-              status: 'calling_in_progress',
-              call_source: 'ai_agent',
-              bolna_call_id: executionId,
-              notes: `🤖 Maya AI Call Initiated (ID: ${executionId || 'pending'}) at ${new Date().toLocaleTimeString('en-IN')}`
-            }).eq('shopify_order_id', orderData.shopify_order_id);
+      // Meta payload stored safely in notes column
+      const callMeta = {
+        bolna_call_id: executionId,
+        call_purpose: determinedPurpose,
+        is_rto: isRtoOrder,
+        call_source: 'ai_agent',
+        status: 'calling_in_progress',
+        initiated_at: new Date().toISOString(),
+        customer_name: cleanName,
+        phone: recipientPhone
+      };
 
-        await query;
+      const notesContent = `[AI_LOG]${JSON.stringify(callMeta)}[/AI_LOG]`;
+
+      if (orderData.id || orderData.shopify_order_id) {
+        if (orderData.id) {
+          await supabase.from('amparo_calls').update({
+            status: 'calling_in_progress',
+            phone: recipientPhone,
+            notes: notesContent
+          }).eq('id', orderData.id);
+        } else {
+          await supabase.from('amparo_calls').update({
+            status: 'calling_in_progress',
+            phone: recipientPhone,
+            notes: notesContent
+          }).eq('shopify_order_id', orderData.shopify_order_id);
+        }
       }
 
       return {
         phone: recipientPhone,
         execution_id: executionId,
+        call_purpose: determinedPurpose,
         status: 'calling_in_progress',
         details: bolnaResult
       };
@@ -171,7 +198,11 @@ export default async (req) => {
       combo_discount,
       customer_type,
       discount_value,
-      coupon_code
+      coupon_code,
+      call_purpose,
+      is_rto,
+      call_type: body.call_type,
+      urgent_rto: body.urgent_rto
     });
 
     return new Response(JSON.stringify({

@@ -71,7 +71,29 @@ export function AppDataProvider({ children }) {
         ]);
 
         if (callsRes.data && callsRes.data.length > 0) {
-          setAmparoCalls(callsRes.data);
+          const parsedCalls = callsRes.data.map((c) => {
+            let meta = {};
+            if (c.notes && c.notes.includes('[AI_LOG]')) {
+              try {
+                const match = c.notes.match(/\[AI_LOG\](.*?)\[\/AI_LOG\]/s);
+                if (match && match[1]) {
+                  meta = JSON.parse(match[1]);
+                }
+              } catch (e) {}
+            }
+            return {
+              ...c,
+              recording_url: meta.recording_url || c.recording_url || null,
+              transcript: meta.transcript || c.transcript || null,
+              ai_summary: meta.ai_summary || c.ai_summary || null,
+              ai_decision: meta.ai_decision || c.ai_decision || null,
+              call_duration_seconds: meta.call_duration || c.call_duration_seconds || null,
+              call_source: meta.call_source || (meta.recording_url ? 'ai_agent' : c.call_source),
+              action_required: meta.action_required || c.action_required || null,
+              bolna_call_id: meta.bolna_call_id || c.bolna_call_id || null
+            };
+          });
+          setAmparoCalls(parsedCalls);
         } else {
           await supabase.from('amparo_calls').insert(
             MOCK_AMPARO_CALLS.map(({ id, ...rest }) => rest)
@@ -200,6 +222,81 @@ export function AppDataProvider({ children }) {
       if (!res.ok || !data.success) {
         throw new Error(data.error || 'Failed to initiate AI call');
       }
+
+      const executionId = data.data?.execution_id || data.execution_id;
+      if (executionId) {
+        // Real-Time Execution Poller (Fetches audio, transcript & intent directly from Bolna)
+        const targetId = orderData.id || orderData.shopify_order_id;
+        let attempts = 0;
+        const maxAttempts = 15;
+        const poller = setInterval(async () => {
+          attempts++;
+          try {
+            const statusRes = await fetch(`/api/bolna-status?execution_id=${executionId}`);
+            const statusJson = await statusRes.json();
+            if (statusJson.success && statusJson.data) {
+              const exec = statusJson.data;
+              const statusStr = (exec.status || '').toLowerCase();
+              const recUrl = exec.recording_url || exec.telephony_data?.recording_url || `https://api.bolna.ai/recordings/call/${executionId}`;
+              
+              let transText = '';
+              if (typeof exec.transcript === 'string') transText = exec.transcript;
+              else if (Array.isArray(exec.transcript)) transText = exec.transcript.map(t => `${t.speaker || t.role}: ${t.text || t.message}`).join('\n');
+              else if (Array.isArray(exec.conversation_transcript)) transText = exec.conversation_transcript.map(t => `${t.role || t.speaker}: ${t.content || t.message || t.text}`).join('\n');
+
+              const summaryText = exec.summary || exec.call_summary || '';
+              const lower = (transText + ' ' + summaryText).toLowerCase();
+
+              let aiDec = 'confirmed';
+              let finalSt = orderData.call_purpose === 'RTO_RESCUE' ? 'rto_saved' : 'confirmed';
+              if (lower.includes('cancel') || lower.includes('nahi chahiye') || lower.includes('mat bhejo')) {
+                aiDec = 'cancelled';
+                finalSt = 'rto_lost';
+              } else if (lower.includes('reschedule') || lower.includes('baad mein')) {
+                aiDec = 'rescheduled';
+                finalSt = 'rescheduled';
+              }
+
+              if (statusStr === 'completed' || transText || exec.conversation_time || attempts >= maxAttempts) {
+                clearInterval(poller);
+                const callMeta = {
+                  recording_url: recUrl,
+                  transcript: transText || 'Call completed successfully.',
+                  ai_summary: summaryText || `Maya AI Call Finished (${aiDec.toUpperCase()})`,
+                  ai_decision: aiDec,
+                  call_duration: Math.round(Number(exec.conversation_duration || exec.duration || 0)),
+                  call_source: 'ai_agent',
+                  completed_at: new Date().toISOString(),
+                  bolna_call_id: executionId
+                };
+
+                const notesPayload = `[AI_LOG]${JSON.stringify(callMeta)}[/AI_LOG]`;
+
+                setAmparoCalls(prev => prev.map(c => (c.id === targetId || c.shopify_order_id === targetId) ? {
+                  ...c,
+                  status: finalSt,
+                  recording_url: recUrl,
+                  transcript: transText || 'Call completed.',
+                  ai_summary: summaryText || `Maya AI: ${aiDec.toUpperCase()}`,
+                  ai_decision: aiDec,
+                  call_source: 'ai_agent',
+                  notes: notesPayload
+                } : c));
+
+                if (isSupabaseConfigured()) {
+                  if (orderData.id) {
+                    await supabase.from('amparo_calls').update({ status: finalSt, notes: notesPayload }).eq('id', orderData.id);
+                  } else {
+                    await supabase.from('amparo_calls').update({ status: finalSt, notes: notesPayload }).eq('shopify_order_id', orderData.shopify_order_id);
+                  }
+                }
+              }
+            }
+          } catch (e) {}
+          if (attempts >= maxAttempts) clearInterval(poller);
+        }, 4000);
+      }
+
       return data;
     } catch (err) {
       console.error('Error triggering AI call:', err);

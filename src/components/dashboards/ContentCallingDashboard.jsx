@@ -87,6 +87,7 @@ export function ContentCallingDashboard({ onOpenChat }) {
   const filteredCalls = sortedCalls.filter((c) => {
     if (activeCallTab === 'urgent_rto') return c.urgent_rto;
     if (activeCallTab === 'pending') return c.status === 'pending_confirmation';
+    if (activeCallTab === 'ai_history') return Boolean(c.recording_url || c.transcript || c.call_source === 'ai_agent' || (c.notes && c.notes.includes('[AI_LOG]')));
     if (activeCallTab === 'ai_confirmed') return c.status === 'confirmed' || c.status === 'rto_saved';
     if (activeCallTab === 'ai_fake_cancelled') return c.status === 'rto_lost' || c.ai_decision === 'fake_order';
     if (activeCallTab === 'saved') return c.status === 'rto_saved' || c.status === 'confirmed';
@@ -121,6 +122,9 @@ export function ContentCallingDashboard({ onOpenChat }) {
     // Save phone to DB
     await updateCallPhone(call.id, cleanDigits);
 
+    const isRto = Boolean(call.urgent_rto || call.call_type === 'RTO Rescue');
+    const purpose = isRto ? 'RTO_RESCUE' : (call.status === 'confirmed' ? 'OLD_CUSTOMER_FEEDBACK' : 'ORDER_CONFIRMATION');
+
     try {
       const res = await triggerAiCall({
         id: call.id,
@@ -134,13 +138,16 @@ export function ContentCallingDashboard({ onOpenChat }) {
         combo_product: 'Smilika SPF 50 Sunscreen',
         combo_discount: 'एक सौ रुपये',
         customer_type: call.status === 'confirmed' ? 'OLD_CUSTOMER' : 'NEW_CUSTOMER',
+        call_purpose: purpose,
+        is_rto: isRto,
+        urgent_rto: isRto,
         discount_value: 'पचास रुपये की छूट',
         coupon_code: 'AMPARO50'
       });
 
       setAiModalOrder(null);
-      setAiCallMessage(`✅ Maya AI call initiated for ${call.customer_name} (${formattedPhone})!`);
-      setTimeout(() => setAiCallMessage(''), 5000);
+      setAiCallMessage(`✅ Maya AI call initiated for ${call.customer_name} (${formattedPhone}) [Type: ${isRto ? '🚨 Urgent RTO Rescue' : '📦 Order Confirmation'}]!`);
+      setTimeout(() => setAiCallMessage(''), 6000);
     } catch (err) {
       alert(`AI Call Error: ${err.message}`);
     } finally {
@@ -450,6 +457,7 @@ Dhanyawad!
               { id: 'all', label: `All (${amparoCalls.length})` },
               { id: 'urgent_rto', label: `🚨 Urgent RTO (${urgentCount})` },
               { id: 'pending', label: `Pending (${pendingCount})` },
+              { id: 'ai_history', label: `🎧 AI Recordings & Logs (${amparoCalls.filter(c => c.recording_url || c.transcript || c.call_source === 'ai_agent' || (c.notes && c.notes.includes('[AI_LOG]'))).length})` },
               { id: 'ai_confirmed', label: `🟢 Confirmed (${confirmedCalls + rtoSavedCalls})` },
               { id: 'ai_fake_cancelled', label: `🔴 Cancelled (${fakeCancelledCount})` }
             ].map((tab) => (

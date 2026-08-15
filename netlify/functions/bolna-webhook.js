@@ -108,7 +108,7 @@ export default async (req) => {
       transcriptLower.includes('bhej do') ||
       transcriptLower.includes('deliver')
     ) {
-      finalStatus = userData.customer_type === 'OLD_CUSTOMER' ? 'rto_saved' : 'confirmed';
+      finalStatus = userData.call_purpose === 'RTO_RESCUE' ? 'rto_saved' : 'confirmed';
       actionRequired = 'ship_immediately';
       aiDecision = 'confirmed';
     }
@@ -117,42 +117,39 @@ export default async (req) => {
       comboAccepted = true;
     }
 
-    // 3. Update Supabase amparo_calls Record
-    const updateFields = {
-      status: finalStatus,
-      call_source: 'ai_agent',
-      bolna_call_id: executionId,
-      call_duration_seconds: durationSec,
+    // 3. Package into Safe JSON Metadata for Supabase notes column
+    const callMetadata = {
       recording_url: recordingUrl,
       transcript: transcriptText,
-      ai_summary: summary || `AI Call finished (${finalStatus}). Decision: ${aiDecision}`,
+      ai_summary: summary || `Maya AI Call Completed (${aiDecision.toUpperCase()}).`,
       ai_decision: aiDecision,
+      call_duration: durationSec,
+      call_source: 'ai_agent',
+      action_required: actionRequired,
       cancellation_reason: cancellationReason,
       combo_accepted: comboAccepted,
-      action_required: actionRequired,
-      notes: `🤖 Maya AI: ${aiDecision.toUpperCase()} | Duration: ${durationSec}s | Action: ${actionRequired}`
+      completed_at: new Date().toISOString(),
+      bolna_call_id: executionId
     };
 
-    let updateQuery;
-    if (orderId) {
-      updateQuery = supabase.from('amparo_calls').update(updateFields).eq('shopify_order_id', orderId);
-    } else if (executionId) {
-      updateQuery = supabase.from('amparo_calls').update(updateFields).eq('bolna_call_id', executionId);
-    } else if (recipientPhone) {
-      const cleanPhone = String(recipientPhone).replace(/\D/g, '').slice(-10);
-      updateQuery = supabase.from('amparo_calls').update(updateFields).ilike('phone', `%${cleanPhone}%`);
-    }
+    const notesPayload = `[AI_LOG]${JSON.stringify(callMetadata)}[/AI_LOG]`;
 
-    if (updateQuery) {
-      const { data, error } = await updateQuery;
-      if (error) {
-        console.error('Supabase update error:', error);
-      }
+    const updateFields = {
+      status: finalStatus,
+      notes: notesPayload
+    };
+
+    // Update by orderId, executionId, or phone
+    if (orderId) {
+      await supabase.from('amparo_calls').update(updateFields).eq('shopify_order_id', orderId);
+    } else if (recipientPhone) {
+      const cleanDigits = String(recipientPhone).replace(/\D/g, '').slice(-10);
+      await supabase.from('amparo_calls').update(updateFields).ilike('phone', `%${cleanDigits}%`);
     }
 
     return new Response(JSON.stringify({
       success: true,
-      message: 'Bolna call webhook processed successfully',
+      message: 'Bolna call webhook processed successfully and saved permanently to Supabase',
       decision: aiDecision,
       action_required: actionRequired,
       recording_url: recordingUrl
