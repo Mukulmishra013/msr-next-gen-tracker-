@@ -138,9 +138,15 @@ export function ContentCallingDashboard({ onOpenChat }) {
   const fakeCancelledCount = amparoCalls.filter((c) => c.status === 'rto_lost' || c.ai_decision === 'fake_order' || c.ai_decision === 'cancelled').length;
   const aiCallsCount = amparoCalls.filter((c) => c.call_source === 'ai_agent' || c.recording_url || c.transcript || (c.notes && c.notes.includes('[AI_LOG]'))).length;
 
-  // 🎯 Maya AI HR: Dynamic Generation of 10 Daily Duty Targets
+  const [dutyBatch, setDutyBatch] = useState(0);
+
+  // 🎯 Maya AI HR: Dynamic Generation of 10 Daily Duty Targets (Batch Controlled)
   const daily10Tasks = useMemo(() => {
-    const rtoTargets = amparoCalls.filter((c) => (c.urgent_rto || c.call_type === 'RTO Rescue') && c.status !== 'rto_saved' && c.status !== 'rto_lost').slice(0, 4).map((c) => ({
+    const rtoList = amparoCalls.filter((c) => (c.urgent_rto || c.call_type === 'RTO Rescue'));
+    const oldList = amparoCalls.filter((c) => (c.call_type === 'Old Customer Feedback' || c.status === 'delivered') && !c.urgent_rto);
+    const pendingList = amparoCalls.filter((c) => c.status === 'pending_confirmation' && !c.urgent_rto && c.call_type !== 'RTO Rescue' && c.call_type !== 'Old Customer Feedback');
+
+    const rtoSlice = rtoList.slice(dutyBatch * 4, dutyBatch * 4 + 4).map((c) => ({
       ...c,
       task_type: 'RTO_RESCUE',
       task_title: '🚨 Urgent RTO Rescue',
@@ -149,7 +155,7 @@ export function ContentCallingDashboard({ onOpenChat }) {
       ai_tip: `Parcel delivery attempt fail hui hai. Customer se confirm karein ki delivery boy aaj re-attempt deliver karwa de (+₹50 Live Incentive)!`
     }));
 
-    const oldTargets = amparoCalls.filter((c) => (c.call_type === 'Old Customer Feedback' || c.status === 'delivered') && !c.urgent_rto).slice(0, 4).map((c) => ({
+    const oldSlice = oldList.slice(dutyBatch * 4, dutyBatch * 4 + 4).map((c) => ({
       ...c,
       task_type: 'OLD_CUSTOMER_REORDER',
       task_title: '🌿 Customer Feedback & Re-Order',
@@ -158,7 +164,7 @@ export function ContentCallingDashboard({ onOpenChat }) {
       ai_tip: `Purane customer se results puchiye aur ₹50 OFF coupon (AMPARO50) dekar repeat order book karein (+₹30 Incentive)!`
     }));
 
-    const pendingTargets = amparoCalls.filter((c) => c.status === 'pending_confirmation' && !c.urgent_rto && c.call_type !== 'RTO Rescue' && c.call_type !== 'Old Customer Feedback').slice(0, 2).map((c) => ({
+    const pendingSlice = pendingList.slice(dutyBatch * 2, dutyBatch * 2 + 2).map((c) => ({
       ...c,
       task_type: 'ORDER_CONFIRMATION',
       task_title: '⏳ COD Order Confirmation',
@@ -167,11 +173,38 @@ export function ContentCallingDashboard({ onOpenChat }) {
       ai_tip: `Naya order dispatch confirm karke complete address & COD cash payment ready rakhne ko bolein (+₹20 Incentive)!`
     }));
 
-    return [...rtoTargets, ...oldTargets, ...pendingTargets];
-  }, [amparoCalls]);
+    const combined = [...rtoSlice, ...oldSlice, ...pendingSlice];
+    if (combined.length < 10 && amparoCalls.length >= 10) {
+      const remaining = amparoCalls.filter(c => !combined.some(t => t.id === c.id)).slice(0, 10 - combined.length).map(c => ({
+        ...c,
+        task_type: c.urgent_rto ? 'RTO_RESCUE' : (c.status === 'delivered' ? 'OLD_CUSTOMER_REORDER' : 'ORDER_CONFIRMATION'),
+        task_title: c.urgent_rto ? '🚨 Urgent RTO Rescue' : (c.status === 'delivered' ? '🌿 Customer Feedback' : '⏳ Order Confirmation'),
+        incentive_amount: c.urgent_rto ? 50 : (c.status === 'delivered' ? 30 : 20),
+        badge_color: c.urgent_rto ? 'bg-red-600' : (c.status === 'delivered' ? 'bg-teal-600' : 'bg-amber-600'),
+        ai_tip: 'Customer se sampark karein aur order verify karein.'
+      }));
+      return [...combined, ...remaining];
+    }
+    return combined.slice(0, 10);
+  }, [amparoCalls, dutyBatch]);
 
-  const completedDutyTasksCount = daily10Tasks.filter((t) => t.handled_by === currentUser.name || t.status === 'rto_saved' || t.call_source === 'telecaller_manual').length;
-  const dutyIncentiveEarned = completedDutyTasksCount * 45;
+  // Determine completed tasks in the batch
+  const completedDutyTasks = daily10Tasks.filter((task) => {
+    return Boolean(
+      task.is_claimed || 
+      task.incentive_status === 'pending_delivery' || 
+      task.handled_by === currentUser.name || 
+      task.call_source === 'telecaller_manual' ||
+      task.status === 'rto_saved' ||
+      incentives.some(i => (i.order_id === task.id || i.order_id === task.shopify_order_id) && (i.user_id === currentUser.id || i.userName === currentUser.name))
+    );
+  });
+
+  const completedDutyTasksCount = completedDutyTasks.length;
+  
+  const dutyIncentiveEarned = completedDutyTasks.reduce((sum, task) => {
+    return sum + Number(task.incentive_amount || 40);
+  }, 0);
 
   const sortedCalls = [...amparoCalls].sort((a, b) => (b.urgent_rto ? 1 : 0) - (a.urgent_rto ? 1 : 0));
   
@@ -858,6 +891,33 @@ Dhanyawad!
                 );
               })}
             </div>
+
+            {/* Batch Progress & Completion Celebration Bar */}
+            {completedDutyTasksCount === 10 ? (
+              <div className="p-5 rounded-2xl bg-gradient-to-r from-emerald-950/80 via-purple-950/80 to-slate-900 border border-emerald-500/50 text-center space-y-3 shadow-xl">
+                <Sparkles className="w-8 h-8 text-yellow-300 mx-auto animate-bounce" />
+                <div>
+                  <h4 className="text-base font-black text-white">
+                    🎉 Shabaash {currentUser.name}! Batch #{dutyBatch + 1} ke Sabhi 10 Tasks Complete Ho Gaye!
+                  </h4>
+                  <p className="text-xs text-emerald-300 font-bold mt-1">
+                    Is batch se total +₹{dutyIncentiveEarned} Live Incentive Escrow me claim ho chuka hai.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setDutyBatch(prev => prev + 1)}
+                  className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-emerald-600 hover:from-purple-500 hover:to-emerald-500 text-white font-black text-xs inline-flex items-center gap-2 shadow-lg shadow-purple-600/40 transition active:scale-95"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  <span>Agla 10 Tasks Batch #{dutyBatch + 2} Load Karein ➔</span>
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between pt-2 text-xs text-slate-400 font-medium border-t border-slate-800">
+                <span>Batch #{dutyBatch + 1} • <strong className="text-white">{10 - completedDutyTasksCount} tasks</strong> baaki hain</span>
+                <span className="text-emerald-400 font-bold font-mono">Incentive: +₹{dutyIncentiveEarned} Earned</span>
+              </div>
+            )}
 
           </div>
         </div>

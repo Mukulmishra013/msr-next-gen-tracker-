@@ -302,7 +302,13 @@ export function AppDataProvider({ children }) {
       created_at: new Date().toISOString()
     };
 
-    setIncentives((prev) => [newInc, ...prev]);
+    setIncentives((prev) => {
+      const updated = [newInc, ...prev.filter(i => i.order_id !== callId && i.id !== newInc.id)];
+      try {
+        localStorage.setItem('msr_local_incentives', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
 
     setAmparoCalls((prev) =>
       prev.map((c) => {
@@ -311,7 +317,7 @@ export function AppDataProvider({ children }) {
             ...c,
             is_claimed: true,
             incentive_status: 'pending_delivery',
-            status: taskTitle.includes('RTO') ? 'rto_saved' : 'confirmed',
+            status: taskTitle.includes('RTO') ? 'rto_saved' : (c.status === 'delivered' ? 'delivered' : 'confirmed'),
             handled_by: user?.name || 'Telecaller',
             call_source: 'telecaller_manual',
             urgent_rto: false,
