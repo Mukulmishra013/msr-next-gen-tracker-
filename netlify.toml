@@ -19,6 +19,26 @@
   status = 200
 
 [[redirects]]
+  from = "/api/bolna-call"
+  to = "/.netlify/functions/bolna-call"
+  status = 200
+
+[[redirects]]
+  from = "/api/bolna-webhook"
+  to = "/.netlify/functions/bolna-webhook"
+  status = 200
+
+[[redirects]]
+  from = "/api/shopify-webhook"
+  to = "/.netlify/functions/shopify-webhook"
+  status = 200
+
+[[redirects]]
+  from = "/api/shopify-sync"
+  to = "/.netlify/functions/shopify-sync"
+  status = 200
+
+[[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200

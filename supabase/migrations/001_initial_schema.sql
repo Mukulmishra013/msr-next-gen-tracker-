@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS public.attendance (
     created_at TIMESTAMPTZ DEFAULT now() NOT NULL
 );
 
--- 3. AMPARO CALLS TABLE (Shopify & Shiprocket Sync)
+-- 3. AMPARO CALLS TABLE (Shopify & Shiprocket Sync & Bolna AI Voice Agent)
 CREATE TABLE IF NOT EXISTS public.amparo_calls (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     shopify_order_id TEXT,
@@ -44,6 +44,17 @@ CREATE TABLE IF NOT EXISTS public.amparo_calls (
     urgent_rto BOOLEAN DEFAULT false,
     notes TEXT,
     handled_by UUID REFERENCES public.users(id) ON DELETE SET NULL,
+    -- Bolna AI Calling Telemetry Columns
+    call_source TEXT DEFAULT 'telecaller_manual', -- 'ai_agent' | 'telecaller_manual'
+    bolna_call_id TEXT,
+    call_duration_seconds INTEGER DEFAULT 0,
+    recording_url TEXT,
+    transcript TEXT,
+    ai_summary TEXT,
+    ai_decision TEXT, -- 'confirmed' | 'cancelled' | 'rescheduled' | 'no_answer' | 'fake_order'
+    cancellation_reason TEXT,
+    combo_accepted BOOLEAN DEFAULT false,
+    action_required TEXT DEFAULT 'ship_immediately', -- 'ship_immediately' | 'cancel_in_shopify' | 'manual_followup' | 'reschedule_dispatch'
     created_at TIMESTAMPTZ DEFAULT now() NOT NULL
 );
 

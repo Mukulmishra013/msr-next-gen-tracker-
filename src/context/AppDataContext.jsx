@@ -179,6 +179,72 @@ export function AppDataProvider({ children }) {
     }
   };
 
+  // Trigger Single AI Voice Call via Bolna.ai Netlify Function
+  const triggerAiCall = async (orderData) => {
+    // 1. Optimistic UI update
+    setAmparoCalls((prev) =>
+      prev.map((c) =>
+        c.id === orderData.id || c.shopify_order_id === orderData.shopify_order_id
+          ? { ...c, status: 'calling_in_progress', call_source: 'ai_agent', notes: '🤖 Maya AI Call Initiated...' }
+          : c
+      )
+    );
+
+    try {
+      const res = await fetch('/api/bolna-call', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(orderData)
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Failed to initiate AI call');
+      }
+      return data;
+    } catch (err) {
+      console.error('Error triggering AI call:', err);
+      // Revert status if error
+      setAmparoCalls((prev) =>
+        prev.map((c) =>
+          c.id === orderData.id || c.shopify_order_id === orderData.shopify_order_id
+            ? { ...c, status: 'pending_confirmation', notes: `Call error: ${err.message}` }
+            : c
+        )
+      );
+      throw err;
+    }
+  };
+
+  // Trigger Batch AI Calls for array of orders
+  const triggerBatchAiCalls = async (ordersList) => {
+    if (!ordersList || ordersList.length === 0) return { total_triggered: 0 };
+
+    const orderIds = new Set(ordersList.map((o) => o.id || o.shopify_order_id));
+    setAmparoCalls((prev) =>
+      prev.map((c) =>
+        orderIds.has(c.id) || orderIds.has(c.shopify_order_id)
+          ? { ...c, status: 'calling_in_progress', call_source: 'ai_agent', notes: '🤖 Maya AI Batch Call Initiated...' }
+          : c
+      )
+    );
+
+    try {
+      const res = await fetch('/api/bolna-call', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ batch_orders: ordersList })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Failed to trigger batch AI calls');
+      }
+      return data;
+    } catch (err) {
+      console.error('Error in batch AI call:', err);
+      throw err;
+    }
+  };
+
   // Update Single Call Phone Number Permanently in Supabase DB
   const updateCallPhone = async (callId, newPhone) => {
     const cleanDigits = String(newPhone).replace(/\D/g, '').slice(-10);
@@ -466,6 +532,8 @@ export function AppDataProvider({ children }) {
         dbLoading,
         updateCallStatus,
         updateCallPhone,
+        triggerAiCall,
+        triggerBatchAiCalls,
         addLead,
         convertLead,
         addVideo,
