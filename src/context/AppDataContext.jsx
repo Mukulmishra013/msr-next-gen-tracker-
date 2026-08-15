@@ -37,6 +37,39 @@ export function AppDataProvider({ children }) {
   const [payroll, setPayroll] = useState(MOCK_PAYROLL);
   const [dbLoading, setDbLoading] = useState(true);
 
+  // Admin Configurable Maya AI Rules, Discounts & Guardrails
+  const [mayaConfig, setMayaConfig] = useState(() => {
+    try {
+      const saved = localStorage.getItem('msr_maya_ai_config');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return {
+      enableDiscounts: true,
+      rtoDiscountAmount: 50,
+      rtoDiscountText: 'पचास रुपये की छूट',
+      rtoCouponCode: 'AMPARO50',
+      vipDiscountAmount: 50,
+      vipDiscountText: 'पचास रुपये की विशेष छूट',
+      vipCouponCode: 'AMPARO50',
+      comboProduct: 'Smilika SPF 50 Sunscreen',
+      comboDiscountAmount: 100,
+      comboDiscountText: 'एक सौ रुपये की छूट',
+      enableCrossSell: true,
+      deliveryTimeline: 'तीन से पाँच दिन',
+      brandName: 'Amparo Store'
+    };
+  });
+
+  const updateMayaConfig = (newConfig) => {
+    setMayaConfig((prev) => {
+      const merged = { ...prev, ...newConfig };
+      try {
+        localStorage.setItem('msr_maya_ai_config', JSON.stringify(merged));
+      } catch (e) {}
+      return merged;
+    });
+  };
+
   // Trigger win celebration confetti
   const triggerWinCelebration = () => {
     try {
@@ -803,7 +836,9 @@ export function AppDataProvider({ children }) {
         logFieldVisit,
         recordAttendanceCheckIn,
         markPayrollPaid,
-        triggerWinCelebration
+        triggerWinCelebration,
+        mayaConfig,
+        updateMayaConfig
       }}
     >
       {children}

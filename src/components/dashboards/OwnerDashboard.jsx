@@ -22,12 +22,14 @@ import {
   Search, 
   Package, 
   AlertCircle,
-  Bot,
-  Volume2,
   FileText,
   Zap,
   Ban,
   ExternalLink,
+  Sliders,
+  Save,
+  Tag,
+  Check,
   X
 } from 'lucide-react';
 
@@ -42,7 +44,9 @@ export function OwnerDashboard({ onOpenUpiModal, onOpenChat }) {
     payroll, 
     updateCallStatus,
     triggerAiCall,
-    triggerBatchAiCalls 
+    triggerBatchAiCalls,
+    mayaConfig,
+    updateMayaConfig
   } = useAppData();
 
   const { sendMessageToAgent } = useAgents();
@@ -50,10 +54,28 @@ export function OwnerDashboard({ onOpenUpiModal, onOpenChat }) {
   const [aiSummaryText, setAiSummaryText] = useState('');
   const [activeOwnerTab, setActiveOwnerTab] = useState('overview'); // 'overview' | 'ai_calling' | 'orders' | 'employees' | 'payroll'
   const [isShiprocketModalOpen, setIsShiprocketModalOpen] = useState(false);
+  const [isMayaConfigOpen, setIsMayaConfigOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedAudioCall, setSelectedAudioCall] = useState(null);
   const [selectedTranscriptCall, setSelectedTranscriptCall] = useState(null);
   const [isBatchCalling, setIsBatchCalling] = useState(false);
+  const [configSaveMsg, setConfigSaveMsg] = useState('');
+
+  const [tempConfig, setTempConfig] = useState(mayaConfig || {
+    enableDiscounts: true,
+    rtoDiscountAmount: 50,
+    rtoDiscountText: 'पचास रुपये की छूट',
+    rtoCouponCode: 'AMPARO50',
+    vipDiscountAmount: 50,
+    vipDiscountText: 'पचास रुपये की विशेष छूट',
+    vipCouponCode: 'AMPARO50',
+    comboProduct: 'Smilika SPF 50 Sunscreen',
+    comboDiscountAmount: 100,
+    comboDiscountText: 'एक सौ रुपये की छूट',
+    enableCrossSell: true,
+    deliveryTimeline: 'तीन से पाँच दिन',
+    brandName: 'Amparo Store'
+  });
 
   const safeRev = revenueLog || { total_revenue: 124500, growth_amount: 18500, bonus_pool_8pct: 9960 };
 
@@ -159,6 +181,17 @@ export function OwnerDashboard({ onOpenUpiModal, onOpenChat }) {
           >
             <Truck className="w-4 h-4" />
             <span>⚡ Sync Shiprocket</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setTempConfig(mayaConfig);
+              setIsMayaConfigOpen(true);
+            }}
+            className="tap-target px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/40 text-xs font-extrabold flex items-center justify-center gap-2 transition active:scale-95 shadow-md"
+          >
+            <Sliders className="w-4 h-4 text-amber-400" />
+            <span>🎛️ AI Discount Policy</span>
           </button>
 
           <button
@@ -575,6 +608,205 @@ export function OwnerDashboard({ onOpenUpiModal, onOpenChat }) {
             >
               Close
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* 🎛️ MAYA AI VOICE, DISCOUNT & BRAND GUARDRAILS CONTROL MODAL */}
+      {isMayaConfigOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="w-full max-w-xl bg-slate-900 border border-amber-500/50 rounded-3xl p-6 shadow-2xl space-y-5 animate-scale-up max-h-[90vh] flex flex-col">
+            
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2.5">
+                <Sliders className="w-6 h-6 text-amber-400" />
+                <div>
+                  <h3 className="font-extrabold text-base text-white">Maya AI Discount & Policy Command Center</h3>
+                  <p className="text-xs text-amber-300/80">Admin Rule: Maya bina aapki permission ke 1 rupya bhi extra discount nahi de sakti!</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsMayaConfigOpen(false)}
+                className="p-1.5 rounded-xl bg-slate-800 text-slate-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {configSaveMsg && (
+              <div className="p-3 rounded-xl bg-emerald-950/80 border border-emerald-500/60 text-emerald-300 text-xs font-bold flex items-center gap-2">
+                <Check className="w-4 h-4 text-emerald-400" />
+                <span>{configSaveMsg}</span>
+              </div>
+            )}
+
+            {/* Config Form Body */}
+            <div className="flex-1 overflow-y-auto space-y-4 pr-1">
+              
+              {/* Master Discount Toggle */}
+              <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-between">
+                <div>
+                  <h4 className="font-bold text-sm text-white">Master Discount Permission</h4>
+                  <p className="text-xs text-slate-400">Agar OFF karenge to Maya kisi bhi customer ko koi discount nahi bolegi.</p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={tempConfig.enableDiscounts}
+                    onChange={(e) => setTempConfig({ ...tempConfig, enableDiscounts: e.target.checked })}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                </label>
+              </div>
+
+              {/* RTO Rescue Discount Settings */}
+              <div className="p-4 rounded-2xl bg-slate-950 border border-red-500/30 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Tag className="w-4 h-4 text-red-400" />
+                  <h4 className="font-bold text-xs uppercase tracking-wider text-red-300">RTO Rescue Objections Discount</h4>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[11px] font-semibold text-slate-400">Discount Amount (₹)</label>
+                    <input
+                      type="number"
+                      value={tempConfig.rtoDiscountAmount}
+                      onChange={(e) => setTempConfig({
+                        ...tempConfig,
+                        rtoDiscountAmount: Number(e.target.value),
+                        rtoDiscountText: `${e.target.value} रुपये की छूट`
+                      })}
+                      className="w-full mt-1 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-red-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-semibold text-slate-400">RTO Coupon Code</label>
+                    <input
+                      type="text"
+                      value={tempConfig.rtoCouponCode}
+                      onChange={(e) => setTempConfig({ ...tempConfig, rtoCouponCode: e.target.value.toUpperCase() })}
+                      className="w-full mt-1 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono uppercase focus:outline-none focus:border-red-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Old Customer VIP Discount Settings */}
+              <div className="p-4 rounded-2xl bg-slate-950 border border-teal-500/30 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Gift className="w-4 h-4 text-teal-400" />
+                  <h4 className="font-bold text-xs uppercase tracking-wider text-teal-300">Old Customer VIP Re-Order Discount</h4>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[11px] font-semibold text-slate-400">VIP Discount Amount (₹)</label>
+                    <input
+                      type="number"
+                      value={tempConfig.vipDiscountAmount}
+                      onChange={(e) => setTempConfig({
+                        ...tempConfig,
+                        vipDiscountAmount: Number(e.target.value),
+                        vipDiscountText: `${e.target.value} रुपये की विशेष छूट`
+                      })}
+                      className="w-full mt-1 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-teal-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-semibold text-slate-400">VIP Coupon Code</label>
+                    <input
+                      type="text"
+                      value={tempConfig.vipCouponCode}
+                      onChange={(e) => setTempConfig({ ...tempConfig, vipCouponCode: e.target.value.toUpperCase() })}
+                      className="w-full mt-1 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono uppercase focus:outline-none focus:border-teal-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Combo Cross-Sell Settings */}
+              <div className="p-4 rounded-2xl bg-slate-950 border border-purple-500/30 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-purple-400" />
+                    <h4 className="font-bold text-xs uppercase tracking-wider text-purple-300">Combo Cross-Sell Pitch</h4>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={tempConfig.enableCrossSell}
+                      onChange={(e) => setTempConfig({ ...tempConfig, enableCrossSell: e.target.checked })}
+                      className="sr-only peer"
+                    />
+                    <div className="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-600"></div>
+                  </label>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[11px] font-semibold text-slate-400">Combo Product Name</label>
+                    <input
+                      type="text"
+                      value={tempConfig.comboProduct}
+                      onChange={(e) => setTempConfig({ ...tempConfig, comboProduct: e.target.value })}
+                      className="w-full mt-1 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-semibold text-slate-400">Combo Discount Amount (₹)</label>
+                    <input
+                      type="number"
+                      value={tempConfig.comboDiscountAmount}
+                      onChange={(e) => setTempConfig({
+                        ...tempConfig,
+                        comboDiscountAmount: Number(e.target.value),
+                        comboDiscountText: `${e.target.value} रुपये की छूट`
+                      })}
+                      className="w-full mt-1 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-purple-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Delivery Timeline Guardrail */}
+              <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800">
+                <label className="text-[11px] font-semibold text-slate-400">Official Delivery Timeline Promise</label>
+                <input
+                  type="text"
+                  value={tempConfig.deliveryTimeline}
+                  onChange={(e) => setTempConfig({ ...tempConfig, deliveryTimeline: e.target.value })}
+                  placeholder="तीन से पाँच दिन"
+                  className="w-full mt-1 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500"
+                />
+                <p className="text-[10px] text-slate-500 mt-1">Maya AI is timeline se kam ya zyada ka koi fake commitment nahi karegi.</p>
+              </div>
+
+            </div>
+
+            {/* Modal Actions */}
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+              <button
+                onClick={() => setIsMayaConfigOpen(false)}
+                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  updateMayaConfig(tempConfig);
+                  setConfigSaveMsg('✅ Success: Maya AI Discount Rules Live Update Ho Gaye!');
+                  setTimeout(() => {
+                    setConfigSaveMsg('');
+                    setIsMayaConfigOpen(false);
+                  }, 1200);
+                }}
+                className="px-5 py-2 rounded-xl bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-500 hover:to-yellow-500 text-slate-950 font-black text-xs inline-flex items-center gap-1.5 shadow-lg shadow-amber-600/30 transition active:scale-95"
+              >
+                <Save className="w-4 h-4" />
+                <span>Save & Lock Policy</span>
+              </button>
+            </div>
+
           </div>
         </div>
       )}
