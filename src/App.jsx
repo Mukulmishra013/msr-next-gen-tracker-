@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { AppDataProvider, useAppData } from './context/AppDataContext';
 import { AgentProvider } from './context/AgentContext';
+import { ErrorBoundary } from './components/common/ErrorBoundary';
 
 import { LoginScreen } from './components/auth/LoginScreen';
 import { Header } from './components/common/Header';
@@ -33,14 +34,23 @@ function MainApp() {
   const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
   const [selectedPayrollItem, setSelectedPayrollItem] = useState(null);
 
-  // If not authenticated, render dedicated Firebase Phone Login Screen
+  // Safe User Fallback
+  const safeUser = currentUser || {
+    id: 'usr_admin_mukul',
+    name: 'Mukul Mishra',
+    role: 'owner',
+    roleLabel: 'Agency Director & Super Admin',
+    avatar: '👑'
+  };
+
+  // If not authenticated, render dedicated Login Screen
   if (!isAuthenticated) {
     return <LoginScreen onLoginSuccess={() => setActiveTab('dashboard')} />;
   }
 
   // Render role-specific main view for 'dashboard' or 'work' tab
   const renderDashboardView = () => {
-    switch (currentUser.role) {
+    switch (safeUser.role) {
       case 'content_calling':
         return <ContentCallingDashboard onOpenChat={() => setIsMayaChatOpen(true)} />;
       case 'editor_leads':
@@ -81,7 +91,7 @@ function MainApp() {
             { id: 'dashboard', label: '📊 Command Dashboard' },
             { id: 'maya_agent_hub', label: '🧠 Maya A2A Graph Hub' },
             { id: 'attendance', label: '📍 GPS Haaziri & Geofence' },
-            { id: 'payroll', label: currentUser.role === 'owner' ? '💸 UPI Payroll & Growth Pool' : '💰 Incentives & Salary' }
+            { id: 'payroll', label: safeUser.role === 'owner' ? '💸 UPI Payroll & Growth Pool' : '💰 Incentives & Salary' }
           ].map((tab) => (
             <button
               key={tab.id}
@@ -138,8 +148,6 @@ function MainApp() {
     </div>
   );
 }
-
-import { ErrorBoundary } from './components/common/ErrorBoundary';
 
 export default function App() {
   return (

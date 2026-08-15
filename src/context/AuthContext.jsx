@@ -30,18 +30,24 @@ export function AuthProvider({ children }) {
   });
 
   const [currentUser, setCurrentUser] = useState(() => {
-    const saved = localStorage.getItem('msr_active_user');
-    if (saved && !saved.includes('Saurabh') && !saved.includes('Rahul Sharma')) {
-      try { return JSON.parse(saved); } catch (e) {}
-    }
+    try {
+      const saved = localStorage.getItem('msr_active_user');
+      if (saved && !saved.includes('Saurabh') && !saved.includes('Rahul Sharma')) {
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed === 'object' && parsed.id) return parsed;
+      }
+    } catch (e) {}
     return SUPER_ADMIN_USER;
   });
 
   const [availableUsers, setAvailableUsers] = useState(() => {
-    const saved = localStorage.getItem('msr_all_users');
-    if (saved && !saved.includes('Saurabh') && !saved.includes('Rahul Sharma')) {
-      try { return JSON.parse(saved); } catch (e) {}
-    }
+    try {
+      const saved = localStorage.getItem('msr_all_users');
+      if (saved && !saved.includes('Saurabh') && !saved.includes('Rahul Sharma')) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {}
     return [SUPER_ADMIN_USER];
   });
 
