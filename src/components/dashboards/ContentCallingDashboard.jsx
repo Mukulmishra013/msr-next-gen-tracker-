@@ -57,7 +57,8 @@ export function ContentCallingDashboard({ onOpenChat }) {
     updateCallPhone,
     claimTelecallerTaskIncentive,
     triggerAiCall,
-    triggerBatchAiCalls 
+    triggerBatchAiCalls,
+    mayaConfig
   } = useAppData();
 
   const [activeCallTab, setActiveCallTab] = useState('daily_duty'); // default to Maya AI Daily Duty!
