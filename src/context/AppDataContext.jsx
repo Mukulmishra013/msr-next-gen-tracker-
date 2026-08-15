@@ -196,8 +196,65 @@ export function AppDataProvider({ children }) {
             notes: notes || undefined,
             urgent_rto: newStatus === 'rto_saved' || newStatus === 'rto_lost' ? false : undefined
           })
-          .eq('id', callId);
       } catch (e) {}
+    }
+  };
+
+  // Claim Telecaller Task Incentive (Manual Completion with Live Incentive Credit)
+  const claimTelecallerTaskIncentive = async (callId, amount, taskTitle, user) => {
+    const newInc = {
+      id: `inc_${Date.now()}`,
+      user_id: user?.id || 'telecaller_1',
+      userName: user?.name || 'Telecaller',
+      month: 'August 2026',
+      type: 'amparo_calling',
+      amount: Number(amount || 50),
+      title: taskTitle || 'Task Completed (Manual Call)',
+      paid: false,
+      created_at: new Date().toISOString()
+    };
+
+    setIncentives((prev) => [newInc, ...prev]);
+
+    setAmparoCalls((prev) =>
+      prev.map((c) => {
+        if (c.id === callId || c.shopify_order_id === callId) {
+          return {
+            ...c,
+            status: taskTitle.includes('RTO') ? 'rto_saved' : 'confirmed',
+            handled_by: user?.name || 'Telecaller',
+            call_source: 'telecaller_manual',
+            urgent_rto: false,
+            notes: `✅ Manually Completed by ${user?.name || 'Telecaller'} (+₹${amount} Incentive Claimed)`
+          };
+        }
+        return c;
+      })
+    );
+
+    triggerWinCelebration();
+
+    if (isSupabaseConfigured()) {
+      try {
+        await supabase.from('incentive_ledger').insert({
+          user_id: user?.id || 'telecaller_1',
+          userName: user?.name || 'Telecaller',
+          month: 'August 2026',
+          type: 'amparo_calling',
+          amount: Number(amount || 50),
+          title: taskTitle || 'Task Completed (Manual Call)',
+          paid: false
+        });
+
+        await supabase.from('amparo_calls').update({
+          status: taskTitle.includes('RTO') ? 'rto_saved' : 'confirmed',
+          handled_by: user?.name || 'Telecaller',
+          urgent_rto: false,
+          notes: `✅ Manually Completed by ${user?.name || 'Telecaller'} (+₹${amount} Incentive Claimed)`
+        }).or(`id.eq.${callId},shopify_order_id.eq.${callId}`);
+      } catch (e) {
+        console.error('Error claiming incentive in Supabase:', e);
+      }
     }
   };
 
@@ -629,6 +686,7 @@ export function AppDataProvider({ children }) {
         dbLoading,
         updateCallStatus,
         updateCallPhone,
+        claimTelecallerTaskIncentive,
         triggerAiCall,
         triggerBatchAiCalls,
         addLead,
