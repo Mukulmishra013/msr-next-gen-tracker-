@@ -24,7 +24,16 @@ export function AppDataProvider({ children }) {
   const [fieldVisits, setFieldVisits] = useState(MOCK_FIELD_VISITS);
   const [attendance, setAttendance] = useState(MOCK_ATTENDANCE);
   const [revenueLog, setRevenueLog] = useState(MOCK_REVENUE_LOG);
-  const [incentives, setIncentives] = useState(MOCK_INCENTIVES);
+  const [incentives, setIncentives] = useState(() => {
+    try {
+      const local = localStorage.getItem('msr_local_incentives');
+      if (local) {
+        const parsed = JSON.parse(local);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {}
+    return MOCK_INCENTIVES;
+  });
   const [payroll, setPayroll] = useState(MOCK_PAYROLL);
   const [dbLoading, setDbLoading] = useState(true);
 
@@ -126,6 +135,7 @@ export function AppDataProvider({ children }) {
 
         if (incRes.data && incRes.data.length > 0) {
           setIncentives(incRes.data);
+          localStorage.setItem('msr_local_incentives', JSON.stringify(incRes.data));
         }
 
         if (payRes.data && payRes.data.length > 0) {
@@ -154,6 +164,25 @@ export function AppDataProvider({ children }) {
               setAmparoCalls((prev) =>
                 prev.map((c) => (c.id === payload.new.id ? payload.new : c))
               );
+            }
+          }
+        )
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'incentive_ledger' },
+          (payload) => {
+            if (payload.eventType === 'INSERT') {
+              setIncentives((prev) => {
+                const updated = [payload.new, ...prev.filter(i => i.id !== payload.new.id)];
+                localStorage.setItem('msr_local_incentives', JSON.stringify(updated));
+                return updated;
+              });
+            } else if (payload.eventType === 'UPDATE') {
+              setIncentives((prev) => {
+                const updated = prev.map((i) => (i.id === payload.new.id ? payload.new : i));
+                localStorage.setItem('msr_local_incentives', JSON.stringify(updated));
+                return updated;
+              });
             }
           }
         )

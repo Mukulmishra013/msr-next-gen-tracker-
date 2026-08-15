@@ -92,6 +92,7 @@ export function ContentCallingDashboard({ onOpenChat }) {
 
   const totalApprovedIncentive = approvedIncentives.reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const totalPendingIncentive = pendingIncentives.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const totalIncentive = totalApprovedIncentive + totalPendingIncentive;
 
   const confirmedCalls = amparoCalls.filter((c) => c.status === 'confirmed' || c.status === 'rto_saved').length;
   const urgentCount = amparoCalls.filter((c) => (c.urgent_rto || c.call_type === 'RTO Rescue') && c.status !== 'rto_saved' && c.status !== 'rto_lost').length;
@@ -567,11 +568,11 @@ Dhanyawad!
       <div className="grid grid-cols-2 sm:grid-cols-6 gap-3">
         <div className="glass-card p-3.5 rounded-2xl border border-purple-500/40 bg-gradient-to-br from-purple-950/50 to-slate-900">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold text-purple-300 uppercase tracking-wider">Total Incentive</span>
+            <span className="text-[10px] font-bold text-purple-300 uppercase tracking-wider">Live Incentive</span>
             <Flame className="w-4 h-4 text-emerald-400 animate-bounce-subtle" />
           </div>
-          <p className="text-xl font-black text-white mt-1">₹{totalIncentive.toLocaleString('en-IN')}</p>
-          <p className="text-[10px] text-emerald-400 font-semibold mt-0.5">Live Cash Ledger</p>
+          <p className="text-xl font-black text-emerald-400 mt-1">₹{totalApprovedIncentive.toLocaleString('en-IN')}</p>
+          <p className="text-[10px] text-amber-300 font-semibold mt-0.5">+₹{totalPendingIncentive} (Pending Delivery)</p>
         </div>
 
         <div className="glass-card p-3.5 rounded-2xl border border-red-500/40 bg-gradient-to-br from-red-950/50 to-slate-900">
