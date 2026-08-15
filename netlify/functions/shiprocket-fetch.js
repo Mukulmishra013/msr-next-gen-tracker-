@@ -1,4 +1,4 @@
-// Netlify Serverless Function: Direct Shiprocket Multi-Page Full 900+ Orders Importer & CSV Parser
+// Netlify Serverless Function: Direct Shiprocket Full 947+ Shipments & Orders Importer
 // Endpoint: https://msrnext.netlify.app/api/shiprocket-fetch
 
 import { createClient } from '@supabase/supabase-js';
@@ -96,7 +96,7 @@ export default async (req) => {
 
       if (mappedOrders.length > 0) {
         await supabase.from('amparo_calls').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-        // Chunk insert 100 at a time for large datasets
+        // Chunk insert in batches of 100
         for (let i = 0; i < mappedOrders.length; i += 100) {
           await supabase.from('amparo_calls').insert(mappedOrders.slice(i, i + 100));
         }
@@ -112,7 +112,7 @@ export default async (req) => {
       );
     }
 
-    // 2. Otherwise fetch from Shiprocket REST API Multi-Page Pagination
+    // 2. Otherwise fetch from Shiprocket REST API (Orders + All 947 Shipments)
     if (!token) {
       const authRes = await fetch('https://apiv2.shiprocket.in/v1/external/auth/login', {
         method: 'POST',
@@ -134,30 +134,41 @@ export default async (req) => {
       }
     }
 
-    // Fetch All Pages (up to 1000 orders)
-    let allRawOrders = [];
+    // A. Fetch recent detailed orders
+    let detailedOrdersMap = new Map();
+    try {
+      const ordersRes = await fetch('https://apiv2.shiprocket.in/v1/external/orders?per_page=100', {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const ordersData = await ordersRes.json();
+      (ordersData?.data || []).forEach((o) => {
+        const key = String(o.id || o.channel_order_id);
+        detailedOrdersMap.set(key, o);
+      });
+    } catch (e) {}
+
+    // B. Fetch All 947+ Historical Shipments across all pages
+    let allShipments = [];
     let page = 1;
     let hasMore = true;
 
-    while (hasMore && page <= 10) {
+    while (hasMore && page <= 12) {
       try {
-        const ordersRes = await fetch(`https://apiv2.shiprocket.in/v1/external/orders?page=${page}&per_page=100`, {
+        const sRes = await fetch(`https://apiv2.shiprocket.in/v1/external/shipments?per_page=100&page=${page}`, {
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
           }
         });
-
-        const ordersData = await ordersRes.json();
-        const pageOrders = ordersData?.data || [];
-
-        if (Array.isArray(pageOrders) && pageOrders.length > 0) {
-          allRawOrders = allRawOrders.concat(pageOrders);
-          if (pageOrders.length < 100) {
-            hasMore = false;
-          } else {
-            page++;
-          }
+        const sData = await sRes.json();
+        const list = sData?.data || [];
+        if (Array.isArray(list) && list.length > 0) {
+          allShipments = allShipments.concat(list);
+          if (list.length < 100) hasMore = false;
+          else page++;
         } else {
           hasMore = false;
         }
@@ -166,50 +177,53 @@ export default async (req) => {
       }
     }
 
-    const mappedOrders = allRawOrders.map((o) => {
-      const statusStr = String(o.status || '').toUpperCase();
+    // Transform All 947 Shipments into App Orders Format
+    const mappedOrders = allShipments.map((s, idx) => {
+      const orderMatch = detailedOrdersMap.get(String(s.order_id)) || detailedOrdersMap.get(String(s.id));
+      
+      const statusStr = String(s.status || orderMatch?.status || '').toUpperCase();
       const isRto = statusStr.includes('RTO') || statusStr.includes('UNDELIVERED') || statusStr.includes('FAILED');
       const isDelivered = statusStr.includes('DELIVERED');
       const isCancelled = statusStr.includes('CANCEL');
 
-      const items = Array.isArray(o.products) && o.products.length > 0
-        ? o.products.map((p) => p.name).join(', ')
-        : (o.others && o.others.order_items && o.others.order_items[0] ? o.others.order_items[0].name : 'Amparo Pure Shilajit');
+      const prodName = Array.isArray(s.products) && s.products.length > 0
+        ? s.products.map(p => p.name).join(', ')
+        : (orderMatch?.products && orderMatch.products[0] ? orderMatch.products[0].name : 'Amparo Pure Shilajit (30g)');
 
       const rawPhone = String(
-        o.customer_phone ||
-        o.customer_mobile ||
-        o.customer_alternate_phone ||
-        (o.others && o.others.billing_phone) ||
-        (o.others && o.others.billing_phone_number) ||
+        orderMatch?.customer_phone ||
+        orderMatch?.customer_mobile ||
+        orderMatch?.customer_alternate_phone ||
+        (orderMatch?.others && orderMatch.others.billing_phone) ||
         ''
       );
 
       const cleanDigits = rawPhone.replace(/\D/g, '');
       const validPhone = cleanDigits.length >= 10 ? `+91${cleanDigits.slice(-10)}` : '+91';
-      const custName = o.customer_name || (o.others && o.others.billing_name) || 'Customer';
-      const awb = o.shipments && o.shipments[0] ? String(o.shipments[0].awb) : '';
-      const courier = o.shipments && o.shipments[0] ? String(o.shipments[0].courier_name || 'Courier') : 'Assigned Courier';
-      const city = o.customer_city || (o.others && o.others.billing_city) || 'India';
+      const custName = orderMatch?.customer_name || (orderMatch?.others && orderMatch.others.billing_name) || `Customer #${idx + 1}`;
+      const amount = Number(orderMatch?.total || 588);
+      const awb = s.awb || (orderMatch?.shipments && orderMatch.shipments[0] ? orderMatch.shipments[0].awb : '');
+      const courier = orderMatch?.courier_name || (orderMatch?.shipments && orderMatch.shipments[0] ? orderMatch.shipments[0].courier_name : 'Shiprocket Courier');
+      const city = orderMatch?.customer_city || (orderMatch?.others && orderMatch.others.billing_city) || 'India';
 
       return {
-        shopify_order_id: String(o.channel_order_id || (o.others && o.others.name) || o.id),
+        shopify_order_id: String(s.order_id || s.id || `SR_${idx + 1}`),
         customer_name: custName === 'Not Authorized' ? 'Verified Buyer' : custName,
         phone: validPhone,
-        product: items,
-        amount: Number(o.total || (o.others && o.others.subtotal_price) || 588),
+        product: prodName,
+        amount,
         status: isDelivered ? 'confirmed' : (isRto ? 'rto_attempted' : (isCancelled ? 'rto_lost' : 'pending_confirmation')),
-        urgent_rto: isRto,
+        urgent_rto: isRto && !statusStr.includes('RTO DELIVERED'),
         call_type: isRto ? 'RTO Rescue' : (isDelivered ? 'Old Customer Feedback' : 'Order Confirmation'),
-        shiprocket_shipment_id: awb || String(o.id),
-        created_at: o.created_at || new Date().toISOString(),
-        notes: `Status: ${o.status || 'Active'} | City: ${city} | Courier: ${courier} | AWB: ${awb || 'Pending'}`
+        shiprocket_shipment_id: awb || String(s.id),
+        created_at: s.created_at || new Date().toISOString(),
+        notes: `Status: ${s.status} | City: ${city} | Courier: ${courier} | AWB: ${awb || 'Pending'}`
       };
     });
 
     if (mappedOrders.length > 0) {
       await supabase.from('amparo_calls').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-      // Chunk insert in batches of 100
+      // Batch insert into Supabase in chunks of 100
       for (let i = 0; i < mappedOrders.length; i += 100) {
         await supabase.from('amparo_calls').insert(mappedOrders.slice(i, i + 100));
       }
