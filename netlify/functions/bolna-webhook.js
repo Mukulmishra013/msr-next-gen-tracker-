@@ -3,6 +3,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { cancelShopifyOrder, addTagsToShopifyOrder } from './shopify-order-action.js';
+import { createShiprocketOrder } from './shiprocket-order-create.js';
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://blnvunejbmkpckwrdyfy.supabase.co';
 const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_4sR9yc91hhMMtN9kpIpTqw_n8-muO3Z';
@@ -160,7 +161,7 @@ export default async (req) => {
       const withHash = `#${cleanId}`;
       await supabase.from('amparo_calls').update(updateFields).or(`shopify_order_id.eq.${cleanId},shopify_order_id.eq.${withHash}`);
 
-      // 4. Closed-Loop Shopify Automation
+      // 4. Closed-Loop Shopify & Shiprocket Automation
       try {
         if (finalStatus === 'rto_lost' || aiDecision === 'cancelled') {
           // AUTO-CANCEL ON SHOPIFY
@@ -170,15 +171,32 @@ export default async (req) => {
             note: `Auto-cancelled by Maya AI voice call: ${cancellationReason || 'Customer declined delivery'}`
           });
         } else if (finalStatus === 'confirmed' || aiDecision === 'confirmed') {
-          // AUTO-TAG AS VERIFIED ON SHOPIFY
+          // 1. AUTO-TAG AS VERIFIED ON SHOPIFY
           await addTagsToShopifyOrder({
             numericId: cleanId,
-            newTags: ['maya_verified', 'ai_confirmed', comboAccepted ? 'maya_combo_upsold' : 'maya_confirmed'],
-            note: `Verified by Maya AI at ${new Date().toISOString()}`
+            newTags: ['customer-verified', 'maya_verified', 'ai_confirmed', comboAccepted ? 'maya_combo_upsold' : 'maya_confirmed'],
+            note: `Verified by Maya AI Voice Call at ${new Date().toISOString()}`
           });
+
+          // 2. AUTO-CREATE ORDER IN SHIPROCKET FOR FULFILLMENT
+          const srRes = await createShiprocketOrder({
+            orderId: cleanId,
+            customerName: userData.customer_name || 'Customer',
+            phone: recipientPhone || userData.phone || '9876543210',
+            productName: userData.product_name || 'Amparo Pure Shilajit (30g)',
+            amount: Number(userData.order_amount) || 449,
+            city: userData.delivery_address || 'India'
+          });
+
+          if (srRes && srRes.shipment_id) {
+            await supabase
+              .from('amparo_calls')
+              .update({ shiprocket_shipment_id: String(srRes.shipment_id) })
+              .eq('shopify_order_id', cleanId);
+          }
         }
       } catch (shopifyErr) {
-        console.error('Error during Shopify automated action:', shopifyErr);
+        console.error('Error during Shopify/Shiprocket automated action:', shopifyErr);
       }
     }
     

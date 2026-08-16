@@ -29,6 +29,11 @@
   status = 200
 
 [[redirects]]
+  from = "/api/bolna-callback"
+  to = "/.netlify/functions/bolna-webhook"
+  status = 200
+
+[[redirects]]
   from = "/api/shopify-webhook"
   to = "/.netlify/functions/shopify-webhook"
   status = 200
@@ -36,6 +41,11 @@
 [[redirects]]
   from = "/api/shopify-sync"
   to = "/.netlify/functions/shopify-sync"
+  status = 200
+
+[[redirects]]
+  from = "/api/shopify-order-action"
+  to = "/.netlify/functions/shopify-order-action"
   status = 200
 
 [[redirects]]
