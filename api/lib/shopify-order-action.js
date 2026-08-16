@@ -1,4 +1,4 @@
-// Shopify Order Actions: Dynamic Client ID + Client Secret OAuth Authentication, Auto-Cancel & Auto-Tagging
+// Shopify Order Actions: Modern GraphQL orderCancel Mutation + REST API Fallback & Automated Tagging
 // Endpoint: https://msr-next-gen-tracker.vercel.app/api/shopify-order-action
 
 const SHOPIFY_STORE = process.env.SHOPIFY_STORE || process.env.VITE_SHOPIFY_STORE || 'amparo.myshopify.com';
@@ -53,10 +53,11 @@ export async function getShopifyAccessToken(store = SHOPIFY_STORE, clientId = SH
   return secret;
 }
 
-export async function cancelShopifyOrder({ orderId, reason = 'customer', note = 'Cancelled automatically by Maya AI' }) {
+// 🛑 Modern Shopify GraphQL orderCancel Mutation + REST API Fallback
+export async function cancelShopifyOrder({ orderId, reason = 'CUSTOMER', note = 'Cancelled automatically by Maya AI' }) {
   try {
-    let numericId = orderId;
-    const cleanId = String(orderId).replace('#', '').trim();
+    let numericId = String(orderId).replace('#', '').trim();
+    const cleanId = numericId;
     const token = await getShopifyAccessToken();
     const secret = SHOPIFY_CLIENT_SECRET;
     const basicAuth = Buffer.from(`${SHOPIFY_CLIENT_ID}:${secret}`).toString('base64');
@@ -67,7 +68,41 @@ export async function cancelShopifyOrder({ orderId, reason = 'customer', note = 
       'Authorization': `Basic ${basicAuth}`
     };
 
-    // 1. Search order to get numeric ID if needed
+    // 1. Resolve numeric ID via GraphQL search if needed
+    if (isNaN(Number(numericId)) || numericId.length < 10) {
+      try {
+        const queryGql = `
+          query getOrderId($query: String!) {
+            orders(first: 1, query: $query) {
+              edges {
+                node {
+                  id
+                  legacyResourceId
+                  name
+                }
+              }
+            }
+          }
+        `;
+        const searchGqlRes = await fetch(`https://${SHOPIFY_STORE}/admin/api/2024-01/graphql.json`, {
+          method: 'POST',
+          headers: authHeaders,
+          body: JSON.stringify({
+            query: queryGql,
+            variables: { query: `name:${cleanId}` }
+          })
+        });
+        const searchGqlData = await searchGqlRes.json();
+        const orderNode = searchGqlData?.data?.orders?.edges?.[0]?.node;
+        if (orderNode) {
+          numericId = orderNode.legacyResourceId || String(orderNode.id).replace('gid://shopify/Order/', '');
+        }
+      } catch (gqlErr) {
+        console.warn('GraphQL Order Search fallback to REST:', gqlErr.message);
+      }
+    }
+
+    // 1b. REST Search Fallback
     if (isNaN(Number(numericId)) || numericId.length < 10) {
       try {
         const searchRes = await fetch(`https://${SHOPIFY_STORE}/admin/api/2024-01/orders.json?name=${encodeURIComponent(cleanId)}&status=any`, {
@@ -77,8 +112,8 @@ export async function cancelShopifyOrder({ orderId, reason = 'customer', note = 
         if (searchData.orders && searchData.orders.length > 0) {
           numericId = searchData.orders[0].id;
         }
-      } catch (err) {
-        console.error('Error searching order by name:', err);
+      } catch (restErr) {
+        console.error('REST Search Error:', restErr);
       }
     }
 
@@ -87,30 +122,101 @@ export async function cancelShopifyOrder({ orderId, reason = 'customer', note = 
       return { success: true, simulated: true, message: `Simulated cancellation of order #${cleanId}` };
     }
 
-    // 2. Call Shopify Cancel Order REST API
-    const cancelRes = await fetch(`https://${SHOPIFY_STORE}/admin/api/2024-01/orders/${numericId}/cancel.json`, {
-      method: 'POST',
-      headers: authHeaders,
-      body: JSON.stringify({
-        reason: reason || 'customer',
-        email: true,
-        restock: true
-      })
-    });
+    // 2. Primary Method: Modern GraphQL orderCancel Mutation
+    const globalOrderId = numericId.startsWith('gid://') ? numericId : `gid://shopify/Order/${numericId}`;
+    let cancelSuccess = false;
+    let cancelResponseData = null;
+    let userErrors = [];
 
-    const cancelData = await cancelRes.json();
+    try {
+      const orderCancelMutation = `
+        mutation orderCancel($orderId: ID!, $reason: OrderCancelReason!, $refund: Boolean!, $restock: Boolean!) {
+          orderCancel(
+            orderId: $orderId
+            reason: $reason
+            refund: $refund
+            restock: $restock
+          ) {
+            job {
+              id
+            }
+            userErrors {
+              field
+              message
+            }
+          }
+        }
+      `;
 
-    // 3. Add cancellation tags to Shopify order
+      let mappedReason = 'CUSTOMER';
+      const rLower = String(reason).toLowerCase();
+      if (rLower.includes('fraud') || rLower.includes('fake')) mappedReason = 'FRAUD';
+      else if (rLower.includes('inventory') || rLower.includes('stock')) mappedReason = 'INVENTORY';
+      else if (rLower.includes('declined')) mappedReason = 'DECLINED';
+      else mappedReason = 'CUSTOMER';
+
+      const gqlRes = await fetch(`https://${SHOPIFY_STORE}/admin/api/2024-01/graphql.json`, {
+        method: 'POST',
+        headers: authHeaders,
+        body: JSON.stringify({
+          query: orderCancelMutation,
+          variables: {
+            orderId: globalOrderId,
+            reason: mappedReason,
+            refund: true,
+            restock: true
+          }
+        })
+      });
+
+      const gqlData = await gqlRes.json();
+      cancelResponseData = gqlData;
+      userErrors = gqlData?.data?.orderCancel?.userErrors || [];
+
+      if (gqlRes.ok && userErrors.length === 0 && gqlData?.data?.orderCancel) {
+        cancelSuccess = true;
+      } else if (userErrors.length > 0) {
+        console.warn('Shopify GraphQL orderCancel userErrors:', userErrors);
+      }
+    } catch (gqlErr) {
+      console.error('GraphQL orderCancel error, attempting REST fallback:', gqlErr);
+    }
+
+    // 3. Secondary Method: REST API Cancel Fallback
+    if (!cancelSuccess) {
+      const pureNumeric = String(numericId).replace(/\D/g, '');
+      const cancelRes = await fetch(`https://${SHOPIFY_STORE}/admin/api/2024-01/orders/${pureNumeric}/cancel.json`, {
+        method: 'POST',
+        headers: authHeaders,
+        body: JSON.stringify({
+          reason: 'customer',
+          email: true,
+          restock: true
+        })
+      });
+
+      const cancelData = await cancelRes.json();
+      if (cancelRes.ok) {
+        cancelSuccess = true;
+        cancelResponseData = cancelData;
+      }
+    }
+
+    // 4. Add cancellation tags to Shopify order
+    const pureNumeric = String(numericId).replace(/\D/g, '');
     await addTagsToShopifyOrder({
-      numericId,
-      newTags: ['maya_ai_cancelled', 'rto_prevented', `cancel_reason_${reason.replace(/\s+/g, '_')}`],
+      numericId: pureNumeric,
+      newTags: ['maya_ai_cancelled', 'rto_prevented', `cancel_reason_${String(reason).replace(/\s+/g, '_')}`],
       note
     });
 
     return {
-      success: cancelRes.ok,
-      data: cancelData,
-      message: cancelRes.ok ? `Order #${cleanId} (${numericId}) successfully cancelled on Shopify Store!` : 'Shopify Cancel Error'
+      success: cancelSuccess,
+      data: cancelResponseData,
+      userErrors,
+      message: cancelSuccess
+        ? `Order #${cleanId} (${numericId}) successfully cancelled on Shopify Store!`
+        : `Shopify Cancel Status: ${userErrors.map(e => e.message).join(', ') || 'Pending verification'}`
     };
   } catch (err) {
     console.error('Error cancelling Shopify order:', err);
@@ -130,7 +236,8 @@ export async function addTagsToShopifyOrder({ numericId, newTags = [], note = ''
       'Authorization': `Basic ${basicAuth}`
     };
 
-    const getRes = await fetch(`https://${SHOPIFY_STORE}/admin/api/2024-01/orders/${numericId}.json?fields=id,tags,note`, {
+    const pureNumeric = String(numericId).replace(/\D/g, '');
+    const getRes = await fetch(`https://${SHOPIFY_STORE}/admin/api/2024-01/orders/${pureNumeric}.json?fields=id,tags,note`, {
       headers: authHeaders
     });
     const getData = await getRes.json();
@@ -139,7 +246,7 @@ export async function addTagsToShopifyOrder({ numericId, newTags = [], note = ''
 
     const updateBody = {
       order: {
-        id: numericId,
+        id: pureNumeric,
         tags: mergedTags
       }
     };
@@ -147,7 +254,7 @@ export async function addTagsToShopifyOrder({ numericId, newTags = [], note = ''
       updateBody.order.note = `${getData.order?.note ? `${getData.order.note} | ` : ''}${note}`;
     }
 
-    const updateRes = await fetch(`https://${SHOPIFY_STORE}/admin/api/2024-01/orders/${numericId}.json`, {
+    const updateRes = await fetch(`https://${SHOPIFY_STORE}/admin/api/2024-01/orders/${pureNumeric}.json`, {
       method: 'PUT',
       headers: authHeaders,
       body: JSON.stringify(updateBody)
