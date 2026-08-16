@@ -185,6 +185,11 @@ export function AppDataProvider({ children }) {
       syncBolnaExecutions();
     });
 
+    // ⚡ Periodic Auto-Sync Every 10 Seconds for Instant Live Call Visibility
+    const bolnaInterval = setInterval(() => {
+      syncBolnaExecutions();
+    }, 10000);
+
     // 2. Real-time Subscription to Live Database Changes
     if (isSupabaseConfigured()) {
       const channel = supabase
@@ -622,16 +627,19 @@ export function AppDataProvider({ children }) {
 
       setBolnaExecutions(parsedExecutions);
 
-      // Now match individual executions to orders in amparoCalls
+      // Now match individual executions to orders in amparoCalls, and append any new executions
       setAmparoCalls((prev) => {
-        return prev.map((c) => {
-          // Find matching execution for this specific order/customer
+        const matchedIds = new Set();
+
+        const updatedList = prev.map((c) => {
           const match = parsedExecutions.find(
             (e) => (c.shopify_order_id && e.shopify_order_id && String(c.shopify_order_id).replace('#', '') === String(e.shopify_order_id).replace('#', '')) ||
-                   (c.customer_name && e.customer_name && c.customer_name.toLowerCase() === e.customer_name.toLowerCase() && c.customer_name !== 'Verified Buyer')
+                   (c.bolna_call_id && e.bolna_call_id && c.bolna_call_id === e.bolna_call_id) ||
+                   (c.phone && e.phone && c.phone.replace(/\D/g, '').slice(-10) === e.phone.replace(/\D/g, '').slice(-10) && c.customer_name !== 'Verified Buyer')
           );
 
           if (match) {
+            matchedIds.add(match.id);
             const callMeta = {
               recording_url: match.recording_url,
               transcript: match.transcript,
@@ -650,6 +658,10 @@ export function AppDataProvider({ children }) {
           }
           return c;
         });
+
+        // Add any brand new executions from Bolna that were not in prev
+        const brandNew = parsedExecutions.filter((e) => !matchedIds.has(e.id) && !prev.some((p) => p.bolna_call_id === e.id || p.id === e.id));
+        return [...brandNew, ...updatedList];
       });
 
       return { success: true, count: executions.length };
