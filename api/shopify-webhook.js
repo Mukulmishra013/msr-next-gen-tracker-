@@ -1,8 +1,6 @@
 // Real-Time Shopify Webhook Receiver with AI Anti-Fraud Shield & Instant Maya AI Calling Dispatch
 // Endpoint: https://msr-next-gen-tracker.vercel.app/api/shopify-webhook
 
-export const config = { runtime: 'edge' };
-
 import { createClient } from '@supabase/supabase-js';
 import { cancelShopifyOrder } from './lib/shopify-order-action.js';
 
@@ -22,12 +20,10 @@ function validateIndianPhoneNumber(rawPhone) {
     return { isValid: false, reason: `Incomplete Phone Number (${digits.length} digits instead of 10)` };
   }
 
-  // Must start with 6, 7, 8, or 9
   if (!['6', '7', '8', '9'].includes(digits[0])) {
     return { isValid: false, reason: 'Invalid Indian Mobile Prefix (must start with 6, 7, 8, or 9)' };
   }
 
-  // Check for dummy/fake repeating sequences
   const fakePatterns = [
     '0000000000', '1111111111', '2222222222', '3333333333', '4444444444',
     '5555555555', '6666666666', '7777777777', '8888888888', '9999999999',
@@ -37,7 +33,6 @@ function validateIndianPhoneNumber(rawPhone) {
     return { isValid: false, reason: 'Spam/Test Dummy Number Pattern' };
   }
 
-  // Check for same digit repeated 7+ times
   if (/(\d)\1{6,}/.test(digits)) {
     return { isValid: false, reason: 'Spam Number (repeated digits)' };
   }
@@ -91,29 +86,34 @@ async function triggerInstantAiCall({ orderId, phone, customerName, product, amo
   }
 }
 
-export default async (req) => {
+export default async function handler(req, res) {
+  // CORS Headers
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', '*');
+
   if (req.method === 'OPTIONS') {
-    return new Response(null, {
-      status: 204,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
-        'Access-Control-Allow-Headers': '*'
-      }
-    });
+    return res.status(200).end();
+  }
+
+  if (req.method === 'GET') {
+    return res.status(200).json({ message: 'Shopify Webhook Ready' });
   }
 
   if (req.method !== 'POST') {
-    return new Response(JSON.stringify({ message: 'Shopify Webhook Ready' }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' }
-    });
+    return res.status(405).json({ message: 'Method Not Allowed' });
   }
 
   try {
-    const body = await req.json();
+    let body = req.body;
+    if (typeof body === 'string') {
+      try {
+        body = JSON.parse(body);
+      } catch (e) {}
+    }
+
     if (!body || !body.id) {
-      return new Response(JSON.stringify({ success: false, message: 'Invalid payload' }), { status: 400 });
+      return res.status(400).json({ success: false, message: 'Invalid payload' });
     }
 
     const orderId = String(body.name || `#${body.order_number}` || body.id);
@@ -137,7 +137,6 @@ export default async (req) => {
       ''
     );
 
-    // 🛡️ Anti-Fraud Phone Verification
     const phoneValidation = validateIndianPhoneNumber(rawPhone);
 
     const items = Array.isArray(body.line_items) && body.line_items.length > 0
@@ -149,7 +148,7 @@ export default async (req) => {
     const isCancelled = !!body.cancelled_at;
     const isDelivered = body.fulfillment_status === 'fulfilled';
 
-    // 🛑 Case 1: Fake / Spam / Invalid Phone Number Detected
+    // Fake number detected
     if (!phoneValidation.isValid) {
       const fakeOrderRecord = {
         shopify_order_id: orderId,
@@ -168,25 +167,21 @@ export default async (req) => {
         .from('amparo_calls')
         .upsert([fakeOrderRecord], { onConflict: 'shopify_order_id' });
 
-      // Automatically cancel fake order on Shopify Store immediately!
       await cancelShopifyOrder({
         orderId: numericShopifyId || orderId,
         reason: 'customer',
         note: `Auto-cancelled by Maya AI Anti-Fraud Shield: ${phoneValidation.reason}`
       });
 
-      return new Response(
-        JSON.stringify({
-          success: true,
-          action: 'FAKE_ORDER_AUTO_CANCELLED',
-          message: `Fake order detected (${phoneValidation.reason}). Auto-cancelled on Shopify without dialing.`,
-          order: fakeOrderRecord
-        }),
-        { status: 200, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
-      );
+      return res.status(200).json({
+        success: true,
+        action: 'FAKE_ORDER_AUTO_CANCELLED',
+        message: `Fake order detected (${phoneValidation.reason}). Auto-cancelled on Shopify without dialing.`,
+        order: fakeOrderRecord
+      });
     }
 
-    // 🟢 Case 2: Valid Mobile Number ➔ Ingest and Trigger Instant AI Call
+    // Valid number
     const validPhone = phoneValidation.validPhone;
 
     const newCall = {
@@ -226,20 +221,14 @@ export default async (req) => {
         .eq('shopify_order_id', orderId);
     }
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        action: 'ORDER_VERIFICATION_DIALED',
-        message: 'Valid order ingested and Maya AI auto-call dispatched successfully',
-        order: newCall,
-        autoCall: autoCallResult
-      }),
-      { status: 200, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
-    );
+    return res.status(200).json({
+      success: true,
+      action: 'ORDER_VERIFICATION_DIALED',
+      message: 'Valid order ingested and Maya AI auto-call dispatched successfully',
+      order: newCall,
+      autoCall: autoCallResult
+    });
   } catch (err) {
-    return new Response(
-      JSON.stringify({ success: false, error: err.message }),
-      { status: 500, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
-    );
+    return res.status(500).json({ success: false, error: err.message });
   }
-};
+}

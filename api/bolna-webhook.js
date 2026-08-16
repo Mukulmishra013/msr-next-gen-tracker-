@@ -1,7 +1,5 @@
-// Netlify/Vercel Serverless Function: Real-Time Webhook Receiver for Bolna.ai Voice Calls
+// Real-Time Webhook Receiver for Bolna.ai Voice Calls
 // Endpoint: https://msr-next-gen-tracker.vercel.app/api/bolna-webhook
-
-export const config = { runtime: 'edge' };
 
 import { createClient } from '@supabase/supabase-js';
 import { cancelShopifyOrder, addTagsToShopifyOrder } from './lib/shopify-order-action.js';
@@ -12,53 +10,49 @@ const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-export default async (req) => {
-  // 1. Handle CORS Preflight
+export default async function handler(req, res) {
+  // CORS Headers
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', '*');
+
   if (req.method === 'OPTIONS') {
-    return new Response(null, {
-      status: 204,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
-        'Access-Control-Allow-Headers': '*'
-      }
-    });
+    return res.status(200).end();
   }
 
-  // Healthcheck on GET
   if (req.method === 'GET') {
-    return new Response(JSON.stringify({ status: 'active', service: 'Bolna Webhook Receiver' }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' }
-    });
+    return res.status(200).json({ status: 'active', service: 'Bolna Webhook Receiver' });
   }
 
   try {
-    const payload = await req.json();
+    let payload = req.body;
+    if (typeof payload === 'string') {
+      try {
+        payload = JSON.parse(payload);
+      } catch (e) {}
+    }
 
     if (!payload) {
-      return new Response(JSON.stringify({ error: 'No payload received' }), { status: 400 });
+      return res.status(400).json({ error: 'No payload received' });
     }
 
     const executionId = payload.execution_id || payload.id || payload.call_id || null;
     const bolnaStatus = (payload.status || payload.call_status || '').toLowerCase();
     const durationSec = Math.round(Number(payload.conversation_duration || payload.duration || payload.duration_seconds || 0));
-    
-    // Recording URL Extraction
-    const recordingUrl = 
-      payload.recording_url || 
-      payload.telephony_data?.recording_url || 
-      payload.recording || 
+
+    const recordingUrl =
+      payload.recording_url ||
+      payload.telephony_data?.recording_url ||
+      payload.recording ||
       (executionId ? `https://api.bolna.ai/recordings/call/${executionId}` : null);
 
-    // Transcript Extraction
     let transcriptText = '';
     if (typeof payload.transcript === 'string') {
       transcriptText = payload.transcript;
     } else if (Array.isArray(payload.transcript)) {
-      transcriptText = payload.transcript.map(t => `${t.speaker || t.role}: ${t.text || t.message}`).join('\n');
+      transcriptText = payload.transcript.map((t) => `${t.speaker || t.role}: ${t.text || t.message}`).join('\n');
     } else if (Array.isArray(payload.conversation_transcript)) {
-      transcriptText = payload.conversation_transcript.map(t => `${t.role || t.speaker}: ${t.content || t.message || t.text}`).join('\n');
+      transcriptText = payload.conversation_transcript.map((t) => `${t.role || t.speaker}: ${t.content || t.message || t.text}`).join('\n');
     }
 
     const summary = payload.summary || payload.call_summary || '';
@@ -68,7 +62,6 @@ export default async (req) => {
     const orderId = userData.order_id || payload.order_id || null;
     const recipientPhone = payload.recipient_phone_number || payload.phone || userData.phone || null;
 
-    // 2. Intelligent Decision & Status Mapping
     const transcriptLower = (transcriptText + ' ' + summary + ' ' + JSON.stringify(extractions)).toLowerCase();
     let finalStatus = 'confirmed';
     let actionRequired = 'ship_immediately';
@@ -101,8 +94,8 @@ export default async (req) => {
       }
     } else if (
       extractions.order_decision === 'rescheduled' ||
-      transcriptLower.includes('reschedule') || 
-      transcriptLower.includes('baad mein') || 
+      transcriptLower.includes('reschedule') ||
+      transcriptLower.includes('baad mein') ||
       transcriptLower.includes('kal aao') ||
       transcriptLower.includes('sham ko') ||
       transcriptLower.includes('shaam') ||
@@ -120,8 +113,8 @@ export default async (req) => {
       }
     } else if (
       extractions.order_decision === 'confirmed' ||
-      transcriptLower.includes('confirm') || 
-      transcriptLower.includes('haan') || 
+      transcriptLower.includes('confirm') ||
+      transcriptLower.includes('haan') ||
       transcriptLower.includes('bhej do') ||
       transcriptLower.includes('deliver')
     ) {
@@ -134,7 +127,6 @@ export default async (req) => {
       comboAccepted = true;
     }
 
-    // 3. Package into Safe JSON Metadata for Supabase notes column
     const callMetadata = {
       recording_url: recordingUrl,
       transcript: transcriptText,
@@ -157,30 +149,25 @@ export default async (req) => {
       notes: notesPayload
     };
 
-    // Update by orderId, executionId, or phone
     if (orderId) {
       const cleanId = String(orderId).replace('#', '').trim();
       const withHash = `#${cleanId}`;
       await supabase.from('amparo_calls').update(updateFields).or(`shopify_order_id.eq.${cleanId},shopify_order_id.eq.${withHash}`);
 
-      // 4. Closed-Loop Shopify & Shiprocket Automation
       try {
         if (finalStatus === 'rto_lost' || aiDecision === 'cancelled') {
-          // AUTO-CANCEL ON SHOPIFY
           await cancelShopifyOrder({
             orderId: cleanId,
             reason: cancellationReason || 'customer',
             note: `Auto-cancelled by Maya AI voice call: ${cancellationReason || 'Customer declined delivery'}`
           });
         } else if (finalStatus === 'confirmed' || aiDecision === 'confirmed') {
-          // 1. AUTO-TAG AS VERIFIED ON SHOPIFY
           await addTagsToShopifyOrder({
             numericId: cleanId,
             newTags: ['customer-verified', 'maya_verified', 'ai_confirmed', comboAccepted ? 'maya_combo_upsold' : 'maya_confirmed'],
             note: `Verified by Maya AI Voice Call at ${new Date().toISOString()}`
           });
 
-          // 2. AUTO-CREATE ORDER IN SHIPROCKET FOR FULFILLMENT
           const srRes = await createShiprocketOrder({
             orderId: cleanId,
             customerName: userData.customer_name || 'Customer',
@@ -201,30 +188,23 @@ export default async (req) => {
         console.error('Error during Shopify/Shiprocket automated action:', shopifyErr);
       }
     }
-    
+
     if (recipientPhone) {
       const cleanDigits = String(recipientPhone).replace(/\D/g, '').slice(-10);
       await supabase.from('amparo_calls').update(updateFields).ilike('phone', `%${cleanDigits}%`);
     }
 
-    return new Response(JSON.stringify({
+    return res.status(200).json({
       success: true,
-      message: 'Bolna call webhook processed successfully and saved permanently to Supabase',
+      message: 'Bolna call webhook processed successfully',
       decision: aiDecision,
       action_required: actionRequired,
       recording_url: recordingUrl
-    }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
     });
-
   } catch (err) {
-    return new Response(JSON.stringify({
+    return res.status(500).json({
       success: false,
       error: err.message || 'Webhook processing failed'
-    }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
     });
   }
-};
+}
