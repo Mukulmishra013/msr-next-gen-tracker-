@@ -4,6 +4,7 @@ import { useAppData } from '../../context/AppDataContext';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../services/supabase';
 import { supervisorAudit } from '../../services/supervisorAudit';
+import { adminTaskService } from '../../services/adminTaskService';
 import { 
   PhoneCall, 
   AlertCircle, 
@@ -163,6 +164,33 @@ export function ContentCallingDashboard({ onOpenChat }) {
       unsub();
     };
   }, [currentUser, amparoCalls, incentives]);
+
+  // Admin Assigned Extra Tasks & Missions
+  const [adminAssignedTasks, setAdminAssignedTasks] = useState(() => {
+    return adminTaskService.getTasksForUser(currentUser?.id || 'usr_priya_telecaller');
+  });
+
+  useEffect(() => {
+    const unsubTasks = adminTaskService.subscribe(() => {
+      setAdminAssignedTasks(adminTaskService.getTasksForUser(currentUser?.id || 'usr_priya_telecaller'));
+    });
+    return () => unsubTasks();
+  }, [currentUser]);
+
+  const handleClaimAdminTask = (task) => {
+    const userId = currentUser?.id || 'usr_priya_telecaller';
+    const userName = currentUser?.name || 'Priya Singh';
+    const res = adminTaskService.completeTask(task.id, userId, userName);
+    if (res.success) {
+      try {
+        playCoinDrop();
+      } catch (e) {}
+      alert(`🎉 BINGO! Extra Task "${task.title}" completed! +₹${res.bounty || 0} Bonus Reward unlocked!`);
+      setAdminAssignedTasks(adminTaskService.getTasksForUser(userId));
+    } else {
+      alert(res.error || 'Task completion error');
+    }
+  };
 
   const handleDismissSupervisorWarning = (warningId) => {
     supervisorAudit.recordActivity(currentUser?.id || 'usr_priya_telecaller', currentUser?.name || 'Telecaller', 'ACKNOWLEDGE_WARNING');
@@ -986,6 +1014,75 @@ Dhanyawad!
         <div className="p-3.5 rounded-2xl bg-purple-950/80 border border-purple-500/60 text-purple-200 text-xs font-bold flex items-center gap-2 shadow-lg shadow-purple-950/40 animate-scale-up">
           <Bot className="w-4 h-4 text-yellow-300 animate-spin" />
           <span>{aiCallMessage}</span>
+        </div>
+      )}
+
+      {/* 👑 Admin Assigned Extra Tasks & Special Missions Banner */}
+      {adminAssignedTasks.length > 0 && (
+        <div className="space-y-3">
+          {adminAssignedTasks.map((task) => {
+            const isDone = (task.completedBy || []).some((c) => c.userId === (currentUser?.id || 'usr_priya_telecaller'));
+            return (
+              <div 
+                key={task.id}
+                className={`p-4 rounded-3xl border flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xl transition animate-scale-up ${
+                  isDone
+                    ? 'bg-slate-950/80 border-slate-800 opacity-90'
+                    : task.priority === 'urgent'
+                    ? 'bg-gradient-to-r from-red-950/90 via-slate-950 to-slate-900 border-red-500/80 shadow-red-950/40'
+                    : 'bg-gradient-to-r from-emerald-950/90 via-purple-950/80 to-slate-900 border-emerald-500/70 shadow-emerald-950/40'
+                }`}
+              >
+                <div className="flex items-start gap-3.5 flex-1">
+                  <div className="p-2.5 rounded-2xl bg-black/50 border border-white/15 shrink-0">
+                    <Sparkles className="w-5 h-5 text-yellow-300 animate-spin" />
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-emerald-500 text-black">
+                        👑 Admin Mission
+                      </span>
+                      <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded border ${
+                        task.priority === 'urgent'
+                          ? 'bg-red-950 border-red-500/50 text-red-300'
+                          : 'bg-purple-950 border border-purple-500/50 text-purple-300'
+                      }`}>
+                        {task.priority === 'urgent' ? '🔥 High Priority' : '⚡ Special Target'}
+                      </span>
+                      <span className="text-[11px] font-extrabold text-amber-300">
+                        Deadline: {task.deadline}
+                      </span>
+                    </div>
+
+                    <h4 className="font-extrabold text-sm text-white leading-snug">{task.title}</h4>
+                    <p className="text-xs text-slate-300 leading-relaxed font-sans">{task.description}</p>
+                  </div>
+                </div>
+
+                <div className="flex sm:flex-col items-center sm:items-end justify-between gap-2 shrink-0 border-t sm:border-t-0 border-slate-800 pt-2 sm:pt-0">
+                  <span className="px-3 py-1 rounded-xl bg-emerald-950 border border-emerald-500/50 text-emerald-300 font-mono font-black text-sm">
+                    +₹{task.rewardBounty} Bounty
+                  </span>
+
+                  {isDone ? (
+                    <span className="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-700 text-emerald-400 font-bold text-xs flex items-center gap-1">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                      <span>Completed!</span>
+                    </span>
+                  ) : (
+                    <button
+                      onClick={() => handleClaimAdminTask(task)}
+                      className="tap-target px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-xs flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-600/30 active:scale-95 transition"
+                    >
+                      <Sparkles className="w-4 h-4 text-yellow-300" />
+                      <span>Mark Done & Claim Bounty ➔</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
 

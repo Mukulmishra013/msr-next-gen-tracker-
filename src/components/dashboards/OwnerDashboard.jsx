@@ -6,6 +6,7 @@ import { SalaryBreakdownCard } from '../payroll/SalaryBreakdownCard';
 import { EmployeeManagement } from '../admin/EmployeeManagement';
 import { ShiprocketSyncModal } from '../admin/ShiprocketSyncModal';
 import { supervisorAudit } from '../../services/supervisorAudit';
+import { adminTaskService } from '../../services/adminTaskService';
 import { 
   TrendingUp, 
   Users, 
@@ -83,13 +84,57 @@ export function OwnerDashboard({ onOpenUpiModal, onOpenChat }) {
   const [supervisorLogs, setSupervisorLogs] = useState(() => supervisorAudit.getAuditLogs());
   const [staffActivities, setStaffActivities] = useState(() => supervisorAudit.getLastActivities());
 
+  // Admin Assigned Extra Tasks State
+  const [adminTasks, setAdminTasks] = useState(() => adminTaskService.getTasks());
+  const [showAssignTaskModal, setShowAssignTaskModal] = useState(false);
+  const [newTaskTitle, setNewTaskTitle] = useState('');
+  const [newTaskDesc, setNewTaskDesc] = useState('');
+  const [newTaskBounty, setNewTaskBounty] = useState('50');
+  const [newTaskPriority, setNewTaskPriority] = useState('urgent');
+  const [newTaskTarget, setNewTaskTarget] = useState('ALL');
+  const [newTaskDeadline, setNewTaskDeadline] = useState('Today by 04:30 PM');
+
   useEffect(() => {
-    const unsub = supervisorAudit.subscribe(() => {
+    const unsub1 = supervisorAudit.subscribe(() => {
       setSupervisorLogs(supervisorAudit.getAuditLogs());
       setStaffActivities(supervisorAudit.getLastActivities());
     });
-    return () => unsub();
+    const unsub2 = adminTaskService.subscribe(() => {
+      setAdminTasks(adminTaskService.getTasks());
+    });
+    return () => {
+      unsub1();
+      unsub2();
+    };
   }, []);
+
+  const handleCreateAdminTask = (e) => {
+    e.preventDefault();
+    if (!newTaskTitle.trim()) {
+      alert('Kripya task title enter karein!');
+      return;
+    }
+
+    let targetName = 'All Team Members';
+    if (newTaskTarget === 'usr_priya_telecaller') targetName = 'Priya Singh';
+    if (newTaskTarget === 'usr_rahul_telecaller') targetName = 'Rahul Sharma';
+
+    adminTaskService.createTask({
+      title: newTaskTitle.trim(),
+      description: newTaskDesc.trim() || 'Admin priority mission. Complete and claim instant bonus!',
+      rewardBounty: Number(newTaskBounty) || 0,
+      priority: newTaskPriority,
+      targetStaff: newTaskTarget,
+      targetStaffName: targetName,
+      deadline: newTaskDeadline,
+      createdBy: 'Mukul Mishra'
+    });
+
+    setNewTaskTitle('');
+    setNewTaskDesc('');
+    setShowAssignTaskModal(false);
+    alert(`🚀 Extra Task "${newTaskTitle}" successfully assigned to ${targetName}!`);
+  };
 
   const handleAdminIssueWarning = (staffName, staffId) => {
     const reason = prompt(`🚨 Enter Reason for Supervisor Warning to ${staffName}:`, 'Pichhle 25 minute se inactive hain. Kripya urgent queue par focus karein.');
@@ -555,22 +600,32 @@ export function OwnerDashboard({ onOpenUpiModal, onOpenChat }) {
                 </p>
               </div>
 
-              <button
-                onClick={() => {
-                  supervisorAudit.addAuditLog({
-                    type: 'MANUAL_AUDIT_TRIGGER',
-                    severity: 'info',
-                    staffName: 'All Telecallers',
-                    message: 'Mukul Mishra executed instant 360° agency staff audit.'
-                  });
-                  setSupervisorLogs(supervisorAudit.getAuditLogs());
-                  alert('⚡ Instant Agency Staff Audit executed! All telemetry is synchronized.');
-                }}
-                className="tap-target px-3.5 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-black flex items-center gap-1.5 shadow-md shadow-purple-600/30 transition active:scale-95 self-start sm:self-auto"
-              >
-                <Zap className="w-3.5 h-3.5 text-yellow-300" />
-                <span>⚡ Run Live Staff Audit Now</span>
-              </button>
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  onClick={() => setShowAssignTaskModal(true)}
+                  className="tap-target px-3.5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-black flex items-center gap-1.5 shadow-md shadow-emerald-600/30 transition active:scale-95"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-yellow-300" />
+                  <span>➕ Assign Extra Task / Mission</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    supervisorAudit.addAuditLog({
+                      type: 'MANUAL_AUDIT_TRIGGER',
+                      severity: 'info',
+                      staffName: 'All Telecallers',
+                      message: 'Mukul Mishra executed instant 360° agency staff audit.'
+                    });
+                    setSupervisorLogs(supervisorAudit.getAuditLogs());
+                    alert('⚡ Instant Agency Staff Audit executed! All telemetry is synchronized.');
+                  }}
+                  className="tap-target px-3.5 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-black flex items-center gap-1.5 shadow-md shadow-purple-600/30 transition active:scale-95"
+                >
+                  <Zap className="w-3.5 h-3.5 text-yellow-300" />
+                  <span>⚡ Run Live Staff Audit</span>
+                </button>
+              </div>
             </div>
 
             {/* Staff Cards Grid */}
@@ -737,6 +792,99 @@ export function OwnerDashboard({ onOpenUpiModal, onOpenChat }) {
                 </div>
               ))}
             </div>
+          </div>
+
+          {/* 👑 Admin Assigned Extra Tasks & Special Missions Control Card */}
+          <div className="glass-card rounded-3xl border border-emerald-500/30 bg-gradient-to-br from-emerald-950/20 via-slate-950/90 to-slate-900 p-5 space-y-4 shadow-xl">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
+              <div>
+                <h3 className="font-extrabold text-sm text-white flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-yellow-300 animate-spin" />
+                  <span>Admin Assigned Extra Tasks & Live Special Missions</span>
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-950 border border-emerald-500/40 text-emerald-300 text-[10px] font-black">
+                    {adminTasks.length} Active Missions
+                  </span>
+                </h3>
+                <p className="text-xs text-slate-300 mt-0.5">
+                  Yeh tasks sabhi telecaller dashboards par live flash ho rahe hain with instant cash incentive bounties.
+                </p>
+              </div>
+
+              <button
+                onClick={() => setShowAssignTaskModal(true)}
+                className="tap-target px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black flex items-center gap-1.5 shadow-md shadow-emerald-600/30 transition active:scale-95 self-start sm:self-auto"
+              >
+                <span>➕ New Mission Assign Karein</span>
+              </button>
+            </div>
+
+            {adminTasks.length === 0 ? (
+              <div className="p-6 text-center rounded-2xl bg-slate-900/40 border border-slate-800 text-slate-400 text-xs">
+                Abhi koi extra task active nahi hai. Upar "New Mission Assign Karein" par click karke add karein.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                {adminTasks.map((task) => (
+                  <div 
+                    key={task.id} 
+                    className="p-4 rounded-2xl bg-slate-950/90 border border-slate-800 hover:border-emerald-500/40 transition space-y-3 shadow-lg"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${
+                            task.priority === 'urgent'
+                              ? 'bg-red-950 border border-red-500/50 text-red-300'
+                              : 'bg-purple-950 border border-purple-500/50 text-purple-300'
+                          }`}>
+                            {task.priority === 'urgent' ? '🔥 Urgent' : '⚡ Special'}
+                          </span>
+                          <span className="text-[11px] font-bold text-slate-400">
+                            Target: <strong className="text-white">{task.targetStaffName}</strong>
+                          </span>
+                        </div>
+                        <h4 className="font-extrabold text-sm text-white leading-snug">{task.title}</h4>
+                      </div>
+
+                      <div className="text-right shrink-0">
+                        <span className="px-2.5 py-1 rounded-xl bg-emerald-950/80 border border-emerald-500/40 text-emerald-300 font-mono font-black text-xs inline-block">
+                          +₹{task.rewardBounty} Bounty
+                        </span>
+                      </div>
+                    </div>
+
+                    <p className="text-xs text-slate-300 leading-relaxed font-sans">{task.description}</p>
+
+                    <div className="flex items-center justify-between pt-2 border-t border-slate-800/80 text-[11px]">
+                      <div className="flex items-center gap-1.5 text-slate-400">
+                        <Clock className="w-3.5 h-3.5 text-amber-400" />
+                        <span>Deadline: <strong className="text-slate-200">{task.deadline}</strong></span>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-bold text-emerald-400">
+                          {(task.completedBy || []).length > 0
+                            ? `✅ ${(task.completedBy || []).length} Member Completed`
+                            : '⏳ Pending Completion'}
+                        </span>
+
+                        <button
+                          onClick={() => {
+                            if (confirm(`Kya aap task "${task.title}" delete karna chahte hain?`)) {
+                              adminTaskService.deleteTask(task.id);
+                              setAdminTasks(adminTaskService.getTasks());
+                            }
+                          }}
+                          className="px-2 py-1 rounded bg-slate-900 hover:bg-red-950 text-slate-400 hover:text-red-300 text-[10px] font-bold border border-slate-800 transition"
+                        >
+                          ✕ Delete
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Maya AI Autonomous Audit & Warning Feed */}
@@ -1584,6 +1732,134 @@ export function OwnerDashboard({ onOpenUpiModal, onOpenChat }) {
               </div>
             </div>
 
+          </div>
+        </div>
+      )}
+
+      {/* ➕ Admin Assign Extra Task & Special Mission Modal */}
+      {showAssignTaskModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-purple-500/50 rounded-3xl max-w-lg w-full p-6 space-y-5 shadow-2xl animate-scale-up">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2.5">
+                <span className="text-2xl">👑</span>
+                <div>
+                  <h3 className="text-base font-black text-white">Assign Extra Mission & Task</h3>
+                  <p className="text-xs text-slate-400">Target specific telecallers or broadcast to whole agency.</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowAssignTaskModal(false)}
+                className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateAdminTask} className="space-y-3.5">
+              <div>
+                <label className="text-[11px] font-extrabold text-slate-300 uppercase block mb-1">
+                  Task / Mission Title *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Call 15 High-Priority Shilajit RTO Customers"
+                  value={newTaskTitle}
+                  onChange={(e) => setNewTaskTitle(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-extrabold text-slate-300 uppercase block mb-1">
+                  Target Member (Kisko Assign Karna Hai)
+                </label>
+                <select
+                  value={newTaskTarget}
+                  onChange={(e) => setNewTaskTarget(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500"
+                >
+                  <option value="ALL">📢 All Team Members (Broadcast to Everyone)</option>
+                  <option value="usr_priya_telecaller">👩‍💼 Priya Singh (Content & Telecalling)</option>
+                  <option value="usr_rahul_telecaller">👨‍💼 Rahul Sharma (Telecalling & Field)</option>
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[11px] font-extrabold text-slate-300 uppercase block mb-1">
+                    Cash Bounty Reward (₹)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="50"
+                    value={newTaskBounty}
+                    onChange={(e) => setNewTaskBounty(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-emerald-400 font-mono font-bold focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-extrabold text-slate-300 uppercase block mb-1">
+                    Priority Level
+                  </label>
+                  <select
+                    value={newTaskPriority}
+                    onChange={(e) => setNewTaskPriority(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500"
+                  >
+                    <option value="urgent">🔥 High Priority (Urgent)</option>
+                    <option value="normal">⚡ Normal Task</option>
+                    <option value="bounty">🎯 Bonus Bounty Mission</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[11px] font-extrabold text-slate-300 uppercase block mb-1">
+                  Instructions / Script Details
+                </label>
+                <textarea
+                  rows="2"
+                  placeholder="Task ke instructions ya special discount offer jo customer ko dena hai..."
+                  value={newTaskDesc}
+                  onChange={(e) => setNewTaskDesc(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                ></textarea>
+              </div>
+
+              <div>
+                <label className="text-[11px] font-extrabold text-slate-300 uppercase block mb-1">
+                  Target Deadline
+                </label>
+                <input
+                  type="text"
+                  placeholder="Today by 04:30 PM"
+                  value={newTaskDeadline}
+                  onChange={(e) => setNewTaskDeadline(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div className="flex items-center gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAssignTaskModal(false)}
+                  className="flex-1 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-black shadow-lg shadow-emerald-600/30 transition active:scale-95 flex items-center justify-center gap-1.5"
+                >
+                  <Sparkles className="w-4 h-4 text-yellow-300" />
+                  <span>🚀 Assign Mission Now</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
