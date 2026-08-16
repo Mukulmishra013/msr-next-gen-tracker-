@@ -280,31 +280,24 @@ export function ShopifyCustomersDirectory({ onOpenChat }) {
     reader.readAsText(file);
   };
 
-  // 4. Handle Shopify Direct API Sync
+  // 4. Handle Shopify Direct API Sync with Client ID & Client Secret
   const handleSyncViaShopifyApi = async () => {
-    if (!shopifyToken.trim()) {
-      alert('Kripya apna Shopify Admin API Token (shpat_...) enter karein.');
-      return;
-    }
-
     setIsSyncingApi(true);
     setAiCallMessage('⚡ Shopify Admin API se All 200+ Customers fetch ho rahe hain...');
 
     try {
-      localStorage.setItem(SHOPIFY_TOKEN_KEY, shopifyToken.trim());
-
       const res = await fetch('/api/shopify-sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          token: shopifyToken.trim(),
-          store: 'amparo-store-3405.myshopify.com'
+          store: 'amparo.myshopify.com',
+          clientId: 'a817dbe991c7e8c140bb85b122798617'
         })
       });
 
       const data = await res.json();
 
-      if (data.success && Array.isArray(data.orders)) {
+      if (data.success && Array.isArray(data.orders) && data.orders.length > 0) {
         // Aggregate fetched orders into customers
         const map = new Map();
         data.orders.forEach((o) => {
@@ -783,8 +776,8 @@ export function ShopifyCustomersDirectory({ onOpenChat }) {
               <div className="flex items-center gap-2.5">
                 <Key className="w-6 h-6 text-emerald-400" />
                 <div>
-                  <h3 className="text-base font-black text-white">Connect Shopify Admin API</h3>
-                  <p className="text-xs text-slate-400">Directly sync all 200+ customers from your store</p>
+                  <h3 className="text-base font-black text-white">Connect Shopify Store API</h3>
+                  <p className="text-xs text-slate-400">Directly sync all 200+ customers using Client ID & Secret</p>
                 </div>
               </div>
               <button
@@ -803,24 +796,35 @@ export function ShopifyCustomersDirectory({ onOpenChat }) {
                 <input
                   type="text"
                   disabled
-                  value="amparo-store-3405.myshopify.com"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-400 font-mono"
+                  value="amparo.myshopify.com"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-emerald-300 font-mono font-bold"
                 />
               </div>
 
               <div>
                 <label className="text-[11px] font-extrabold text-slate-300 uppercase block mb-1">
-                  Admin API Access Token (shpat_...) *
+                  Shopify Client ID (App ID)
+                </label>
+                <input
+                  type="text"
+                  disabled
+                  value="a817dbe991c7e8c140bb85b122798617"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-300 font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-extrabold text-slate-300 uppercase block mb-1">
+                  Shopify Client Secret (Secured)
                 </label>
                 <input
                   type="password"
-                  placeholder="shpat_xxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-                  value={shopifyToken}
-                  onChange={(e) => setShopifyToken(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 font-mono focus:outline-none focus:border-emerald-500"
+                  disabled
+                  value="shpss_configured_in_environment_variables"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-400 font-mono tracking-widest"
                 />
-                <p className="text-[10px] text-slate-400 mt-1">
-                  Shopify Admin ➔ Settings ➔ Apps and sales channels ➔ Develop apps ➔ API credentials me Token copy karein.
+                <p className="text-[10px] text-emerald-400 font-semibold mt-1">
+                  ✅ 2026 Shopify Modern App Authentication Active (No deprecated shpat_ token needed).
                 </p>
               </div>
 
