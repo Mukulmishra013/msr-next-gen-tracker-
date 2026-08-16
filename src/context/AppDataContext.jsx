@@ -181,7 +181,9 @@ export function AppDataProvider({ children }) {
       }
     }
 
-    loadSupabaseData();
+    loadSupabaseData().then(() => {
+      syncBolnaExecutions();
+    });
 
     // 2. Real-time Subscription to Live Database Changes
     if (isSupabaseConfigured()) {
@@ -559,6 +561,107 @@ export function AppDataProvider({ children }) {
     }
   };
 
+  // Fetch and Sync All Past / Live Bolna AI Calls & Audio Recordings
+  const syncBolnaExecutions = async () => {
+    try {
+      const BOLNA_API_KEY = 'bn-058fb2a67eb74db49a65c1a7fecf8956';
+      const BOLNA_AGENT_ID = '111395c5-8b11-462a-bd47-cf51dca0f296';
+      const res = await fetch(`https://api.bolna.ai/agent/${BOLNA_AGENT_ID}/executions`, {
+        headers: { Authorization: `Bearer ${BOLNA_API_KEY}` }
+      });
+      if (!res.ok) return { success: false, error: 'Bolna API fetch error' };
+      const executions = await res.json();
+      if (!Array.isArray(executions)) return { success: false, error: 'Invalid response from Bolna' };
+
+      let updatedMap = {};
+      executions.forEach((exec) => {
+        const userPhone = exec.user_number || exec.telephony_data?.to_number;
+        const cleanDigits = String(userPhone || '').replace(/\D/g, '').slice(-10);
+        if (!cleanDigits) return;
+
+        const recUrl = exec.telephony_data?.recording_url || `https://api.bolna.ai/recordings/call/${exec.id}`;
+        const transText = exec.transcript || '';
+        const duration = exec.conversation_duration || exec.telephony_data?.duration || 0;
+        const lower = transText.toLowerCase();
+
+        let aiDecision = 'confirmed';
+        let status = 'confirmed';
+        if (lower.includes('cancel') || lower.includes('nahi chahiye') || lower.includes('mat bhejo')) {
+          aiDecision = 'cancelled';
+          status = 'rto_lost';
+        } else if (lower.includes('reschedule') || lower.includes('sham') || lower.includes('shaam') || lower.includes('kal aao')) {
+          aiDecision = 'rescheduled';
+          status = 'rescheduled';
+        }
+
+        updatedMap[cleanDigits] = {
+          recording_url: recUrl,
+          transcript: transText,
+          ai_summary: exec.summary || `Maya AI: ${aiDecision.toUpperCase()}`,
+          ai_decision: aiDecision,
+          call_duration_seconds: duration,
+          call_source: 'ai_agent',
+          status: status,
+          bolna_call_id: exec.id,
+          last_called_at: exec.created_at || new Date().toISOString()
+        };
+      });
+
+      setAmparoCalls((prev) =>
+        prev.map((c) => {
+          const cDigits = String(c.phone || '').replace(/\D/g, '').slice(-10);
+          if (cDigits && updatedMap[cDigits]) {
+            const up = updatedMap[cDigits];
+            const callMeta = {
+              recording_url: up.recording_url,
+              transcript: up.transcript,
+              ai_summary: up.ai_summary,
+              ai_decision: up.ai_decision,
+              call_duration: up.call_duration_seconds,
+              call_source: 'ai_agent',
+              completed_at: up.last_called_at,
+              bolna_call_id: up.bolna_call_id
+            };
+            return {
+              ...c,
+              ...up,
+              notes: `[AI_LOG]${JSON.stringify(callMeta)}[/AI_LOG]`
+            };
+          }
+          return c;
+        })
+      );
+
+      // Persist to Supabase
+      if (isSupabaseConfigured()) {
+        for (const [phoneDigits, up] of Object.entries(updatedMap)) {
+          const callMeta = {
+            recording_url: up.recording_url,
+            transcript: up.transcript,
+            ai_summary: up.ai_summary,
+            ai_decision: up.ai_decision,
+            call_duration: up.call_duration_seconds,
+            call_source: 'ai_agent',
+            completed_at: up.last_called_at,
+            bolna_call_id: up.bolna_call_id
+          };
+          await supabase
+            .from('amparo_calls')
+            .update({
+              status: up.status,
+              notes: `[AI_LOG]${JSON.stringify(callMeta)}[/AI_LOG]`
+            })
+            .ilike('phone', `%${phoneDigits}%`);
+        }
+      }
+
+      return { success: true, count: executions.length };
+    } catch (err) {
+      console.error('Error syncing Bolna executions:', err);
+      return { success: false, error: err.message };
+    }
+  };
+
   // Update Single Call Phone Number Permanently in Supabase DB
   const updateCallPhone = async (callId, newPhone) => {
     const cleanDigits = String(newPhone).replace(/\D/g, '').slice(-10);
@@ -858,7 +961,8 @@ export function AppDataProvider({ children }) {
         markPayrollPaid,
         triggerWinCelebration,
         mayaConfig,
-        updateMayaConfig
+        updateMayaConfig,
+        syncBolnaExecutions
       }}
     >
       {children}

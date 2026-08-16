@@ -32,7 +32,8 @@ export default async (req) => {
       });
     }
 
-    const bolnaRes = await fetch(`https://api.bolna.ai/executions/${executionId}`, {
+    const BOLNA_AGENT_ID = process.env.BOLNA_AGENT_ID || '111395c5-8b11-462a-bd47-cf51dca0f296';
+    const bolnaRes = await fetch(`https://api.bolna.ai/agent/${BOLNA_AGENT_ID}/execution/${executionId}`, {
       headers: {
         'Authorization': `Bearer ${BOLNA_API_KEY}`
       }
