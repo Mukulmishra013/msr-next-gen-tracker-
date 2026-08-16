@@ -121,35 +121,41 @@ export function ContentCallingDashboard({ onOpenChat }) {
   const [isSyncingSr, setIsSyncingSr] = useState(false);
   const [isSyncingAi, setIsSyncingAi] = useState(false);
 
-  // Autonomous Maya HR & Supervisor Watchdog Alerts
+  // Autonomous Maya HR & Supervisor Watchdog Alerts & Shift/Break Logic
   const [activeSupervisorWarnings, setActiveSupervisorWarnings] = useState(() => {
-    return supervisorAudit.getActiveWarnings(currentUser?.id || 'telecaller_1');
+    return supervisorAudit.getActiveWarnings(currentUser?.id || 'usr_priya_telecaller');
   });
+  const [breakStatus, setBreakStatus] = useState(() => {
+    return supervisorAudit.getStaffBreakStatus(currentUser?.id || 'usr_priya_telecaller');
+  });
+  const [staffDutyStatus, setStaffDutyStatus] = useState(() => {
+    return supervisorAudit.getStaffDutyStatus(currentUser?.id || 'usr_priya_telecaller');
+  });
+  const [shiftInfo, setShiftInfo] = useState(() => supervisorAudit.getShiftInfo());
 
   useEffect(() => {
     // Initial activity log on login
-    supervisorAudit.recordActivity(currentUser?.id || 'telecaller_1', currentUser?.name || 'Telecaller', 'LOGIN_PORTAL');
+    supervisorAudit.recordActivity(currentUser?.id || 'usr_priya_telecaller', currentUser?.name || 'Telecaller', 'LOGIN_PORTAL');
 
-    // Run initial autonomous audit
-    supervisorAudit.runAutonomousAudit({
-      user: currentUser,
-      amparoCalls,
-      incentives
-    });
-    setActiveSupervisorWarnings(supervisorAudit.getActiveWarnings(currentUser?.id || 'telecaller_1'));
-
-    // Periodic watchdog audit every 30 seconds
-    const interval = setInterval(() => {
+    const runWatchdog = () => {
       supervisorAudit.runAutonomousAudit({
         user: currentUser,
         amparoCalls,
         incentives
       });
-      setActiveSupervisorWarnings(supervisorAudit.getActiveWarnings(currentUser?.id || 'telecaller_1'));
-    }, 30000);
+      setActiveSupervisorWarnings(supervisorAudit.getActiveWarnings(currentUser?.id || 'usr_priya_telecaller'));
+      setBreakStatus(supervisorAudit.getStaffBreakStatus(currentUser?.id || 'usr_priya_telecaller'));
+      setStaffDutyStatus(supervisorAudit.getStaffDutyStatus(currentUser?.id || 'usr_priya_telecaller'));
+      setShiftInfo(supervisorAudit.getShiftInfo());
+    };
+
+    runWatchdog();
+
+    // Periodic watchdog audit every 10 seconds (for live break countdown and idle checking)
+    const interval = setInterval(runWatchdog, 10000);
 
     const unsub = supervisorAudit.subscribe(() => {
-      setActiveSupervisorWarnings(supervisorAudit.getActiveWarnings(currentUser?.id || 'telecaller_1'));
+      runWatchdog();
     });
 
     return () => {
@@ -159,9 +165,20 @@ export function ContentCallingDashboard({ onOpenChat }) {
   }, [currentUser, amparoCalls, incentives]);
 
   const handleDismissSupervisorWarning = (warningId) => {
-    supervisorAudit.recordActivity(currentUser?.id || 'telecaller_1', currentUser?.name || 'Telecaller', 'ACKNOWLEDGE_WARNING');
+    supervisorAudit.recordActivity(currentUser?.id || 'usr_priya_telecaller', currentUser?.name || 'Telecaller', 'ACKNOWLEDGE_WARNING');
     supervisorAudit.dismissWarning(warningId);
-    setActiveSupervisorWarnings(supervisorAudit.getActiveWarnings(currentUser?.id || 'telecaller_1'));
+    setActiveSupervisorWarnings(supervisorAudit.getActiveWarnings(currentUser?.id || 'usr_priya_telecaller'));
+  };
+
+  const handleToggleBreak = () => {
+    const userId = currentUser?.id || 'usr_priya_telecaller';
+    const userName = currentUser?.name || 'Priya Singh';
+    if (breakStatus.isOnBreak) {
+      supervisorAudit.endBreak(userId, userName);
+    } else {
+      supervisorAudit.startBreak(userId, userName);
+    }
+    setBreakStatus(supervisorAudit.getStaffBreakStatus(userId));
   };
 
   // Customer 360° AI Intelligence & Action Hub State
@@ -833,8 +850,76 @@ Dhanyawad!
             <Upload className="w-3.5 h-3.5 text-emerald-400" />
             <span>Import CSV</span>
           </button>
+
+          {/* ☕ 40-Min Flexible Break Button */}
+          <button
+            onClick={handleToggleBreak}
+            className={`tap-target px-3.5 py-2 rounded-xl font-extrabold text-xs flex items-center gap-1.5 transition active:scale-95 shadow-md ${
+              breakStatus.isOnBreak
+                ? 'bg-gradient-to-r from-amber-600 to-orange-600 text-white animate-pulse'
+                : 'bg-amber-950/80 hover:bg-amber-900 border border-amber-500/50 text-amber-200'
+            }`}
+          >
+            <span>☕</span>
+            <span>{breakStatus.isOnBreak ? `Break Active (${Math.floor(breakStatus.remainingSec / 60)}m)` : 'Take 40m Break'}</span>
+          </button>
+
+          {/* 🕒 Shift Hours Indicator Badge */}
+          <div className="px-3 py-1.5 rounded-xl bg-slate-900/90 border border-slate-700 text-slate-300 text-xs font-bold flex items-center gap-1.5">
+            <Clock className="w-3.5 h-3.5 text-purple-400" />
+            <span>Shift: 11 AM - 5 PM</span>
+          </div>
         </div>
       </div>
+
+      {/* 🏖️ Admin Staff Status Paused / Leave Banner */}
+      {staffDutyStatus !== 'ACTIVE' && (
+        <div className="p-4 rounded-2xl bg-indigo-950/90 border border-indigo-500/60 text-indigo-100 flex items-center justify-between gap-3 shadow-xl">
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">🏖️</span>
+            <div>
+              <h4 className="font-extrabold text-sm text-white">
+                Work Status: {staffDutyStatus === 'LEAVE' ? 'On Leave / Chhutti' : 'Shift Paused by Admin Mukul Mishra'}
+              </h4>
+              <p className="text-xs text-indigo-200">
+                Aapka work session admin dwara paused set hai. Maya AI Watchdog is waqt dormant hai aur koi inactivity notice nahi bhejega.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ☕ Active 40-Minute Break Mode Banner */}
+      {breakStatus.isOnBreak && (
+        <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-950/90 to-slate-900 border border-amber-500/80 text-amber-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xl animate-scale-up">
+          <div className="flex items-start sm:items-center gap-3">
+            <div className="p-2 rounded-xl bg-black/40 border border-amber-500/40 shrink-0">
+              <span className="text-xl">☕</span>
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-amber-500 text-black">
+                  Break Mode Active
+                </span>
+                <span className="font-extrabold text-sm text-white">
+                  40-Minute Official Lunch / Tea Break
+                </span>
+              </div>
+              <p className="text-xs text-slate-300 mt-0.5">
+                Remaining Time: <strong className="text-amber-300 font-mono text-sm">{Math.floor(breakStatus.remainingSec / 60)}m {breakStatus.remainingSec % 60}s</strong> • Maya AI Supervisor warnings paused hain.
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={handleToggleBreak}
+            className="tap-target px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition shrink-0"
+          >
+            <CheckCircle2 className="w-4 h-4" />
+            <span>End Break & Resume Work ➔</span>
+          </button>
+        </div>
+      )}
 
       {/* 🚨 Autonomous Maya AI HR & Supervisor Live Warning Alert Bar */}
       {activeSupervisorWarnings.length > 0 && (

@@ -583,6 +583,8 @@ export function OwnerDashboard({ onOpenUpiModal, onOpenChat }) {
                   avatar: '👩‍💼',
                   phone: '+919876543210',
                   attendance: 'Present (GPS Verified)',
+                  status: supervisorAudit.getStaffDutyStatus('usr_priya_telecaller'),
+                  breakInfo: supervisorAudit.getStaffBreakStatus('usr_priya_telecaller'),
                   lastActive: staffActivities['usr_priya_telecaller']?.lastActive ? `${Math.floor((Date.now() - staffActivities['usr_priya_telecaller'].lastActive) / 60000)}m ago` : '2m ago',
                   dutyCompleted: 6,
                   incentiveEarned: 210,
@@ -595,6 +597,8 @@ export function OwnerDashboard({ onOpenUpiModal, onOpenChat }) {
                   avatar: '👨‍💼',
                   phone: '+919123456780',
                   attendance: 'Present (GPS Verified)',
+                  status: supervisorAudit.getStaffDutyStatus('usr_rahul_telecaller'),
+                  breakInfo: supervisorAudit.getStaffBreakStatus('usr_rahul_telecaller'),
                   lastActive: staffActivities['usr_rahul_telecaller']?.lastActive ? `${Math.floor((Date.now() - staffActivities['usr_rahul_telecaller'].lastActive) / 60000)}m ago` : '8m ago',
                   dutyCompleted: 4,
                   incentiveEarned: 130,
@@ -603,7 +607,13 @@ export function OwnerDashboard({ onOpenUpiModal, onOpenChat }) {
               ].map((staff) => (
                 <div 
                   key={staff.id}
-                  className="p-4 rounded-2xl bg-slate-950/90 border border-slate-800 hover:border-purple-500/40 transition space-y-3 shadow-lg"
+                  className={`p-4 rounded-2xl border transition space-y-3 shadow-lg ${
+                    staff.status === 'ACTIVE'
+                      ? 'bg-slate-950/90 border-slate-800 hover:border-purple-500/40'
+                      : staff.status === 'LEAVE'
+                      ? 'bg-indigo-950/40 border-indigo-500/40'
+                      : 'bg-slate-900/40 border-slate-800 opacity-80'
+                  }`}
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-center gap-3">
@@ -611,20 +621,81 @@ export function OwnerDashboard({ onOpenUpiModal, onOpenChat }) {
                       <div>
                         <h4 className="font-extrabold text-sm text-white flex items-center gap-1.5">
                           <span>{staff.name}</span>
-                          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                          {staff.status === 'ACTIVE' && (
+                            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                          )}
                         </h4>
                         <p className="text-[11px] text-slate-400">{staff.role}</p>
                         <p className="text-[10px] font-mono text-purple-300 font-semibold mt-0.5">{staff.streak}</p>
                       </div>
                     </div>
 
-                    <span className="px-2.5 py-1 rounded-xl bg-emerald-950/80 border border-emerald-500/40 text-emerald-300 text-[10px] font-black uppercase">
-                      {staff.attendance}
+                    <div className="text-right space-y-1">
+                      <span className={`px-2 py-0.5 rounded-xl border text-[10px] font-black uppercase inline-block ${
+                        staff.status === 'ACTIVE'
+                          ? 'bg-emerald-950/80 border-emerald-500/40 text-emerald-300'
+                          : staff.status === 'LEAVE'
+                          ? 'bg-indigo-950/80 border-indigo-500/40 text-indigo-300'
+                          : 'bg-slate-800 border-slate-600 text-slate-300'
+                      }`}>
+                        {staff.status === 'ACTIVE' ? '🟢 Work Active' : staff.status === 'LEAVE' ? '🏖️ On Leave' : '⏸️ Shift Paused'}
+                      </span>
+                      {staff.breakInfo?.isOnBreak && (
+                        <p className="text-[9px] font-bold text-amber-300 animate-pulse">☕ 40m Break Active</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Admin Work Status Controls (Active / Paused / Leave) */}
+                  <div className="p-2.5 rounded-xl bg-slate-900/90 border border-slate-800 space-y-1.5">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">
+                      Admin Work Status & AI Watchdog Control:
                     </span>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      <button
+                        onClick={() => {
+                          supervisorAudit.setStaffDutyStatus(staff.id, staff.name, 'ACTIVE', 'Mukul Mishra');
+                          setSupervisorLogs(supervisorAudit.getAuditLogs());
+                        }}
+                        className={`px-2 py-1 rounded-lg text-[10px] font-black transition ${
+                          staff.status === 'ACTIVE'
+                            ? 'bg-emerald-600 text-white shadow-sm'
+                            : 'bg-slate-950 text-slate-400 hover:text-white border border-slate-800'
+                        }`}
+                      >
+                        🟢 Chalu (Active)
+                      </button>
+                      <button
+                        onClick={() => {
+                          supervisorAudit.setStaffDutyStatus(staff.id, staff.name, 'PAUSED', 'Mukul Mishra');
+                          setSupervisorLogs(supervisorAudit.getAuditLogs());
+                        }}
+                        className={`px-2 py-1 rounded-lg text-[10px] font-black transition ${
+                          staff.status === 'PAUSED'
+                            ? 'bg-amber-600 text-white shadow-sm'
+                            : 'bg-slate-950 text-slate-400 hover:text-white border border-slate-800'
+                        }`}
+                      >
+                        ⏸️ Band (Pause)
+                      </button>
+                      <button
+                        onClick={() => {
+                          supervisorAudit.setStaffDutyStatus(staff.id, staff.name, 'LEAVE', 'Mukul Mishra');
+                          setSupervisorLogs(supervisorAudit.getAuditLogs());
+                        }}
+                        className={`px-2 py-1 rounded-lg text-[10px] font-black transition ${
+                          staff.status === 'LEAVE'
+                            ? 'bg-indigo-600 text-white shadow-sm'
+                            : 'bg-slate-950 text-slate-400 hover:text-white border border-slate-800'
+                        }`}
+                      >
+                        🏖️ Chhutti (Leave)
+                      </button>
+                    </div>
                   </div>
 
                   {/* Activity Stats */}
-                  <div className="grid grid-cols-3 gap-2 p-2.5 rounded-xl bg-slate-900/80 border border-slate-800 text-center">
+                  <div className="grid grid-cols-3 gap-2 p-2 rounded-xl bg-slate-900/60 border border-slate-800 text-center">
                     <div>
                       <span className="text-[9px] font-bold text-slate-400 uppercase">Last Active</span>
                       <p className="text-xs font-black text-emerald-400 font-mono mt-0.5">{staff.lastActive}</p>
@@ -646,7 +717,7 @@ export function OwnerDashboard({ onOpenUpiModal, onOpenChat }) {
                       className="tap-target flex-1 px-3 py-1.5 rounded-xl bg-amber-950/70 hover:bg-amber-900/90 text-amber-200 border border-amber-500/50 text-[11px] font-extrabold flex items-center justify-center gap-1 shadow-sm transition active:scale-95"
                     >
                       <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
-                      <span>🚨 Issue Direct Nudge</span>
+                      <span>🚨 Direct Nudge</span>
                     </button>
 
                     <button
