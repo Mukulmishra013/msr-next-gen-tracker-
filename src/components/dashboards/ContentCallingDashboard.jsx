@@ -46,8 +46,47 @@ import {
   Lightbulb,
   ArrowRight,
   Eye,
-  Calendar
+  Calendar,
+  Trophy,
+  Star
 } from 'lucide-react';
+import { sounds } from '../../utils/soundEffects';
+
+function ProductImageBadge({ productName, size = 'md' }) {
+  const isShilajit = productName?.toLowerCase()?.includes('shilajit') || productName?.toLowerCase()?.includes('gummies');
+  const isSunscreen = productName?.toLowerCase()?.includes('sunscreen') || productName?.toLowerCase()?.includes('smilika');
+  const dim = size === 'sm' ? 'w-10 h-10' : 'w-12 h-12 sm:w-14 sm:h-14';
+
+  if (isShilajit) {
+    return (
+      <div className="relative group flex-shrink-0">
+        <img 
+          src="/assets/amparo_shilajit.jpg" 
+          alt="Amparo Shilajit Gummies" 
+          className={`${dim} rounded-2xl object-cover border-2 border-amber-500/60 shadow-lg shadow-amber-500/20 group-hover:scale-105 transition-transform`}
+        />
+        <span className="absolute -bottom-1 -right-1 bg-amber-500 text-black text-[8px] font-black px-1 py-0.2 rounded uppercase shadow-sm">Gold</span>
+      </div>
+    );
+  }
+  if (isSunscreen) {
+    return (
+      <div className="relative group flex-shrink-0">
+        <img 
+          src="/assets/smilika_sunscreen.jpg" 
+          alt="Smilika Sunscreen Lotion" 
+          className={`${dim} rounded-2xl object-cover border-2 border-cyan-500/60 shadow-lg shadow-cyan-500/20 group-hover:scale-105 transition-transform`}
+        />
+        <span className="absolute -bottom-1 -right-1 bg-cyan-500 text-black text-[8px] font-black px-1 py-0.2 rounded uppercase shadow-sm">SPF50</span>
+      </div>
+    );
+  }
+  return (
+    <div className={`${dim} rounded-2xl bg-gradient-to-br from-purple-900 to-indigo-950 border border-purple-500/40 flex items-center justify-center text-lg shadow-md flex-shrink-0`}>
+      🌿
+    </div>
+  );
+}
 
 export function ContentCallingDashboard({ onOpenChat }) {
   const { currentUser } = useAuth();
@@ -589,51 +628,85 @@ Dhanyawad!
     <div className="space-y-5 pb-20">
       
       {/* 👑 Maya AI HR & Operations Manager Morning Duty Banner */}
-      <div className="p-5 rounded-3xl bg-gradient-to-r from-purple-950 via-slate-900 to-indigo-950 border border-purple-500/40 shadow-2xl space-y-4">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="space-y-1.5 flex-1">
-            <div className="flex items-center gap-2">
-              <span className="px-2.5 py-0.5 rounded-lg bg-purple-600 text-white text-[11px] font-black tracking-wider uppercase flex items-center gap-1 shadow-md">
-                <Sparkles className="w-3 h-3 text-yellow-300" />
-                Maya AI HR Agent (Groq Llama 3.3)
+      <div className="p-5 sm:p-6 rounded-3xl bg-gradient-to-r from-purple-950/90 via-slate-900 to-indigo-950 border border-purple-500/40 shadow-2xl space-y-4">
+        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-5">
+          
+          {/* Left: 3D Maya Avatar + Greeting */}
+          <div className="flex items-start sm:items-center gap-4 flex-1">
+            <div className="relative group flex-shrink-0">
+              <img 
+                src="/assets/maya_avatar.jpg" 
+                alt="Maya AI Voice Executive" 
+                className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl sm:rounded-3xl object-cover border-2 border-purple-400/70 shadow-xl shadow-purple-500/30 group-hover:scale-105 transition-transform"
+              />
+              <span className="absolute -bottom-1.5 -right-1.5 bg-emerald-500 text-black text-[9px] font-black px-1.5 py-0.5 rounded-full uppercase flex items-center gap-1 shadow-md animate-pulse">
+                <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping"></span>
+                AI Active
               </span>
-              <span className="text-xs text-purple-300 font-bold">Daily Telecaller Duty Allocation</span>
             </div>
-            
-            <h2 className="text-lg sm:text-xl font-black text-white">
-              Namaste {currentUser.name}! Aaj ke Top 10 High-Impact Duty Tasks
-            </h2>
 
-            <p className="text-xs text-slate-300 leading-relaxed max-w-3xl">
-              Maya AI ne customer orders analyze karke aapke liye <strong className="text-emerald-400">10 Priority Calls</strong> select kiye hain: 
-              <strong className="text-red-400"> 4 Urgent RTO Rescues (+₹50/call)</strong>, 
-              <strong className="text-teal-400"> 4 Old Customer Re-Orders (+₹30/call)</strong> aur 
-              <strong className="text-amber-400"> 2 High-Value Confirmations (+₹20/call)</strong>. 
-              <span className="text-yellow-300 font-semibold block mt-0.5">
-                💡 Rule: Telecaller khud call/WhatsApp karke complete karega toh Live Cash Incentive milega. Maya AI se auto-dial karwayenge toh Telecaller incentive ₹0 hoga.
-              </span>
-            </p>
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="px-2.5 py-0.5 rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-[10px] font-black tracking-wider uppercase flex items-center gap-1 shadow-md">
+                  <Sparkles className="w-3 h-3 text-yellow-300" />
+                  Maya AI Co-Pilot (Groq 70B)
+                </span>
+                <span className="px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] font-extrabold flex items-center gap-1">
+                  <Flame className="w-3 h-3 text-orange-400 animate-bounce-subtle" />
+                  🔥 3-Day Win Streak (1.2x Boost)
+                </span>
+              </div>
+              
+              <h2 className="text-lg sm:text-2xl font-black text-white tracking-tight">
+                Namaste {currentUser.name}! 🚀 Ready to Crush Today's Targets?
+              </h2>
+
+              <p className="text-xs text-slate-300 leading-relaxed max-w-2xl">
+                Maya AI ne live orders analyze karke aapke liye <strong className="text-emerald-400">10 High-Incentive Tasks</strong> ready kiye hain. 
+                <strong className="text-red-400"> 4 Urgent RTOs (+₹50/call)</strong>, 
+                <strong className="text-teal-400"> 4 Re-Orders (+₹30/call)</strong> aur 
+                <strong className="text-amber-400"> 2 Confirmations (+₹20/call)</strong>!
+              </p>
+            </div>
           </div>
 
-          {/* Daily Progress Gauge */}
-          <div className="bg-slate-950/80 border border-purple-500/50 rounded-2xl p-4 min-w-[220px] text-center space-y-2 shadow-lg">
-            <div className="flex items-center justify-between text-xs font-bold text-slate-300">
-              <span>Today's 10 Duty Targets:</span>
-              <span className="text-emerald-400 font-mono font-black">{completedDutyTasksCount} / 10</span>
+          {/* Right: Gamified Level & XP Progress Card */}
+          <div className="flex items-center gap-3 w-full lg:w-auto self-stretch lg:self-auto">
+            
+            {/* 3D Sales Trophy Mini Badge */}
+            <div className="hidden sm:flex flex-col items-center justify-center p-2.5 rounded-2xl bg-slate-950/80 border border-amber-500/40 shadow-lg">
+              <img 
+                src="/assets/sales_trophy.jpg" 
+                alt="Sales Champion Trophy" 
+                className="w-12 h-12 rounded-xl object-cover border border-amber-400/60 shadow-md shadow-amber-500/30"
+              />
+              <span className="text-[9px] font-black text-amber-300 uppercase mt-1">Level 3</span>
             </div>
 
-            {/* Progress Bar */}
-            <div className="w-full bg-slate-800 rounded-full h-2.5 overflow-hidden">
-              <div 
-                className="bg-gradient-to-r from-purple-500 to-emerald-500 h-2.5 rounded-full transition-all duration-500"
-                style={{ width: `${(completedDutyTasksCount / 10) * 100}%` }}
-              ></div>
+            {/* Daily Target & Incentive Gauge */}
+            <div className="bg-slate-950/90 border border-purple-500/50 rounded-2xl p-4 flex-1 lg:min-w-[220px] text-center space-y-2 shadow-lg">
+              <div className="flex items-center justify-between text-xs font-bold text-slate-300">
+                <span className="flex items-center gap-1">
+                  <Zap className="w-3.5 h-3.5 text-yellow-400" />
+                  Today's 10 Duty Targets:
+                </span>
+                <span className="text-emerald-400 font-mono font-black">{completedDutyTasksCount} / 10</span>
+              </div>
+
+              {/* Progress Bar */}
+              <div className="w-full bg-slate-800 rounded-full h-3 overflow-hidden p-0.5 border border-slate-700">
+                <div 
+                  className="bg-gradient-to-r from-purple-500 via-indigo-500 to-emerald-400 h-full rounded-full transition-all duration-500 shadow-sm"
+                  style={{ width: `${Math.max(5, (completedDutyTasksCount / 10) * 100)}%` }}
+                ></div>
+              </div>
+
+              <div className="flex items-center justify-between pt-1">
+                <span className="text-[10px] text-slate-400 font-medium">Daily Incentive Earned:</span>
+                <span className="text-base font-black font-mono text-emerald-400">₹{dutyIncentiveEarned}</span>
+              </div>
             </div>
 
-            <div className="flex items-center justify-between pt-1">
-              <span className="text-[10px] text-slate-400 font-medium">Daily Incentive Earned:</span>
-              <span className="text-sm font-black font-mono text-emerald-400">₹{dutyIncentiveEarned}</span>
-            </div>
           </div>
         </div>
 
@@ -1160,12 +1233,15 @@ Dhanyawad!
                       </span>
                     </div>
 
-                    {/* Customer & Product Info */}
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between">
-                        <span className="font-extrabold text-sm text-white">{task.customer_name}</span>
-                        <span className="text-xs font-mono text-emerald-400 font-bold">₹{task.amount} ({task.shopify_order_id})</span>
-                      </div>
+                    {/* Customer & Product Info with 3D Thumbnail */}
+                    <div className="flex items-start gap-3">
+                      <ProductImageBadge productName={task.product || 'Amparo Shilajit Gummies'} size="md" />
+                      <div className="space-y-1 flex-1">
+                        <div className="flex items-center justify-between">
+                          <span className="font-extrabold text-sm text-white">{task.customer_name}</span>
+                          <span className="text-xs font-mono text-emerald-400 font-bold">₹{task.amount} ({task.shopify_order_id})</span>
+                        </div>
+                        <p className="text-[11px] text-purple-300 font-semibold truncate">{task.product || 'Amparo Shilajit Gummies'}</p>
 
                       {/* Phone with Inline Edit */}
                       <div className="flex items-center gap-2">
@@ -1218,8 +1294,9 @@ Dhanyawad!
                         </span>
                       </div>
                     </div>
+                  </div>
 
-                    {/* 💡 Maya AI Smart Calling Tip (Groq Llama 3.3) */}
+                  {/* 💡 Maya AI Smart Calling Tip (Groq Llama 3.3) */}
                     <div className="p-2.5 rounded-xl bg-slate-950/80 border border-purple-500/30 text-[11px] text-purple-200 leading-relaxed flex items-start gap-1.5">
                       <Lightbulb className="w-3.5 h-3.5 text-yellow-300 shrink-0 mt-0.5" />
                       <span>{task.ai_tip}</span>

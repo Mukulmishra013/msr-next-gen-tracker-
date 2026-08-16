@@ -134,21 +134,35 @@ Provide a short, crisp, natural spoken Hindi/Hinglish counter-pitch (2-3 sentenc
   return (
     <div className="space-y-5 pb-20">
       
-      {/* Top Banner */}
-      <div className="p-4 sm:p-6 rounded-3xl bg-gradient-to-r from-purple-950/90 via-indigo-950/80 to-slate-900 border border-purple-500/40 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-xl">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <span className="text-2xl">🧠</span>
-            <h2 className="text-lg sm:text-xl font-black text-white">Maya AGI Operations & Sales Intelligence Hub</h2>
-          </div>
-          <p className="text-xs sm:text-sm text-purple-200">
-            Autonomous multi-agent team learning with live Groq Llama 3.3 neural intelligence.
-          </p>
-          <div className="flex items-center gap-2 pt-1">
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-950/80 border border-emerald-500/50 text-emerald-300">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-              Enterprise Groq AGI Core Active (Llama 3.3 70B & 8B)
+      {/* Top Banner with 3D Maya Avatar */}
+      <div className="p-5 sm:p-6 rounded-3xl bg-gradient-to-r from-purple-950/90 via-indigo-950/80 to-slate-900 border border-purple-500/40 flex flex-col md:flex-row items-start md:items-center justify-between gap-5 shadow-2xl">
+        <div className="flex items-start sm:items-center gap-4 flex-1">
+          <div className="relative group flex-shrink-0">
+            <img 
+              src="/assets/maya_avatar.jpg" 
+              alt="Maya AGI Neural Co-Pilot" 
+              className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl sm:rounded-3xl object-cover border-2 border-purple-400/80 shadow-xl shadow-purple-500/30 group-hover:scale-105 transition-transform"
+            />
+            <span className="absolute -bottom-1 -right-1 bg-emerald-500 text-black text-[9px] font-black px-1.5 py-0.5 rounded-full uppercase flex items-center gap-1 shadow-md">
+              <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping"></span>
+              70B
             </span>
+          </div>
+
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="text-2xl">🧠</span>
+              <h2 className="text-lg sm:text-2xl font-black text-white tracking-tight">Maya AGI Operations & Sales Intelligence Hub</h2>
+            </div>
+            <p className="text-xs sm:text-sm text-purple-200">
+              Autonomous multi-agent directed evolution learning with live Groq Llama 3.3 neural core.
+            </p>
+            <div className="flex items-center gap-2 pt-1">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-950/80 border border-emerald-500/50 text-emerald-300 shadow-sm">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                Enterprise Groq AGI Core Active (Llama 3.3 70B & 8B)
+              </span>
+            </div>
           </div>
         </div>
 
