@@ -157,8 +157,8 @@ export default async function handler(req, res) {
       try {
         if (finalStatus === 'rto_lost' || aiDecision === 'cancelled') {
           await cancelShopifyOrder({
-            orderId: cleanId,
-            reason: cancellationReason || 'customer',
+            orderId: userData.admin_graphql_api_id || userData.numeric_id || cleanId,
+            reason: cancellationReason || 'CUSTOMER',
             note: `Auto-cancelled by Maya AI voice call: ${cancellationReason || 'Customer declined delivery'}`
           });
         } else if (finalStatus === 'confirmed' || aiDecision === 'confirmed') {

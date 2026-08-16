@@ -41,7 +41,7 @@ function validateIndianPhoneNumber(rawPhone) {
 }
 
 // Helper to trigger autonomous Bolna AI call immediately
-async function triggerInstantAiCall({ orderId, phone, customerName, product, amount, city }) {
+async function triggerInstantAiCall({ orderId, phone, customerName, product, amount, city, adminGraphqlApiId, numericId }) {
   try {
     let cleanProduct = product || 'Amparo Pure Shilajit';
     const lowerProd = cleanProduct.toLowerCase();
@@ -62,6 +62,8 @@ async function triggerInstantAiCall({ orderId, phone, customerName, product, amo
         product_name: cleanProduct,
         order_amount: String(amount || 449).replace(/\D/g, '') || '449',
         order_id: String(orderId).replace('#', '').trim(),
+        admin_graphql_api_id: adminGraphqlApiId || (numericId ? `gid://shopify/Order/${numericId}` : ''),
+        numeric_id: String(numericId || ''),
         delivery_address: city || 'India',
         delivery_timeline: '3 se 4 working days',
         call_purpose: 'ORDER_CONFIRMATION',
@@ -210,7 +212,9 @@ export default async function handler(req, res) {
         customerName: fullName,
         product: items,
         amount,
-        city
+        city,
+        adminGraphqlApiId: body.admin_graphql_api_id || (numericShopifyId ? `gid://shopify/Order/${numericShopifyId}` : ''),
+        numericId: numericShopifyId
       });
 
       const callLogNote = `[AUTO_AI_TRIGGER] Maya AI Dialed for Order Verification at ${new Date().toISOString()} | BolnaStatus: ${autoCallResult.success ? 'DIALED' : 'FAILED'}`;
