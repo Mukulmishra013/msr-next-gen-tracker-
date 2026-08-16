@@ -56,6 +56,7 @@ async function triggerInstantAiCall({ orderId, phone, customerName, product, amo
     const payload = {
       agent_id: BOLNA_AGENT_ID,
       recipient_phone_number: phone,
+      webhook_url: 'https://msr-next-gen-tracker.vercel.app/api/bolna-webhook',
       user_data: {
         customer_name: customerName || 'Customer',
         product_name: cleanProduct,

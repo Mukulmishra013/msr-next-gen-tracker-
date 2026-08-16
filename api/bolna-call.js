@@ -148,6 +148,7 @@ export default async (req) => {
       const bolnaPayload = {
         agent_id: BOLNA_AGENT_ID,
         recipient_phone_number: recipientPhone,
+        webhook_url: 'https://msr-next-gen-tracker.vercel.app/api/bolna-webhook',
         user_data: userData,
         recipient_data: userData
       };
