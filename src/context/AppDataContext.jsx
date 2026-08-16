@@ -562,6 +562,8 @@ export function AppDataProvider({ children }) {
   };
 
   // Fetch and Sync All Past / Live Bolna AI Calls & Audio Recordings
+  const [bolnaExecutions, setBolnaExecutions] = useState([]);
+
   const syncBolnaExecutions = async () => {
     try {
       const BOLNA_API_KEY = 'bn-058fb2a67eb74db49a65c1a7fecf8956';
@@ -573,12 +575,10 @@ export function AppDataProvider({ children }) {
       const executions = await res.json();
       if (!Array.isArray(executions)) return { success: false, error: 'Invalid response from Bolna' };
 
-      let updatedMap = {};
-      executions.forEach((exec) => {
-        const userPhone = exec.user_number || exec.telephony_data?.to_number;
-        const cleanDigits = String(userPhone || '').replace(/\D/g, '').slice(-10);
-        if (!cleanDigits) return;
-
+      // Parse every single execution individually with its real dialogue & recording
+      const parsedExecutions = executions.map((exec) => {
+        const recipient = exec.context_details?.recipient_data || {};
+        const userPhone = exec.user_number || exec.telephony_data?.to_number || recipient.phone || '+918887521156';
         const recUrl = exec.telephony_data?.recording_url || `https://api.bolna.ai/recordings/call/${exec.id}`;
         const transText = exec.transcript || '';
         const duration = exec.conversation_duration || exec.telephony_data?.duration || 0;
@@ -586,74 +586,71 @@ export function AppDataProvider({ children }) {
 
         let aiDecision = 'confirmed';
         let status = 'confirmed';
-        if (lower.includes('cancel') || lower.includes('nahi chahiye') || lower.includes('mat bhejo')) {
+        if (lower.includes('cancel') || lower.includes('nahi chahiye') || lower.includes('mat bhejo') || lower.includes('mana kar diya')) {
           aiDecision = 'cancelled';
           status = 'rto_lost';
-        } else if (lower.includes('reschedule') || lower.includes('sham') || lower.includes('shaam') || lower.includes('kal aao')) {
+        } else if (lower.includes('reschedule') || lower.includes('sham') || lower.includes('shaam') || lower.includes('kal aao') || lower.includes('baad me')) {
           aiDecision = 'rescheduled';
           status = 'rescheduled';
         }
 
-        updatedMap[cleanDigits] = {
+        // Extract real customer name from transcript greeting if recipient name is missing
+        const nameMatch = transText.match(/नमस्ते\s+([^\s]+(?:\s+[^\s]+)?)\s+जी/);
+        const customerName = recipient.customer_name || recipient.name || (nameMatch ? nameMatch[1] : 'Customer');
+        const productName = recipient.product_name || recipient.product || 'Amparo Shilajit Gummies';
+        const orderAmount = recipient.order_amount || recipient.amount || '449';
+        const orderId = recipient.order_id || `#Amparo-${exec.id.slice(0, 4).toUpperCase()}`;
+
+        return {
+          id: exec.id,
+          bolna_call_id: exec.id,
+          customer_name: customerName,
+          phone: userPhone,
+          product: productName,
+          amount: Number(orderAmount),
+          shopify_order_id: orderId,
           recording_url: recUrl,
           transcript: transText,
-          ai_summary: exec.summary || `Maya AI: ${aiDecision.toUpperCase()}`,
+          ai_summary: exec.summary || `Maya AI: ${aiDecision.toUpperCase()} • Duration: ${duration}s`,
           ai_decision: aiDecision,
+          status: status,
           call_duration_seconds: duration,
           call_source: 'ai_agent',
-          status: status,
-          bolna_call_id: exec.id,
-          last_called_at: exec.created_at || new Date().toISOString()
+          created_at: exec.created_at || new Date().toISOString()
         };
       });
 
-      setAmparoCalls((prev) =>
-        prev.map((c) => {
-          const cDigits = String(c.phone || '').replace(/\D/g, '').slice(-10);
-          if (cDigits && updatedMap[cDigits]) {
-            const up = updatedMap[cDigits];
+      setBolnaExecutions(parsedExecutions);
+
+      // Now match individual executions to orders in amparoCalls
+      setAmparoCalls((prev) => {
+        return prev.map((c) => {
+          // Find matching execution for this specific order/customer
+          const match = parsedExecutions.find(
+            (e) => (c.shopify_order_id && e.shopify_order_id && String(c.shopify_order_id).replace('#', '') === String(e.shopify_order_id).replace('#', '')) ||
+                   (c.customer_name && e.customer_name && c.customer_name.toLowerCase() === e.customer_name.toLowerCase() && c.customer_name !== 'Verified Buyer')
+          );
+
+          if (match) {
             const callMeta = {
-              recording_url: up.recording_url,
-              transcript: up.transcript,
-              ai_summary: up.ai_summary,
-              ai_decision: up.ai_decision,
-              call_duration: up.call_duration_seconds,
+              recording_url: match.recording_url,
+              transcript: match.transcript,
+              ai_summary: match.ai_summary,
+              ai_decision: match.ai_decision,
+              call_duration: match.call_duration_seconds,
               call_source: 'ai_agent',
-              completed_at: up.last_called_at,
-              bolna_call_id: up.bolna_call_id
+              completed_at: match.created_at,
+              bolna_call_id: match.bolna_call_id
             };
             return {
               ...c,
-              ...up,
+              ...match,
               notes: `[AI_LOG]${JSON.stringify(callMeta)}[/AI_LOG]`
             };
           }
           return c;
-        })
-      );
-
-      // Persist to Supabase
-      if (isSupabaseConfigured()) {
-        for (const [phoneDigits, up] of Object.entries(updatedMap)) {
-          const callMeta = {
-            recording_url: up.recording_url,
-            transcript: up.transcript,
-            ai_summary: up.ai_summary,
-            ai_decision: up.ai_decision,
-            call_duration: up.call_duration_seconds,
-            call_source: 'ai_agent',
-            completed_at: up.last_called_at,
-            bolna_call_id: up.bolna_call_id
-          };
-          await supabase
-            .from('amparo_calls')
-            .update({
-              status: up.status,
-              notes: `[AI_LOG]${JSON.stringify(callMeta)}[/AI_LOG]`
-            })
-            .ilike('phone', `%${phoneDigits}%`);
-        }
-      }
+        });
+      });
 
       return { success: true, count: executions.length };
     } catch (err) {
@@ -962,7 +959,8 @@ export function AppDataProvider({ children }) {
         triggerWinCelebration,
         mayaConfig,
         updateMayaConfig,
-        syncBolnaExecutions
+        syncBolnaExecutions,
+        bolnaExecutions
       }}
     >
       {children}

@@ -61,7 +61,8 @@ export function ContentCallingDashboard({ onOpenChat }) {
     triggerAiCall,
     triggerBatchAiCalls,
     mayaConfig,
-    syncBolnaExecutions
+    syncBolnaExecutions,
+    bolnaExecutions
   } = useAppData();
 
   const [activeCallTab, setActiveCallTab] = useState('daily_duty'); // default to Maya AI Daily Duty!
@@ -814,26 +815,26 @@ Dhanyawad!
           {/* AI Intelligence Stats Row */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div className="p-3.5 rounded-2xl bg-purple-950/40 border border-purple-500/30">
-              <span className="text-[10px] font-bold uppercase text-purple-300">Total AI Calls Synced</span>
-              <p className="text-xl font-black text-white mt-0.5">{amparoCalls.filter(c => c.call_source === 'ai_agent' || c.transcript || c.recording_url).length}</p>
+              <span className="text-[10px] font-bold uppercase text-purple-300">Total Unique AI Calls</span>
+              <p className="text-xl font-black text-white mt-0.5">{(bolnaExecutions && bolnaExecutions.length > 0 ? bolnaExecutions : amparoCalls.filter(c => c.call_source === 'ai_agent' || c.transcript || c.recording_url)).length}</p>
             </div>
             <div className="p-3.5 rounded-2xl bg-emerald-950/40 border border-emerald-500/30">
               <span className="text-[10px] font-bold uppercase text-emerald-300">🟢 Confirmed (Ready to Ship)</span>
-              <p className="text-xl font-black text-emerald-400 mt-0.5">{amparoCalls.filter(c => c.status === 'confirmed' || c.ai_decision === 'confirmed').length}</p>
+              <p className="text-xl font-black text-emerald-400 mt-0.5">{(bolnaExecutions && bolnaExecutions.length > 0 ? bolnaExecutions.filter(c => c.status === 'confirmed' || c.ai_decision === 'confirmed') : amparoCalls.filter(c => c.status === 'confirmed' || c.ai_decision === 'confirmed')).length}</p>
             </div>
             <div className="p-3.5 rounded-2xl bg-amber-950/40 border border-amber-500/30">
               <span className="text-[10px] font-bold uppercase text-amber-300">🟠 Rescheduled (Follow-up)</span>
-              <p className="text-xl font-black text-amber-400 mt-0.5">{amparoCalls.filter(c => c.status === 'rescheduled' || c.ai_decision === 'rescheduled').length}</p>
+              <p className="text-xl font-black text-amber-400 mt-0.5">{(bolnaExecutions && bolnaExecutions.length > 0 ? bolnaExecutions.filter(c => c.status === 'rescheduled' || c.ai_decision === 'rescheduled') : amparoCalls.filter(c => c.status === 'rescheduled' || c.ai_decision === 'rescheduled')).length}</p>
             </div>
             <div className="p-3.5 rounded-2xl bg-red-950/40 border border-red-500/30">
               <span className="text-[10px] font-bold uppercase text-red-300">🔴 Refused (RTO Saved)</span>
-              <p className="text-xl font-black text-red-400 mt-0.5">{amparoCalls.filter(c => c.status === 'rto_lost' || c.ai_decision === 'fake_order' || c.ai_decision === 'cancelled').length}</p>
+              <p className="text-xl font-black text-red-400 mt-0.5">{(bolnaExecutions && bolnaExecutions.length > 0 ? bolnaExecutions.filter(c => c.status === 'rto_lost' || c.ai_decision === 'cancelled' || c.ai_decision === 'fake_order') : amparoCalls.filter(c => c.status === 'rto_lost' || c.ai_decision === 'cancelled')).length}</p>
             </div>
           </div>
 
           {/* Live Feed Cards Stream */}
           <div className="space-y-4">
-            {sortedCalls.filter(c => c.recording_url || c.transcript || c.call_source === 'ai_agent' || (c.notes && c.notes.includes('[AI_LOG]'))).length === 0 ? (
+            {((bolnaExecutions && bolnaExecutions.length > 0) ? bolnaExecutions : sortedCalls.filter(c => c.recording_url || c.transcript || c.call_source === 'ai_agent' || (c.notes && c.notes.includes('[AI_LOG]')))).length === 0 ? (
               <div className="p-8 text-center bg-slate-950/40 rounded-2xl border border-slate-800 space-y-3">
                 <Bot className="w-10 h-10 text-purple-400 mx-auto animate-bounce-subtle" />
                 <h4 className="text-sm font-bold text-white">Abhi koi Maya AI Call Sync nahi hui hai</h4>
@@ -849,8 +850,7 @@ Dhanyawad!
                 </button>
               </div>
             ) : (
-              sortedCalls
-                .filter(c => c.recording_url || c.transcript || c.call_source === 'ai_agent' || (c.notes && c.notes.includes('[AI_LOG]')))
+              ((bolnaExecutions && bolnaExecutions.length > 0) ? bolnaExecutions : sortedCalls.filter(c => c.recording_url || c.transcript || c.call_source === 'ai_agent' || (c.notes && c.notes.includes('[AI_LOG]'))))
                 .map((call) => {
                   const isConfirmed = call.status === 'confirmed' || call.ai_decision === 'confirmed';
                   const isRescheduled = call.status === 'rescheduled' || call.ai_decision === 'rescheduled';
