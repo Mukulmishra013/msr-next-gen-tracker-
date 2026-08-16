@@ -1,5 +1,7 @@
-// Netlify Serverless Function: Direct Shopify Store Sync for 100% Unmasked Real Customer Mobile Numbers
-// Endpoint: https://msrnext.netlify.app/api/shopify-sync
+// Direct Shopify Store Sync for 100% Unmasked Real Customer Mobile Numbers
+// Endpoint: https://msr-next-gen-tracker.vercel.app/api/shopify-sync
+
+export const config = { runtime: 'edge' };
 
 import { createClient } from '@supabase/supabase-js';
 

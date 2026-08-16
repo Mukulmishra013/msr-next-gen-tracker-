@@ -1,5 +1,7 @@
-// Netlify Serverless Function: Real-Time Webhook Receiver for Bolna.ai Voice Calls
-// Endpoint: https://msrnext.netlify.app/api/bolna-webhook
+// Netlify/Vercel Serverless Function: Real-Time Webhook Receiver for Bolna.ai Voice Calls
+// Endpoint: https://msr-next-gen-tracker.vercel.app/api/bolna-webhook
+
+export const config = { runtime: 'edge' };
 
 import { createClient } from '@supabase/supabase-js';
 import { cancelShopifyOrder, addTagsToShopifyOrder } from './lib/shopify-order-action.js';

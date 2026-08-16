@@ -1,5 +1,7 @@
-// Netlify Serverless Function: Trigger Autonomous AI Voice Calls via Bolna.ai with RTO & Order Confirmation Routing
-// Endpoint: https://msrnext.netlify.app/api/bolna-call
+// Netlify/Vercel Serverless Function: Trigger Autonomous AI Voice Calls via Bolna.ai with RTO & Order Confirmation Routing
+// Endpoint: https://msr-next-gen-tracker.vercel.app/api/bolna-call
+
+export const config = { runtime: 'edge' };
 
 import { createClient } from '@supabase/supabase-js';
 

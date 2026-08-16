@@ -1,5 +1,7 @@
 // Real-Time Shopify Webhook Receiver with AI Anti-Fraud Shield & Instant Maya AI Calling Dispatch
-// Endpoint: https://msrnext.netlify.app/api/shopify-webhook
+// Endpoint: https://msr-next-gen-tracker.vercel.app/api/shopify-webhook
+
+export const config = { runtime: 'edge' };
 
 import { createClient } from '@supabase/supabase-js';
 import { cancelShopifyOrder } from './lib/shopify-order-action.js';
