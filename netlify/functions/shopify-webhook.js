@@ -1,7 +1,8 @@
-// Real-Time Shopify Webhook Receiver: 100% Automatic New Order Ingestion with Instant Maya AI Voice Call Dispatch
+// Real-Time Shopify Webhook Receiver with AI Anti-Fraud Shield & Instant Maya AI Calling Dispatch
 // Endpoint: https://msrnext.netlify.app/api/shopify-webhook
 
 import { createClient } from '@supabase/supabase-js';
+import { cancelShopifyOrder } from './shopify-order-action.js';
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://blnvunejbmkpckwrdyfy.supabase.co';
 const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_4sR9yc91hhMMtN9kpIpTqw_n8-muO3Z';
@@ -10,13 +11,41 @@ const BOLNA_AGENT_ID = process.env.BOLNA_AGENT_ID || process.env.VITE_BOLNA_AGEN
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+// 🛡️ Intelligent Anti-Fake Mobile & Fraud Hygiene Validator
+function validateIndianPhoneNumber(rawPhone) {
+  if (!rawPhone) return { isValid: false, reason: 'Empty Phone Number' };
+  const digits = String(rawPhone).replace(/\D/g, '').slice(-10);
+
+  if (digits.length !== 10) {
+    return { isValid: false, reason: `Incomplete Phone Number (${digits.length} digits instead of 10)` };
+  }
+
+  // Must start with 6, 7, 8, or 9
+  if (!['6', '7', '8', '9'].includes(digits[0])) {
+    return { isValid: false, reason: 'Invalid Indian Mobile Prefix (must start with 6, 7, 8, or 9)' };
+  }
+
+  // Check for dummy/fake repeating sequences
+  const fakePatterns = [
+    '0000000000', '1111111111', '2222222222', '3333333333', '4444444444',
+    '5555555555', '6666666666', '7777777777', '8888888888', '9999999999',
+    '1234567890', '0987654321', '9876543210', '9898989898', '9988776655'
+  ];
+  if (fakePatterns.includes(digits)) {
+    return { isValid: false, reason: 'Spam/Test Dummy Number Pattern' };
+  }
+
+  // Check for same digit repeated 7+ times
+  if (/(\d)\1{6,}/.test(digits)) {
+    return { isValid: false, reason: 'Spam Number (repeated digits)' };
+  }
+
+  return { isValid: true, validPhone: `+91${digits}` };
+}
+
 // Helper to trigger autonomous Bolna AI call immediately
 async function triggerInstantAiCall({ orderId, phone, customerName, product, amount, city }) {
   try {
-    const cleanDigits = String(phone).replace(/\D/g, '');
-    const validPhone = cleanDigits.length >= 10 ? `+91${cleanDigits.slice(-10)}` : '';
-    if (!validPhone || validPhone.length < 12) return { success: false, reason: 'Invalid Phone Number' };
-
     let cleanProduct = product || 'Amparo Pure Shilajit';
     const lowerProd = cleanProduct.toLowerCase();
     if (lowerProd.includes('sunscreen') || lowerProd.includes('suncream') || lowerProd.includes('smilika')) {
@@ -29,7 +58,7 @@ async function triggerInstantAiCall({ orderId, phone, customerName, product, amo
 
     const payload = {
       agent_id: BOLNA_AGENT_ID,
-      recipient_phone_number: validPhone,
+      recipient_phone_number: phone,
       user_data: {
         customer_name: customerName || 'Customer',
         product_name: cleanProduct,
@@ -106,8 +135,8 @@ export default async (req) => {
       ''
     );
 
-    const cleanDigits = rawPhone.replace(/\D/g, '');
-    const validPhone = cleanDigits.length >= 10 ? `+91${cleanDigits.slice(-10)}` : (rawPhone ? rawPhone : '+91');
+    // 🛡️ Anti-Fraud Phone Verification
+    const phoneValidation = validateIndianPhoneNumber(rawPhone);
 
     const items = Array.isArray(body.line_items) && body.line_items.length > 0
       ? body.line_items.map((i) => `${i.title} (x${i.quantity})`).join(', ')
@@ -117,6 +146,46 @@ export default async (req) => {
     const amount = Number(body.total_price || 588);
     const isCancelled = !!body.cancelled_at;
     const isDelivered = body.fulfillment_status === 'fulfilled';
+
+    // 🛑 Case 1: Fake / Spam / Invalid Phone Number Detected
+    if (!phoneValidation.isValid) {
+      const fakeOrderRecord = {
+        shopify_order_id: orderId,
+        customer_name: fullName,
+        phone: rawPhone || 'INVALID_NUMBER',
+        product: items,
+        amount: amount,
+        status: 'rto_lost',
+        urgent_rto: true,
+        call_type: 'Fake Order Blocked',
+        shiprocket_shipment_id: numericShopifyId,
+        notes: `[ANTI_FRAUD_SHIELD] 🛑 Fake/Invalid Mobile Number: ${phoneValidation.reason} | Auto-Cancelled on Shopify`
+      };
+
+      await supabase
+        .from('amparo_calls')
+        .upsert([fakeOrderRecord], { onConflict: 'shopify_order_id' });
+
+      // Automatically cancel fake order on Shopify Store immediately!
+      await cancelShopifyOrder({
+        orderId: numericShopifyId || orderId,
+        reason: 'customer',
+        note: `Auto-cancelled by Maya AI Anti-Fraud Shield: ${phoneValidation.reason}`
+      });
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          action: 'FAKE_ORDER_AUTO_CANCELLED',
+          message: `Fake order detected (${phoneValidation.reason}). Auto-cancelled on Shopify without dialing.`,
+          order: fakeOrderRecord
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
+      );
+    }
+
+    // 🟢 Case 2: Valid Mobile Number ➔ Ingest and Trigger Instant AI Call
+    const validPhone = phoneValidation.validPhone;
 
     const newCall = {
       shopify_order_id: orderId,
@@ -128,17 +197,15 @@ export default async (req) => {
       urgent_rto: isCancelled,
       call_type: isCancelled ? 'RTO Rescue' : (isDelivered ? 'Delivery Feedback' : 'Order Confirmation'),
       shiprocket_shipment_id: numericShopifyId,
-      notes: `Shopify Auto Webhook | Financial: ${body.financial_status || 'COD'} | City: ${city} | ShopifyId: ${numericShopifyId}`
+      notes: `Shopify Real Order | Financial: ${body.financial_status || 'COD'} | City: ${city} | ShopifyId: ${numericShopifyId}`
     };
 
-    // 1. Upsert into Supabase
     await supabase
       .from('amparo_calls')
       .upsert([newCall], { onConflict: 'shopify_order_id' });
 
-    // 2. Trigger Instant Maya AI Voice Call (if order is pending confirmation & not cancelled)
     let autoCallResult = null;
-    if (!isCancelled && !isDelivered && validPhone.length >= 12) {
+    if (!isCancelled && !isDelivered) {
       autoCallResult = await triggerInstantAiCall({
         orderId,
         phone: validPhone,
@@ -148,7 +215,6 @@ export default async (req) => {
         city
       });
 
-      // Update call note with trigger status
       const callLogNote = `[AUTO_AI_TRIGGER] Maya AI Dialed for Order Verification at ${new Date().toISOString()} | BolnaStatus: ${autoCallResult.success ? 'DIALED' : 'FAILED'}`;
       await supabase
         .from('amparo_calls')
@@ -161,7 +227,8 @@ export default async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
-        message: 'Real-time order ingested and Maya AI auto-call dispatched successfully',
+        action: 'ORDER_VERIFICATION_DIALED',
+        message: 'Valid order ingested and Maya AI auto-call dispatched successfully',
         order: newCall,
         autoCall: autoCallResult
       }),
