@@ -44,7 +44,9 @@ import {
   ListTodo,
   Check,
   Lightbulb,
-  ArrowRight
+  ArrowRight,
+  Eye,
+  Calendar
 } from 'lucide-react';
 
 export function ContentCallingDashboard({ onOpenChat }) {
@@ -637,6 +639,18 @@ Dhanyawad!
         {/* Header Action Tools */}
         <div className="flex items-center gap-2 flex-wrap border-t border-slate-800/80 pt-3">
           <button
+            onClick={() => setActiveCallTab('ai_live_feed')}
+            className={`tap-target px-4 py-2 rounded-xl font-black text-xs flex items-center gap-1.5 transition active:scale-95 ${
+              activeCallTab === 'ai_live_feed'
+                ? 'bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 text-white shadow-lg shadow-emerald-600/30'
+                : 'bg-slate-900 text-slate-300 hover:bg-slate-800'
+            }`}
+          >
+            <Bot className="w-4 h-4 text-yellow-300 animate-pulse" />
+            <span>🤖 AI Call Live Feed & Insights</span>
+          </button>
+
+          <button
             onClick={() => setActiveCallTab('daily_duty')}
             className={`tap-target px-4 py-2 rounded-xl font-black text-xs flex items-center gap-1.5 transition active:scale-95 ${
               activeCallTab === 'daily_duty'
@@ -651,7 +665,7 @@ Dhanyawad!
           <button
             onClick={() => setActiveCallTab('all')}
             className={`tap-target px-3.5 py-2 rounded-xl font-bold text-xs flex items-center gap-1.5 transition active:scale-95 ${
-              activeCallTab !== 'daily_duty' && activeCallTab !== 'master_archive'
+              activeCallTab !== 'daily_duty' && activeCallTab !== 'master_archive' && activeCallTab !== 'ai_live_feed'
                 ? 'bg-purple-600 text-white'
                 : 'bg-slate-900 text-slate-300 hover:bg-slate-800'
             }`}
@@ -768,6 +782,318 @@ Dhanyawad!
           <p className="text-[10px] text-blue-300 font-semibold mt-0.5">Dispatched</p>
         </div>
       </div>
+
+      {/* VIEW 0: 🤖 MAYA AI LIVE CONVERSATION FEED & TELECALLER ACTION ADVISORY */}
+      {activeCallTab === 'ai_live_feed' && (
+        <div className="glass-card rounded-3xl border border-purple-500/50 p-4 sm:p-6 space-y-5">
+          
+          {/* Header & Sync Controls */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-4">
+            <div>
+              <h3 className="font-black text-base sm:text-lg text-white flex items-center gap-2">
+                <Bot className="w-5 h-5 text-yellow-300 animate-pulse" />
+                <span>Maya AI Live Conversation Feed & Telecaller Action Hub</span>
+              </h3>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Customer se kya-kya baat hui, live audio recording, speaker dialogue aur next action — telecaller yahan se soch-samajh kar immediate action le sakte hain.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 self-start sm:self-auto">
+              <button
+                onClick={handleSyncAiHistory}
+                disabled={isSyncingAi}
+                className="tap-target px-3.5 py-2 rounded-xl bg-purple-950/90 hover:bg-purple-900 border border-purple-500/60 text-purple-200 font-extrabold text-xs flex items-center gap-1.5 shadow-md shadow-purple-950/40 transition active:scale-95"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 text-purple-400 ${isSyncingAi ? 'animate-spin' : ''}`} />
+                <span>{isSyncingAi ? 'Syncing...' : '🔄 Live Sync AI Calls'}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* AI Intelligence Stats Row */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="p-3.5 rounded-2xl bg-purple-950/40 border border-purple-500/30">
+              <span className="text-[10px] font-bold uppercase text-purple-300">Total AI Calls Synced</span>
+              <p className="text-xl font-black text-white mt-0.5">{amparoCalls.filter(c => c.call_source === 'ai_agent' || c.transcript || c.recording_url).length}</p>
+            </div>
+            <div className="p-3.5 rounded-2xl bg-emerald-950/40 border border-emerald-500/30">
+              <span className="text-[10px] font-bold uppercase text-emerald-300">🟢 Confirmed (Ready to Ship)</span>
+              <p className="text-xl font-black text-emerald-400 mt-0.5">{amparoCalls.filter(c => c.status === 'confirmed' || c.ai_decision === 'confirmed').length}</p>
+            </div>
+            <div className="p-3.5 rounded-2xl bg-amber-950/40 border border-amber-500/30">
+              <span className="text-[10px] font-bold uppercase text-amber-300">🟠 Rescheduled (Follow-up)</span>
+              <p className="text-xl font-black text-amber-400 mt-0.5">{amparoCalls.filter(c => c.status === 'rescheduled' || c.ai_decision === 'rescheduled').length}</p>
+            </div>
+            <div className="p-3.5 rounded-2xl bg-red-950/40 border border-red-500/30">
+              <span className="text-[10px] font-bold uppercase text-red-300">🔴 Refused (RTO Saved)</span>
+              <p className="text-xl font-black text-red-400 mt-0.5">{amparoCalls.filter(c => c.status === 'rto_lost' || c.ai_decision === 'fake_order' || c.ai_decision === 'cancelled').length}</p>
+            </div>
+          </div>
+
+          {/* Live Feed Cards Stream */}
+          <div className="space-y-4">
+            {sortedCalls.filter(c => c.recording_url || c.transcript || c.call_source === 'ai_agent' || (c.notes && c.notes.includes('[AI_LOG]'))).length === 0 ? (
+              <div className="p-8 text-center bg-slate-950/40 rounded-2xl border border-slate-800 space-y-3">
+                <Bot className="w-10 h-10 text-purple-400 mx-auto animate-bounce-subtle" />
+                <h4 className="text-sm font-bold text-white">Abhi koi Maya AI Call Sync nahi hui hai</h4>
+                <p className="text-xs text-slate-400 max-w-md mx-auto">
+                  Upar <strong className="text-purple-300">"Live Sync AI Calls"</strong> dabayein ya kisi bhi customer ko <strong className="text-emerald-300">"Maya AI Call"</strong> lagayein. Call cut hote hi pura recording, transcript aur smart advice yahan live dikhega!
+                </p>
+                <button
+                  onClick={handleSyncAiHistory}
+                  className="tap-target px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-extrabold text-xs inline-flex items-center gap-1.5 shadow-lg shadow-purple-600/30"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>Sync Previous Bolna Calls Now</span>
+                </button>
+              </div>
+            ) : (
+              sortedCalls
+                .filter(c => c.recording_url || c.transcript || c.call_source === 'ai_agent' || (c.notes && c.notes.includes('[AI_LOG]')))
+                .map((call) => {
+                  const isConfirmed = call.status === 'confirmed' || call.ai_decision === 'confirmed';
+                  const isRescheduled = call.status === 'rescheduled' || call.ai_decision === 'rescheduled';
+                  const isCancelled = call.status === 'rto_lost' || call.ai_decision === 'fake_order' || call.ai_decision === 'cancelled';
+
+                  return (
+                    <div
+                      key={call.id || call.shopify_order_id}
+                      className="p-4 sm:p-5 rounded-2xl bg-slate-950/90 border border-slate-800 hover:border-purple-500/50 transition shadow-xl space-y-3.5"
+                    >
+                      {/* Card Top: Customer Identity & Status Ribbon */}
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800/80 pb-3">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-extrabold text-base text-white">{call.customer_name}</span>
+                            <span className="text-xs font-mono font-bold text-emerald-400 bg-emerald-950/80 border border-emerald-500/40 px-2 py-0.5 rounded-lg">
+                              ₹{call.amount || 449} COD
+                            </span>
+                            <span className="text-[11px] font-mono text-purple-300 bg-purple-950/80 border border-purple-500/40 px-2 py-0.5 rounded-lg">
+                              {call.shopify_order_id}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-3 text-xs text-slate-400 font-mono">
+                            <a
+                              href={`tel:${call.phone}`}
+                              className="text-emerald-300 font-bold hover:underline flex items-center gap-1"
+                            >
+                              <Phone className="w-3.5 h-3.5 text-emerald-400" />
+                              {call.phone}
+                            </a>
+                            <span>•</span>
+                            <span className="text-slate-300 truncate max-w-[260px]">
+                              📦 {call.product}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Status Badge */}
+                        <div className="flex items-center gap-2 self-start sm:self-auto">
+                          {isConfirmed && (
+                            <span className="px-3 py-1 rounded-xl bg-emerald-950/90 border border-emerald-500/50 text-emerald-300 font-extrabold text-xs flex items-center gap-1 shadow-sm">
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                              <span>CONFIRMED & SHIP</span>
+                            </span>
+                          )}
+                          {isRescheduled && (
+                            <span className="px-3 py-1 rounded-xl bg-amber-950/90 border border-amber-500/50 text-amber-300 font-extrabold text-xs flex items-center gap-1 shadow-sm">
+                              <Calendar className="w-3.5 h-3.5 text-amber-400" />
+                              <span>RESCHEDULED SLOT</span>
+                            </span>
+                          )}
+                          {isCancelled && (
+                            <span className="px-3 py-1 rounded-xl bg-red-950/90 border border-red-500/50 text-red-300 font-extrabold text-xs flex items-center gap-1 shadow-sm">
+                              <Ban className="w-3.5 h-3.5 text-red-400" />
+                              <span>CANCELLED / FAKE</span>
+                            </span>
+                          )}
+                          {!isConfirmed && !isRescheduled && !isCancelled && (
+                            <span className="px-3 py-1 rounded-xl bg-purple-950/90 border border-purple-500/50 text-purple-300 font-bold text-xs">
+                              🤖 Maya AI Logged
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* 🎙️ Audio Recording & Duration Bar */}
+                      {call.recording_url ? (
+                        <div className="p-3 rounded-xl bg-slate-900/90 border border-purple-500/30 space-y-1.5">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="font-bold text-purple-300 flex items-center gap-1">
+                              <Volume2 className="w-4 h-4 text-emerald-400" />
+                              Live Call Audio Recording
+                            </span>
+                            {call.call_duration_seconds && (
+                              <span className="font-mono text-slate-400 font-bold text-[11px]">
+                                ⏱️ {call.call_duration_seconds}s Duration
+                              </span>
+                            )}
+                          </div>
+                          <audio
+                            controls
+                            src={call.recording_url}
+                            className="w-full h-8 rounded-lg"
+                          >
+                            Your browser does not support audio element.
+                          </audio>
+                        </div>
+                      ) : (
+                        <div className="p-2.5 rounded-xl bg-slate-900/50 border border-slate-800 text-[11px] text-slate-400 flex items-center justify-between">
+                          <span>⚠️ Recording processing me hai. "Live Sync AI Calls" click karein.</span>
+                        </div>
+                      )}
+
+                      {/* 💡 Maya AI Summary & What Customer Said */}
+                      {call.ai_summary && (
+                        <div className="p-3 rounded-xl bg-purple-950/30 border border-purple-500/30 space-y-1">
+                          <span className="text-[11px] font-bold text-purple-300 flex items-center gap-1">
+                            <Lightbulb className="w-3.5 h-3.5 text-yellow-400" />
+                            Maya AI Summary (Customer Se Kya Baat Hui):
+                          </span>
+                          <p className="text-xs text-slate-200 leading-relaxed font-sans font-medium">
+                            {call.ai_summary}
+                          </p>
+                        </div>
+                      )}
+
+                      {/* 💬 Speaker-by-Speaker Chat Dialogue Box */}
+                      {call.transcript && (
+                        <div className="space-y-1.5">
+                          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
+                            <FileText className="w-3.5 h-3.5 text-purple-400" />
+                            Live Dialogue Conversation Transcript:
+                          </span>
+                          <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800 max-h-48 overflow-y-auto space-y-2">
+                            {call.transcript.split('\n').filter(Boolean).map((line, idx) => {
+                              const isMaya = line.toLowerCase().startsWith('assistant:') || line.toLowerCase().startsWith('maya:');
+                              const isUser = line.toLowerCase().startsWith('user:') || line.toLowerCase().startsWith('customer:');
+                              const cleanText = line.replace(/^(assistant|maya|user|customer):\s*/i, '').trim();
+
+                              return (
+                                <div
+                                  key={idx}
+                                  className={`flex flex-col ${isUser ? 'items-end' : 'items-start'}`}
+                                >
+                                  <span className="text-[9px] font-bold text-slate-400 mb-0.5">
+                                    {isMaya ? '🟣 Maya (AI Executive)' : '🟢 Customer'}
+                                  </span>
+                                  <div
+                                    className={`p-2 rounded-xl text-xs max-w-[85%] leading-relaxed ${
+                                      isUser
+                                        ? 'bg-emerald-950/80 border border-emerald-500/40 text-emerald-100 rounded-tr-none'
+                                        : 'bg-purple-950/80 border border-purple-500/40 text-purple-100 rounded-tl-none'
+                                    }`}
+                                  >
+                                    {cleanText}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 🧠 Smart Telecaller Action Advisory */}
+                      <div className="p-3 rounded-xl bg-gradient-to-r from-blue-950/40 to-indigo-950/40 border border-blue-500/30 flex items-start gap-2 text-xs">
+                        <Sparkles className="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />
+                        <div>
+                          <strong className="text-cyan-300 font-bold">Recommended Human Telecaller Next Step:</strong>
+                          <p className="text-slate-200 mt-0.5 leading-relaxed">
+                            {isConfirmed
+                              ? 'Customer ne order lene ki confirmation di hai. Neeche "Confirm Order" par click karein aur parcel Shiprocket/Delhivery ke sath dispatch karein.'
+                              : isRescheduled
+                              ? 'Customer ne delivery aage badhane ko kaha hai. WhatsApp template bhejkar customer ko schedule update de dein.'
+                              : isCancelled
+                              ? 'Customer ne mana kar diya hai. "Cancel Order" mark karein taki bina wajah RTO courier charge na lage.'
+                              : 'Call status check karein ya customer ko direct manual call laga kar baat karein.'}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* ⚡ Instant Action Buttons Bar */}
+                      <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-800 flex-wrap">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {/* 🟢 Confirm Button */}
+                          <button
+                            onClick={() => {
+                              updateCallStatus(call.id, 'confirmed');
+                              claimTelecallerTaskIncentive(call.id || call.shopify_order_id, 20, 'AI Supervise Confirmation', currentUser);
+                              setAiCallMessage(`✅ ${call.customer_name} Confirmed! Telecaller Incentive (+₹20) Added!`);
+                              setTimeout(() => setAiCallMessage(''), 4000);
+                            }}
+                            className="tap-target px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs flex items-center gap-1 transition active:scale-95 shadow-md shadow-emerald-600/30"
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            <span>Confirm & Ship (+₹20)</span>
+                          </button>
+
+                          {/* 🟠 Reschedule Button */}
+                          <button
+                            onClick={() => {
+                              updateCallStatus(call.id, 'rescheduled');
+                              setAiCallMessage(`🟠 ${call.customer_name} Rescheduled!`);
+                              setTimeout(() => setAiCallMessage(''), 4000);
+                            }}
+                            className="tap-target px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-extrabold text-xs flex items-center gap-1 transition active:scale-95"
+                          >
+                            <Calendar className="w-3.5 h-3.5" />
+                            <span>Reschedule</span>
+                          </button>
+
+                          {/* 🔴 Cancel Button */}
+                          <button
+                            onClick={() => {
+                              updateCallStatus(call.id, 'rto_lost');
+                              setAiCallMessage(`🔴 ${call.customer_name} Cancelled!`);
+                              setTimeout(() => setAiCallMessage(''), 4000);
+                            }}
+                            className="tap-target px-3 py-1.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-extrabold text-xs flex items-center gap-1 transition active:scale-95"
+                          >
+                            <Ban className="w-3.5 h-3.5" />
+                            <span>Cancel</span>
+                          </button>
+
+                          {/* 💬 WhatsApp Studio */}
+                          <button
+                            onClick={() => handleOpenWhatsappModal(call)}
+                            className="tap-target px-3 py-1.5 rounded-xl bg-emerald-950 hover:bg-emerald-900 border border-emerald-500/40 text-emerald-300 font-bold text-xs flex items-center gap-1 transition active:scale-95"
+                          >
+                            <MessageSquare className="w-3.5 h-3.5 text-emerald-400" />
+                            <span>WhatsApp</span>
+                          </button>
+                        </div>
+
+                        <div className="flex items-center gap-1.5">
+                          {/* 👁️ 360 Audit Modal */}
+                          <button
+                            onClick={() => handleOpenCustomer360(call)}
+                            className="tap-target px-3 py-1.5 rounded-xl bg-purple-950 hover:bg-purple-900 border border-purple-500/50 text-purple-200 font-bold text-xs flex items-center gap-1 transition active:scale-95"
+                          >
+                            <Eye className="w-3.5 h-3.5 text-purple-300" />
+                            <span>360° Studio</span>
+                          </button>
+
+                          {/* 🤖 Re-Dial Maya */}
+                          <button
+                            onClick={() => handleAiCallButtonClick(call)}
+                            className="tap-target px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs flex items-center gap-1 transition active:scale-95"
+                          >
+                            <Bot className="w-3.5 h-3.5 text-yellow-300" />
+                            <span>Re-Dial AI</span>
+                          </button>
+                        </div>
+                      </div>
+
+                    </div>
+                  );
+                })
+            )}
+          </div>
+
+        </div>
+      )}
 
       {/* VIEW 1: 📋 MAYA AI DAILY 10 DUTY TASKS SECTION */}
       {activeCallTab === 'daily_duty' && (

@@ -30,7 +30,16 @@ import {
   Save,
   Tag,
   Check,
-  X
+  X,
+  Bot,
+  Volume2,
+  MessageSquare,
+  Phone,
+  Clock,
+  Smartphone,
+  Eye,
+  Lightbulb,
+  Calendar
 } from 'lucide-react';
 
 export function OwnerDashboard({ onOpenUpiModal, onOpenChat }) {
