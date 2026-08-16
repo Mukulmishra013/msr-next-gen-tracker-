@@ -7,6 +7,7 @@ import { EmployeeManagement } from '../admin/EmployeeManagement';
 import { ShiprocketSyncModal } from '../admin/ShiprocketSyncModal';
 import { supervisorAudit } from '../../services/supervisorAudit';
 import { adminTaskService } from '../../services/adminTaskService';
+import { ShopifyCustomersDirectory } from '../admin/ShopifyCustomersDirectory';
 import { 
   TrendingUp, 
   Users, 
@@ -370,6 +371,7 @@ export function OwnerDashboard({ onOpenUpiModal, onOpenChat }) {
       <div className="flex items-center gap-2 border-b border-slate-800 pb-2 overflow-x-auto no-scrollbar">
         {[
           { id: 'overview', label: '📊 Financial & Operations' },
+          { id: 'shopify_customers', label: '👥 All Shopify Customers Directory' },
           { id: 'shopify_auto', label: '⚡ Shopify Auto-Verify & Auto-Cancel' },
           { id: 'supervisor', label: '🛡️ Maya AI Supervisor & Staff Watchdog' },
           { id: 'ai_calling', label: `🤖 Maya AI Calling Analytics (${aiCallsCount})` },
@@ -555,6 +557,11 @@ export function OwnerDashboard({ onOpenUpiModal, onOpenChat }) {
             </div>
           </div>
         </div>
+      )}
+
+      {/* 👥 All Shopify Customers Directory & Intelligence Tab */}
+      {activeOwnerTab === 'shopify_customers' && (
+        <ShopifyCustomersDirectory onOpenChat={onOpenChat} />
       )}
 
       {/* ⚡ Shopify Auto-Verify & Auto-Cancel Pipeline Studio */}

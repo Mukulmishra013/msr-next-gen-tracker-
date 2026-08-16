@@ -5,6 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../services/supabase';
 import { supervisorAudit } from '../../services/supervisorAudit';
 import { adminTaskService } from '../../services/adminTaskService';
+import { ShopifyCustomersDirectory } from '../admin/ShopifyCustomersDirectory';
 import { 
   PhoneCall, 
   AlertCircle, 
@@ -821,6 +822,18 @@ Dhanyawad!
           </button>
 
           <button
+            onClick={() => setActiveCallTab('shopify_customers')}
+            className={`tap-target px-4 py-2 rounded-xl font-black text-xs flex items-center gap-1.5 transition active:scale-95 ${
+              activeCallTab === 'shopify_customers'
+                ? 'bg-gradient-to-r from-teal-600 to-emerald-600 text-white shadow-lg shadow-teal-600/30'
+                : 'bg-slate-900 text-slate-300 hover:bg-slate-800'
+            }`}
+          >
+            <Users className="w-4 h-4 text-emerald-400" />
+            <span>👥 All Shopify Customers</span>
+          </button>
+
+          <button
             onClick={() => setActiveCallTab('daily_duty')}
             className={`tap-target px-4 py-2 rounded-xl font-black text-xs flex items-center gap-1.5 transition active:scale-95 ${
               activeCallTab === 'daily_duty'
@@ -835,7 +848,7 @@ Dhanyawad!
           <button
             onClick={() => setActiveCallTab('all')}
             className={`tap-target px-3.5 py-2 rounded-xl font-bold text-xs flex items-center gap-1.5 transition active:scale-95 ${
-              activeCallTab !== 'daily_duty' && activeCallTab !== 'master_archive' && activeCallTab !== 'ai_live_feed'
+              activeCallTab !== 'daily_duty' && activeCallTab !== 'master_archive' && activeCallTab !== 'ai_live_feed' && activeCallTab !== 'shopify_customers'
                 ? 'bg-purple-600 text-white'
                 : 'bg-slate-900 text-slate-300 hover:bg-slate-800'
             }`}
@@ -1452,6 +1465,11 @@ Dhanyawad!
           </div>
 
         </div>
+      )}
+
+      {/* VIEW: 👥 ALL SHOPIFY CUSTOMERS DIRECTORY */}
+      {activeCallTab === 'shopify_customers' && (
+        <ShopifyCustomersDirectory />
       )}
 
       {/* VIEW 1: 📋 MAYA AI DAILY 10 DUTY TASKS SECTION */}
