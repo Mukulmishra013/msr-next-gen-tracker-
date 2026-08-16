@@ -19,14 +19,24 @@ export async function getShopifyAccessToken(store = SHOPIFY_STORE, clientId = SH
     return clientSecret;
   }
 
+  if (!clientSecret) {
+    console.log('[Shopify Auth] No client secret configured yet in environment.');
+    return '';
+  }
+
   try {
+    const credentials = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
+
     const res = await fetch(`https://${store}/admin/oauth/access_token`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Authorization': `Basic ${credentials}`,
+        'Content-Type': 'application/json'
+      },
       body: JSON.stringify({
+        grant_type: 'client_credentials',
         client_id: clientId,
-        client_secret: clientSecret,
-        grant_type: 'client_credentials'
+        client_secret: clientSecret
       })
     });
 
