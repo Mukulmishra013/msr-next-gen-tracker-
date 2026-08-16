@@ -1,0 +1,35 @@
+{
+  "version": 2,
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "rewrites": [
+    {
+      "source": "/api/shopify-webhook",
+      "destination": "/api/shopify-webhook.js"
+    },
+    {
+      "source": "/api/bolna-webhook",
+      "destination": "/api/bolna-webhook.js"
+    },
+    {
+      "source": "/api/bolna-callback",
+      "destination": "/api/bolna-webhook.js"
+    },
+    {
+      "source": "/api/shopify-order-action",
+      "destination": "/api/shopify-order-action.js"
+    },
+    {
+      "source": "/api/shiprocket-order-create",
+      "destination": "/api/shiprocket-order-create.js"
+    },
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/$1"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}
