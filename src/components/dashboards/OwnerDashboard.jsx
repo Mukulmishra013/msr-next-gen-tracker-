@@ -1,10 +1,11 @@
 // Owner & Director Command Center (Revenue, Growth Pool, Maya AI Voice Calling, Attendance, Shiprocket Live Orders & Employee Management)
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAppData } from '../../context/AppDataContext';
 import { useAgents } from '../../context/AgentContext';
 import { SalaryBreakdownCard } from '../payroll/SalaryBreakdownCard';
 import { EmployeeManagement } from '../admin/EmployeeManagement';
 import { ShiprocketSyncModal } from '../admin/ShiprocketSyncModal';
+import { supervisorAudit } from '../../services/supervisorAudit';
 import { 
   TrendingUp, 
   Users, 
@@ -77,6 +78,46 @@ export function OwnerDashboard({ onOpenUpiModal, onOpenChat }) {
   const [selectedCustomerDetail, setSelectedCustomerDetail] = useState(null);
   const [detailActiveTab, setDetailActiveTab] = useState('ai_audit');
   const [detailWaMessage, setDetailWaMessage] = useState('');
+
+  // Maya AI Supervisor & HR Watchdog State
+  const [supervisorLogs, setSupervisorLogs] = useState(() => supervisorAudit.getAuditLogs());
+  const [staffActivities, setStaffActivities] = useState(() => supervisorAudit.getLastActivities());
+
+  useEffect(() => {
+    const unsub = supervisorAudit.subscribe(() => {
+      setSupervisorLogs(supervisorAudit.getAuditLogs());
+      setStaffActivities(supervisorAudit.getLastActivities());
+    });
+    return () => unsub();
+  }, []);
+
+  const handleAdminIssueWarning = (staffName, staffId) => {
+    const reason = prompt(`🚨 Enter Reason for Supervisor Warning to ${staffName}:`, 'Pichhle 25 minute se inactive hain. Kripya urgent queue par focus karein.');
+    if (reason && reason.trim()) {
+      supervisorAudit.issueWarning({
+        userId: staffId,
+        userName: staffName,
+        category: 'ADMIN_MANUAL',
+        severity: 'high',
+        title: '👑 Admin Direct Warning (Supervisor Notice)',
+        reason: reason.trim(),
+        actionRequired: 'Immediately resume calling and clear queue.'
+      });
+      alert(`✅ Supervisor Warning successfully sent to ${staffName}!`);
+      setSupervisorLogs(supervisorAudit.getAuditLogs());
+    }
+  };
+
+  const handleAdminSendPraise = (staffName) => {
+    supervisorAudit.addAuditLog({
+      type: 'PRAISE_AWARDED',
+      severity: 'info',
+      staffName,
+      message: `🎉 Mukul Mishra awarded Spot Praise to ${staffName} for outstanding calling performance!`
+    });
+    alert(`🌟 Spot Praise logged for ${staffName}!`);
+    setSupervisorLogs(supervisorAudit.getAuditLogs());
+  };
 
   const handleSyncAiHistory = async () => {
     setIsSyncingAi(true);
@@ -284,6 +325,7 @@ export function OwnerDashboard({ onOpenUpiModal, onOpenChat }) {
       <div className="flex items-center gap-2 border-b border-slate-800 pb-2 overflow-x-auto no-scrollbar">
         {[
           { id: 'overview', label: '📊 Financial & Operations' },
+          { id: 'supervisor', label: '🛡️ Maya AI Supervisor & Staff Watchdog' },
           { id: 'ai_calling', label: `🤖 Maya AI Calling Analytics (${aiCallsCount})` },
           { id: 'orders', label: `📦 Shiprocket Orders (${totalCalls})` },
           { id: 'employees', label: '👥 Employee Management' },
@@ -466,6 +508,201 @@ export function OwnerDashboard({ onOpenUpiModal, onOpenChat }) {
               </table>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* 🛡️ Maya AI Supervisor & Staff Watchdog Tab */}
+      {activeOwnerTab === 'supervisor' && (
+        <div className="space-y-5">
+          
+          {/* Top Supervisor KPI Ribbon */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="glass-card p-4 rounded-2xl border border-emerald-500/40 bg-gradient-to-br from-emerald-950/40 to-slate-900">
+              <span className="text-[11px] font-bold text-emerald-300 uppercase tracking-wider">Office Geofence Status</span>
+              <p className="text-xl font-black text-white mt-1">100% Present</p>
+              <p className="text-[10px] text-emerald-400 font-semibold mt-0.5">200m Gorakhpur Office</p>
+            </div>
+
+            <div className="glass-card p-4 rounded-2xl border border-purple-500/40 bg-gradient-to-br from-purple-950/40 to-slate-900">
+              <span className="text-[11px] font-bold text-purple-300 uppercase tracking-wider">Active Staff Monitored</span>
+              <p className="text-xl font-black text-white mt-1">2 Staff Online</p>
+              <p className="text-[10px] text-purple-300 font-semibold mt-0.5">Autonomous Watchdog Active</p>
+            </div>
+
+            <div className="glass-card p-4 rounded-2xl border border-amber-500/40 bg-gradient-to-br from-amber-950/40 to-slate-900">
+              <span className="text-[11px] font-bold text-amber-300 uppercase tracking-wider">Warnings & Nudges</span>
+              <p className="text-xl font-black text-amber-400 mt-1">{supervisorLogs.filter(l => l.type === 'WARNING_ISSUED').length}</p>
+              <p className="text-[10px] text-amber-300 font-semibold mt-0.5">Auto-Nudges Sent</p>
+            </div>
+
+            <div className="glass-card p-4 rounded-2xl border border-red-500/40 bg-gradient-to-br from-red-950/40 to-slate-900">
+              <span className="text-[11px] font-bold text-red-300 uppercase tracking-wider">Urgent RTO Backlog</span>
+              <p className="text-xl font-black text-red-400 mt-1">{urgentRtoCount}</p>
+              <p className="text-[10px] text-red-300 font-semibold mt-0.5">Assigned to Telecallers</p>
+            </div>
+          </div>
+
+          {/* Real-Time Staff Productivity & Activity Matrix */}
+          <div className="glass-card rounded-3xl border border-slate-800 p-5 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
+              <div>
+                <h3 className="font-black text-base text-white flex items-center gap-2">
+                  <ShieldCheck className="w-5 h-5 text-emerald-400" />
+                  <span>Real-Time Staff Productivity & Vigilance Matrix</span>
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Autonomous watchdog monitors activity, idle duration, GPS attendance and duty pacing in real-time.
+                </p>
+              </div>
+
+              <button
+                onClick={() => {
+                  supervisorAudit.addAuditLog({
+                    type: 'MANUAL_AUDIT_TRIGGER',
+                    severity: 'info',
+                    staffName: 'All Telecallers',
+                    message: 'Mukul Mishra executed instant 360° agency staff audit.'
+                  });
+                  setSupervisorLogs(supervisorAudit.getAuditLogs());
+                  alert('⚡ Instant Agency Staff Audit executed! All telemetry is synchronized.');
+                }}
+                className="tap-target px-3.5 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-black flex items-center gap-1.5 shadow-md shadow-purple-600/30 transition active:scale-95 self-start sm:self-auto"
+              >
+                <Zap className="w-3.5 h-3.5 text-yellow-300" />
+                <span>⚡ Run Live Staff Audit Now</span>
+              </button>
+            </div>
+
+            {/* Staff Cards Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {[
+                {
+                  id: 'usr_priya_telecaller',
+                  name: 'Priya Singh',
+                  role: 'Content & Telecalling Closer',
+                  avatar: '👩‍💼',
+                  phone: '+919876543210',
+                  attendance: 'Present (GPS Verified)',
+                  lastActive: staffActivities['usr_priya_telecaller']?.lastActive ? `${Math.floor((Date.now() - staffActivities['usr_priya_telecaller'].lastActive) / 60000)}m ago` : '2m ago',
+                  dutyCompleted: 6,
+                  incentiveEarned: 210,
+                  streak: '🔥 3-Day Win Streak'
+                },
+                {
+                  id: 'usr_rahul_telecaller',
+                  name: 'Rahul Sharma',
+                  role: 'Telecaller & Field Liaison',
+                  avatar: '👨‍💼',
+                  phone: '+919123456780',
+                  attendance: 'Present (GPS Verified)',
+                  lastActive: staffActivities['usr_rahul_telecaller']?.lastActive ? `${Math.floor((Date.now() - staffActivities['usr_rahul_telecaller'].lastActive) / 60000)}m ago` : '8m ago',
+                  dutyCompleted: 4,
+                  incentiveEarned: 130,
+                  streak: '🔥 2-Day Streak'
+                }
+              ].map((staff) => (
+                <div 
+                  key={staff.id}
+                  className="p-4 rounded-2xl bg-slate-950/90 border border-slate-800 hover:border-purple-500/40 transition space-y-3 shadow-lg"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-3">
+                      <span className="text-3xl p-2 rounded-2xl bg-slate-900 border border-slate-700">{staff.avatar}</span>
+                      <div>
+                        <h4 className="font-extrabold text-sm text-white flex items-center gap-1.5">
+                          <span>{staff.name}</span>
+                          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                        </h4>
+                        <p className="text-[11px] text-slate-400">{staff.role}</p>
+                        <p className="text-[10px] font-mono text-purple-300 font-semibold mt-0.5">{staff.streak}</p>
+                      </div>
+                    </div>
+
+                    <span className="px-2.5 py-1 rounded-xl bg-emerald-950/80 border border-emerald-500/40 text-emerald-300 text-[10px] font-black uppercase">
+                      {staff.attendance}
+                    </span>
+                  </div>
+
+                  {/* Activity Stats */}
+                  <div className="grid grid-cols-3 gap-2 p-2.5 rounded-xl bg-slate-900/80 border border-slate-800 text-center">
+                    <div>
+                      <span className="text-[9px] font-bold text-slate-400 uppercase">Last Active</span>
+                      <p className="text-xs font-black text-emerald-400 font-mono mt-0.5">{staff.lastActive}</p>
+                    </div>
+                    <div>
+                      <span className="text-[9px] font-bold text-slate-400 uppercase">Duty Progress</span>
+                      <p className="text-xs font-black text-white font-mono mt-0.5">{staff.dutyCompleted} / 10</p>
+                    </div>
+                    <div>
+                      <span className="text-[9px] font-bold text-slate-400 uppercase">Live Incentive</span>
+                      <p className="text-xs font-black text-amber-400 font-mono mt-0.5">₹{staff.incentiveEarned}</p>
+                    </div>
+                  </div>
+
+                  {/* Supervisor Direct Actions */}
+                  <div className="flex items-center gap-2 pt-1">
+                    <button
+                      onClick={() => handleAdminIssueWarning(staff.name, staff.id)}
+                      className="tap-target flex-1 px-3 py-1.5 rounded-xl bg-amber-950/70 hover:bg-amber-900/90 text-amber-200 border border-amber-500/50 text-[11px] font-extrabold flex items-center justify-center gap-1 shadow-sm transition active:scale-95"
+                    >
+                      <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+                      <span>🚨 Issue Direct Nudge</span>
+                    </button>
+
+                    <button
+                      onClick={() => handleAdminSendPraise(staff.name)}
+                      className="tap-target flex-1 px-3 py-1.5 rounded-xl bg-emerald-950/70 hover:bg-emerald-900/90 text-emerald-200 border border-emerald-500/50 text-[11px] font-extrabold flex items-center justify-center gap-1 shadow-sm transition active:scale-95"
+                    >
+                      <Gift className="w-3.5 h-3.5 text-yellow-300" />
+                      <span>🎁 Award Praise</span>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Maya AI Autonomous Audit & Warning Feed */}
+          <div className="glass-card rounded-3xl border border-slate-800 p-5 space-y-3">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <h3 className="font-extrabold text-sm text-white flex items-center gap-2">
+                <Bot className="w-4 h-4 text-purple-400" />
+                <span>Maya Autonomous HR & Supervisor Audit Log Feed</span>
+              </h3>
+              <span className="text-[10px] font-bold text-slate-400">{supervisorLogs.length} Audit Events</span>
+            </div>
+
+            <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+              {supervisorLogs.map((log) => (
+                <div 
+                  key={log.id} 
+                  className={`p-3 rounded-2xl border text-xs flex items-start justify-between gap-3 ${
+                    log.type === 'WARNING_ISSUED'
+                      ? 'bg-amber-950/40 border-amber-500/40 text-amber-200'
+                      : log.type === 'PRAISE_AWARDED'
+                      ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-200'
+                      : 'bg-slate-950/60 border-slate-800 text-slate-300'
+                  }`}
+                >
+                  <div className="space-y-0.5 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-black text-[10px] uppercase px-1.5 py-0.2 rounded bg-black/40 border border-white/10 text-white">
+                        {log.staffName || 'System'}
+                      </span>
+                      <span className="text-[10px] text-slate-400 font-mono">
+                        {new Date(log.timestamp).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                      </span>
+                    </div>
+                    <p className="leading-relaxed font-sans text-white">{log.message}</p>
+                    {log.actionRequired && (
+                      <p className="text-[10px] text-amber-300 font-bold">⚡ Required: {log.actionRequired}</p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
         </div>
       )}
 

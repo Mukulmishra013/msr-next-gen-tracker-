@@ -1,8 +1,9 @@
 // Telecaller, Maya AI HR Duty Manager (Daily 10 Tasks), Incentive Engine & Shiprocket Center
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useAppData } from '../../context/AppDataContext';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../services/supabase';
+import { supervisorAudit } from '../../services/supervisorAudit';
 import { 
   PhoneCall, 
   AlertCircle, 
@@ -119,6 +120,49 @@ export function ContentCallingDashboard({ onOpenChat }) {
   const [importStatus, setImportStatus] = useState('');
   const [isSyncingSr, setIsSyncingSr] = useState(false);
   const [isSyncingAi, setIsSyncingAi] = useState(false);
+
+  // Autonomous Maya HR & Supervisor Watchdog Alerts
+  const [activeSupervisorWarnings, setActiveSupervisorWarnings] = useState(() => {
+    return supervisorAudit.getActiveWarnings(currentUser?.id || 'telecaller_1');
+  });
+
+  useEffect(() => {
+    // Initial activity log on login
+    supervisorAudit.recordActivity(currentUser?.id || 'telecaller_1', currentUser?.name || 'Telecaller', 'LOGIN_PORTAL');
+
+    // Run initial autonomous audit
+    supervisorAudit.runAutonomousAudit({
+      user: currentUser,
+      amparoCalls,
+      incentives
+    });
+    setActiveSupervisorWarnings(supervisorAudit.getActiveWarnings(currentUser?.id || 'telecaller_1'));
+
+    // Periodic watchdog audit every 30 seconds
+    const interval = setInterval(() => {
+      supervisorAudit.runAutonomousAudit({
+        user: currentUser,
+        amparoCalls,
+        incentives
+      });
+      setActiveSupervisorWarnings(supervisorAudit.getActiveWarnings(currentUser?.id || 'telecaller_1'));
+    }, 30000);
+
+    const unsub = supervisorAudit.subscribe(() => {
+      setActiveSupervisorWarnings(supervisorAudit.getActiveWarnings(currentUser?.id || 'telecaller_1'));
+    });
+
+    return () => {
+      clearInterval(interval);
+      unsub();
+    };
+  }, [currentUser, amparoCalls, incentives]);
+
+  const handleDismissSupervisorWarning = (warningId) => {
+    supervisorAudit.recordActivity(currentUser?.id || 'telecaller_1', currentUser?.name || 'Telecaller', 'ACKNOWLEDGE_WARNING');
+    supervisorAudit.dismissWarning(warningId);
+    setActiveSupervisorWarnings(supervisorAudit.getActiveWarnings(currentUser?.id || 'telecaller_1'));
+  };
 
   // Customer 360° AI Intelligence & Action Hub State
   const [selectedCustomerDetail, setSelectedCustomerDetail] = useState(null);
@@ -791,6 +835,50 @@ Dhanyawad!
           </button>
         </div>
       </div>
+
+      {/* 🚨 Autonomous Maya AI HR & Supervisor Live Warning Alert Bar */}
+      {activeSupervisorWarnings.length > 0 && (
+        <div className="space-y-2">
+          {activeSupervisorWarnings.map((warn) => (
+            <div 
+              key={warn.id}
+              className={`p-4 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xl animate-scale-up ${
+                warn.severity === 'high'
+                  ? 'bg-red-950/90 border-red-500/80 text-red-100 shadow-red-950/50'
+                  : 'bg-amber-950/90 border-amber-500/80 text-amber-100 shadow-amber-950/50'
+              }`}
+            >
+              <div className="flex items-start gap-3 flex-1">
+                <div className="p-2 rounded-xl bg-black/40 border border-white/10 shrink-0">
+                  <ShieldCheck className="w-5 h-5 text-amber-300 animate-pulse" />
+                </div>
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-black/50 border border-white/20">
+                      Maya AI Supervisor Notice
+                    </span>
+                    <span className="font-extrabold text-xs text-white">{warn.title}</span>
+                  </div>
+                  <p className="text-xs leading-relaxed text-slate-200 font-medium">{warn.reason}</p>
+                  {warn.actionRequired && (
+                    <p className="text-[11px] font-bold text-amber-300 flex items-center gap-1 mt-0.5">
+                      ⚡ Action Required: {warn.actionRequired}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <button
+                onClick={() => handleDismissSupervisorWarning(warn.id)}
+                className="tap-target px-4 py-2 rounded-xl bg-white text-black hover:bg-slate-200 font-black text-xs flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition shrink-0"
+              >
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                <span>Acknowledge & Start Work ➔</span>
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* AI Call Feedback Alert Bar */}
       {aiCallMessage && (
