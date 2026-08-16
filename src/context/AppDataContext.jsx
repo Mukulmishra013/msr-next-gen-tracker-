@@ -627,19 +627,20 @@ export function AppDataProvider({ children }) {
 
       setBolnaExecutions(parsedExecutions);
 
-      // Now match individual executions to orders in amparoCalls, and append any new executions
+      // Strictly Deduplicate & Match Executions to Orders
       setAmparoCalls((prev) => {
-        const matchedIds = new Set();
+        const map = new Map();
 
-        const updatedList = prev.map((c) => {
+        // 1. Process existing calls and merge matching Bolna metadata
+        prev.forEach((c) => {
+          const cleanOrderId = c.shopify_order_id ? String(c.shopify_order_id).replace('#', '').trim() : '';
           const match = parsedExecutions.find(
-            (e) => (c.shopify_order_id && e.shopify_order_id && String(c.shopify_order_id).replace('#', '') === String(e.shopify_order_id).replace('#', '')) ||
-                   (c.bolna_call_id && e.bolna_call_id && c.bolna_call_id === e.bolna_call_id) ||
-                   (c.phone && e.phone && c.phone.replace(/\D/g, '').slice(-10) === e.phone.replace(/\D/g, '').slice(-10) && c.customer_name !== 'Verified Buyer')
+            (e) => (cleanOrderId && e.shopify_order_id && String(e.shopify_order_id).replace('#', '').trim() === cleanOrderId) ||
+                   (c.bolna_call_id && e.bolna_call_id && c.bolna_call_id === e.bolna_call_id)
           );
 
+          let item = c;
           if (match) {
-            matchedIds.add(match.id);
             const callMeta = {
               recording_url: match.recording_url,
               transcript: match.transcript,
@@ -650,18 +651,29 @@ export function AppDataProvider({ children }) {
               completed_at: match.created_at,
               bolna_call_id: match.bolna_call_id
             };
-            return {
+            item = {
               ...c,
               ...match,
               notes: `[AI_LOG]${JSON.stringify(callMeta)}[/AI_LOG]`
             };
           }
-          return c;
+
+          const uniqueKey = cleanOrderId || String(item.id || item.phone);
+          if (!map.has(uniqueKey)) {
+            map.set(uniqueKey, item);
+          }
         });
 
-        // Add any brand new executions from Bolna that were not in prev
-        const brandNew = parsedExecutions.filter((e) => !matchedIds.has(e.id) && !prev.some((p) => p.bolna_call_id === e.id || p.id === e.id));
-        return [...brandNew, ...updatedList];
+        // 2. Add any unmatched brand new executions from Bolna
+        parsedExecutions.forEach((exec) => {
+          const cleanOrderId = exec.shopify_order_id ? String(exec.shopify_order_id).replace('#', '').trim() : '';
+          const uniqueKey = cleanOrderId || String(exec.id || exec.phone);
+          if (!map.has(uniqueKey)) {
+            map.set(uniqueKey, exec);
+          }
+        });
+
+        return Array.from(map.values());
       });
 
       return { success: true, count: executions.length };

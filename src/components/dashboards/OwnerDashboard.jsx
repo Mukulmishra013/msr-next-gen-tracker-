@@ -676,8 +676,8 @@ export function OwnerDashboard({ onOpenUpiModal, onOpenChat }) {
 
               <button
                 onClick={() => {
-                  navigator.clipboard.writeText('https://msrnext.netlify.app/api/shopify-webhook');
-                  alert('📋 Webhook URL Copied to Clipboard:\nhttps://msrnext.netlify.app/api/shopify-webhook');
+                  navigator.clipboard.writeText('https://msr-next-gen-tracker.vercel.app/api/shopify-webhook');
+                  alert('📋 Webhook URL Copied to Clipboard:\nhttps://msr-next-gen-tracker.vercel.app/api/shopify-webhook');
                 }}
                 className="tap-target px-3.5 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-black flex items-center gap-1.5 shadow-md shadow-purple-600/30 transition active:scale-95"
               >
@@ -688,7 +688,7 @@ export function OwnerDashboard({ onOpenUpiModal, onOpenChat }) {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
               <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800">
                 <span className="text-[10px] font-bold text-slate-400 uppercase">Webhook URL</span>
-                <p className="text-xs font-mono text-purple-300 font-bold break-all mt-0.5">https://msrnext.netlify.app/api/shopify-webhook</p>
+                <p className="text-xs font-mono text-purple-300 font-bold break-all mt-0.5">https://msr-next-gen-tracker.vercel.app/api/shopify-webhook</p>
               </div>
               <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800">
                 <span className="text-[10px] font-bold text-slate-400 uppercase">Event Trigger</span>
@@ -708,7 +708,9 @@ export function OwnerDashboard({ onOpenUpiModal, onOpenChat }) {
                 <Bot className="w-4 h-4 text-yellow-300" />
                 <span>Shopify Orders Auto-Verification & Cancellation Telemetry</span>
               </h4>
-              <span className="text-xs text-slate-400">{amparoCalls.length} Total Orders Monitored</span>
+              <span className="text-xs text-slate-400">
+                {Array.from(new Map(amparoCalls.map(o => [o.shopify_order_id || o.id, o])).values()).length} Unique Orders Monitored
+              </span>
             </div>
 
             <div className="overflow-x-auto">
@@ -724,7 +726,7 @@ export function OwnerDashboard({ onOpenUpiModal, onOpenChat }) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/60">
-                  {amparoCalls.slice(0, 15).map((order) => {
+                  {Array.from(new Map(amparoCalls.map(o => [o.shopify_order_id || o.id, o])).values()).slice(0, 15).map((order) => {
                     const isConfirmed = order.status === 'confirmed' || order.ai_decision === 'confirmed';
                     const isCancelled = order.status === 'rto_lost' || order.status === 'cancelled' || order.ai_decision === 'cancelled';
                     return (
