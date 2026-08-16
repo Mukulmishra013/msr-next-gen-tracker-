@@ -280,7 +280,7 @@ export function ShopifyCustomersDirectory({ onOpenChat }) {
     reader.readAsText(file);
   };
 
-  // 4. Handle Shopify Direct API Sync with Client ID & Client Secret
+  // 4. Handle Shopify Direct API Sync with Client ID & Token Support
   const handleSyncViaShopifyApi = async () => {
     setIsSyncingApi(true);
     setAiCallMessage('⚡ Shopify Admin API se All 200+ Customers fetch ho rahe hain...');
@@ -291,7 +291,8 @@ export function ShopifyCustomersDirectory({ onOpenChat }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           store: 'amparo.myshopify.com',
-          clientId: 'a817dbe991c7e8c140bb85b122798617'
+          clientId: 'a817dbe991c7e8c140bb85b122798617',
+          token: shopifyToken.trim() || undefined
         })
       });
 
@@ -342,7 +343,7 @@ export function ShopifyCustomersDirectory({ onOpenChat }) {
         setShowApiModal(false);
         alert(`⚡ BINGO! ${syncedList.length} Real Customers & ${data.orders.length} Orders synced directly from Shopify API!`);
       } else {
-        alert(`⚠️ API Sync Notice: ${data.message || 'Check Shopify Token Permissions'}`);
+        alert(`⚠️ API Notice: ${data.message || 'API Key/Token verification failed.'}\n\nTip: Aap Shopify Admin se direct CSV export karke '📥 Import 200+ Shopify CSV' button se 100% data 5 seconds me load kar sakte hain!`);
       }
     } catch (e) {
       alert(`❌ Sync Error: ${e.message}`);
@@ -815,31 +816,52 @@ export function ShopifyCustomersDirectory({ onOpenChat }) {
 
               <div>
                 <label className="text-[11px] font-extrabold text-slate-300 uppercase block mb-1">
-                  Shopify Client Secret (Secured)
+                  Optional Admin Access Token (Agar aapke paas hai)
                 </label>
                 <input
                   type="password"
-                  disabled
-                  value="shpss_configured_in_environment_variables"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-400 font-mono tracking-widest"
+                  placeholder="Paste shpat_ / access token if available (Optional)"
+                  value={shopifyToken}
+                  onChange={(e) => setShopifyToken(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 font-mono focus:outline-none focus:border-emerald-500"
                 />
-                <p className="text-[10px] text-emerald-400 font-semibold mt-1">
-                  ✅ 2026 Shopify Modern App Authentication Active (No deprecated shpat_ token needed).
+              </div>
+
+              <div className="p-3 rounded-2xl bg-purple-950/40 border border-purple-500/30 text-xs text-slate-300 space-y-1">
+                <p className="font-bold text-white flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-yellow-300" />
+                  <span>💡 Best & Fastest 100% Working Method:</span>
+                </p>
+                <p className="text-[11px] text-slate-300">
+                  Shopify Admin ➔ Customers ➔ Export CSV karein aur <strong>"Import 200+ Shopify CSV"</strong> se 5 seconds me 100% real customers load karein!
                 </p>
               </div>
 
-              <button
-                onClick={handleSyncViaShopifyApi}
-                disabled={isSyncingApi}
-                className="w-full py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-xs shadow-lg shadow-emerald-600/30 flex items-center justify-center gap-2 transition active:scale-95"
-              >
-                {isSyncingApi ? (
-                  <RefreshCw className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Sparkles className="w-4 h-4 text-yellow-300" />
-                )}
-                <span>{isSyncingApi ? 'Syncing 200+ Customers...' : '⚡ Fetch & Sync All 200+ Customers Now'}</span>
-              </button>
+              <div className="flex items-center gap-2 pt-1">
+                <button
+                  onClick={handleSyncViaShopifyApi}
+                  disabled={isSyncingApi}
+                  className="flex-1 py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-xs shadow-lg shadow-emerald-600/30 flex items-center justify-center gap-2 transition active:scale-95"
+                >
+                  {isSyncingApi ? (
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Sparkles className="w-4 h-4 text-yellow-300" />
+                  )}
+                  <span>{isSyncingApi ? 'Syncing...' : '⚡ Try Live API Sync'}</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setShowApiModal(false);
+                    setShowCsvModal(true);
+                  }}
+                  className="py-3 px-4 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-black text-xs shadow-md shadow-purple-600/30 transition active:scale-95 flex items-center gap-1.5"
+                >
+                  <Upload className="w-4 h-4" />
+                  <span>📥 Upload CSV</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
