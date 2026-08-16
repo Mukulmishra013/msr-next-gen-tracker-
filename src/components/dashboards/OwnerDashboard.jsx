@@ -640,9 +640,15 @@ export function OwnerDashboard({ onOpenUpiModal, onOpenChat }) {
                       }`}>
                         {staff.status === 'ACTIVE' ? '🟢 Work Active' : staff.status === 'LEAVE' ? '🏖️ On Leave' : '⏸️ Shift Paused'}
                       </span>
-                      {staff.breakInfo?.isOnBreak && (
-                        <p className="text-[9px] font-bold text-amber-300 animate-pulse">☕ 40m Break Active</p>
-                      )}
+                      <p className={`text-[10px] font-mono font-bold ${
+                        staff.breakInfo?.isOnBreak
+                          ? 'text-amber-300 animate-pulse'
+                          : staff.breakInfo?.isQuotaExhausted
+                          ? 'text-red-400'
+                          : 'text-slate-400'
+                      }`}>
+                        ☕ {staff.breakInfo?.isOnBreak ? 'Break Active' : `Break: ${staff.breakInfo?.usedMinutesToday || 0}/40m used (${staff.breakInfo?.remainingMinutes || 40}m left)`}
+                      </p>
                     </div>
                   </div>
 

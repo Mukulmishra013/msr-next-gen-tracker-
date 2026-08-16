@@ -1,11 +1,13 @@
 // Maya Autonomous AI Supervisor & HR Watchdog Service (Maya Sentinel)
-// Shift Hours: 11:00 AM to 5:00 PM | 40-Min Flexible Break System | Admin Work Status Control (Active/Off/Leave)
+// Shift Hours: 11:00 AM to 5:00 PM | 40-Min Daily Break Wallet (Multiple Small Breaks Supported) | Admin Work Status Control (Active/Off/Leave)
 
 const AUDIT_STORAGE_KEY = 'msr_supervisor_audit_logs';
 const WARNINGS_STORAGE_KEY = 'msr_telecaller_active_warnings';
 const ACTIVITY_STORAGE_KEY = 'msr_telecaller_last_activity';
-const BREAK_STORAGE_KEY = 'msr_telecaller_breaks';
+const BREAK_STORAGE_KEY = 'msr_telecaller_breaks_v2';
 const DUTY_STATUS_KEY = 'msr_staff_duty_status';
+
+const DAILY_BREAK_QUOTA_SECONDS = 40 * 60; // 2400 seconds (40 minutes)
 
 class SupervisorAuditService {
   constructor() {
@@ -95,7 +97,7 @@ class SupervisorAuditService {
     this.notify({ type: 'STATUS_UPDATED', userId, newStatus });
   }
 
-  // 3. Flexible 40-Minute Break System
+  // 3. Daily 40-Minute Break Wallet System (Supports Multiple Small Breaks)
   getBreakData() {
     try {
       const saved = localStorage.getItem(BREAK_STORAGE_KEY);
@@ -105,72 +107,100 @@ class SupervisorAuditService {
   }
 
   getStaffBreakStatus(userId) {
+    const todayStr = new Date().toISOString().slice(0, 10);
     const allBreaks = this.getBreakData();
-    const userBreak = allBreaks[userId] || {
-      isOnBreak: false,
-      breakStartTime: null,
-      totalBreakMinutesToday: 0
-    };
+    let userBreak = allBreaks[userId];
 
-    if (userBreak.isOnBreak && userBreak.breakStartTime) {
-      const elapsedMs = Date.now() - userBreak.breakStartTime;
-      const elapsedSec = Math.floor(elapsedMs / 1000);
-      const remainingSec = Math.max(0, 40 * 60 - elapsedSec);
-      const isOverdue = elapsedSec > 40 * 60;
-      return {
-        ...userBreak,
-        elapsedSec,
-        remainingSec,
-        isOverdue,
-        elapsedMinutes: Math.floor(elapsedSec / 60)
+    // Reset if it's a new day
+    if (!userBreak || userBreak.date !== todayStr) {
+      userBreak = {
+        date: todayStr,
+        isOnBreak: false,
+        breakStartTime: null,
+        usedSecondsToday: 0
       };
     }
 
+    const totalAllowedSec = DAILY_BREAK_QUOTA_SECONDS; // 2400s (40 min)
+    let currentSessionElapsedSec = 0;
+
+    if (userBreak.isOnBreak && userBreak.breakStartTime) {
+      currentSessionElapsedSec = Math.floor((Date.now() - userBreak.breakStartTime) / 1000);
+    }
+
+    const totalUsedSec = (userBreak.usedSecondsToday || 0) + currentSessionElapsedSec;
+    const remainingSec = Math.max(0, totalAllowedSec - totalUsedSec);
+    const isQuotaExhausted = (userBreak.usedSecondsToday || 0) >= totalAllowedSec;
+    const isOverdue = userBreak.isOnBreak && totalUsedSec > totalAllowedSec;
+
     return {
-      ...userBreak,
-      elapsedSec: 0,
-      remainingSec: 40 * 60,
-      isOverdue: false,
-      elapsedMinutes: userBreak.totalBreakMinutesToday || 0
+      date: todayStr,
+      isOnBreak: userBreak.isOnBreak,
+      breakStartTime: userBreak.breakStartTime,
+      usedSecondsToday: totalUsedSec,
+      usedMinutesToday: Math.floor(totalUsedSec / 60),
+      remainingSec,
+      remainingMinutes: Math.floor(remainingSec / 60),
+      isQuotaExhausted,
+      isOverdue,
+      totalAllowedMinutes: 40
     };
   }
 
   startBreak(userId, staffName) {
+    const status = this.getStaffBreakStatus(userId);
+    if (status.isQuotaExhausted || status.remainingSec <= 0) {
+      return {
+        success: false,
+        message: '⚠️ Aaj ka 40-minute break quota khatam ho chuka hai! Aur break allowed nahi hai.'
+      };
+    }
+
+    const todayStr = new Date().toISOString().slice(0, 10);
     const allBreaks = this.getBreakData();
     allBreaks[userId] = {
+      date: todayStr,
       isOnBreak: true,
       breakStartTime: Date.now(),
-      totalBreakMinutesToday: allBreaks[userId]?.totalBreakMinutesToday || 0
+      usedSecondsToday: allBreaks[userId]?.date === todayStr ? (allBreaks[userId].usedSecondsToday || 0) : 0
     };
+
     try {
       localStorage.setItem(BREAK_STORAGE_KEY, JSON.stringify(allBreaks));
     } catch (e) {}
+
+    const remainingMins = Math.floor(status.remainingSec / 60);
 
     this.addAuditLog({
       type: 'BREAK_STARTED',
       severity: 'info',
       staffName,
       userId,
-      message: `☕ ${staffName} ne 40-minute ka Break shuru kiya. Maya AI Watchdog break ke dauran paused rahega.`
+      message: `☕ ${staffName} ne Break shuru kiya (Remaining Quota: ${remainingMins}m). Maya AI Watchdog break ke dauran paused rahega.`
     });
 
     this.clearUserWarnings(userId);
     this.notify({ type: 'BREAK_STARTED', userId });
+    return { success: true };
   }
 
   endBreak(userId, staffName) {
+    const todayStr = new Date().toISOString().slice(0, 10);
     const allBreaks = this.getBreakData();
     const current = allBreaks[userId];
-    let addedMinutes = 0;
-    if (current?.breakStartTime) {
-      const elapsedMs = Date.now() - current.breakStartTime;
-      addedMinutes = Math.floor(elapsedMs / 60000);
+    let thisSessionSec = 0;
+
+    if (current?.isOnBreak && current?.breakStartTime) {
+      thisSessionSec = Math.floor((Date.now() - current.breakStartTime) / 1000);
     }
 
+    const newUsedSec = (current?.usedSecondsToday || 0) + thisSessionSec;
+
     allBreaks[userId] = {
+      date: todayStr,
       isOnBreak: false,
       breakStartTime: null,
-      totalBreakMinutesToday: (current?.totalBreakMinutesToday || 0) + addedMinutes
+      usedSecondsToday: newUsedSec
     };
 
     try {
@@ -179,15 +209,19 @@ class SupervisorAuditService {
 
     this.recordActivity(userId, staffName, 'BREAK_ENDED_RESUME_WORK');
 
+    const usedMins = Math.floor(thisSessionSec / 60);
+    const totalRemainingMins = Math.max(0, Math.floor((DAILY_BREAK_QUOTA_SECONDS - newUsedSec) / 60));
+
     this.addAuditLog({
       type: 'BREAK_ENDED',
       severity: 'info',
       staffName,
       userId,
-      message: `🟢 ${staffName} ne Break khatam kiya (${addedMinutes}m use hua). Kaam dobara shuru ho gaya hai.`
+      message: `🟢 ${staffName} ne Break khatam kiya (${usedMins}m use hua • Aaj ka balance: ${totalRemainingMins}m bacha hai). Kaam dobara shuru ho gaya.`
     });
 
     this.notify({ type: 'BREAK_ENDED', userId });
+    return { success: true, remainingMinutes: totalRemainingMins };
   }
 
   // 4. Record telecaller action to reset idle timer
@@ -225,7 +259,7 @@ class SupervisorAuditService {
         severity: 'info',
         staffName: 'Priya Singh',
         role: 'content_calling',
-        message: 'Maya AI Supervisor routine audit: Shift hours 11 AM - 5 PM active.',
+        message: 'Maya AI Supervisor routine audit: Shift hours 11 AM - 5 PM (40m Daily Break Quota active).',
         timestamp: Date.now() - 3600000
       }
     ];
@@ -317,7 +351,6 @@ class SupervisorAuditService {
     // Rule 1: Check if staff is marked OFF or ON LEAVE by Admin
     const dutyStatus = this.getStaffDutyStatus(user.id);
     if (dutyStatus === 'PAUSED' || dutyStatus === 'LEAVE') {
-      // Supervisor stops checking because worker is inactive or on leave
       return {
         dutyStatus,
         isMonitoringActive: false,
@@ -325,7 +358,7 @@ class SupervisorAuditService {
       };
     }
 
-    // Rule 2: Check if currently on 40-Min Break
+    // Rule 2: Check if currently on Break or Quota Exceeded
     const breakStatus = this.getStaffBreakStatus(user.id);
     if (breakStatus.isOnBreak) {
       if (breakStatus.isOverdue) {
@@ -336,8 +369,8 @@ class SupervisorAuditService {
             userName: user.name,
             category: 'BREAK_OVERDUE',
             severity: 'high',
-            title: `🚨 40-Min Break Overdue (${breakStatus.elapsedMinutes}m elapsed)`,
-            reason: `Aapka 40-minute break limit exceed ho chuka hai (${breakStatus.elapsedMinutes} minute ho chuke hain). Kripya shift resume karein.`,
+            title: `🚨 40-Min Daily Break Limit Exceeded (${breakStatus.usedMinutesToday}m used)`,
+            reason: `Aapka aaj ka total 40-minute break quota khatam ho chuka hai (${breakStatus.usedMinutesToday} minute use ho chuke hain). Kripya turant shift resume karein.`,
             actionRequired: 'Break khatam karein aur calling duty start karein.'
           });
         }
@@ -410,7 +443,8 @@ class SupervisorAuditService {
       idleMinutes,
       completedTasksCount,
       urgentRtoPending,
-      attendanceStatus: userAttendance?.status || 'unmarked'
+      attendanceStatus: userAttendance?.status || 'unmarked',
+      breakStatus
     };
   }
 }

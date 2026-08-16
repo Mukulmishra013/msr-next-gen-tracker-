@@ -176,7 +176,14 @@ export function ContentCallingDashboard({ onOpenChat }) {
     if (breakStatus.isOnBreak) {
       supervisorAudit.endBreak(userId, userName);
     } else {
-      supervisorAudit.startBreak(userId, userName);
+      if (breakStatus.isQuotaExhausted || breakStatus.remainingSec <= 0) {
+        alert('⚠️ Aaj ka total 40-minute break quota khatam ho chuka hai! Ab aur break allowed nahi hai.');
+        return;
+      }
+      const res = supervisorAudit.startBreak(userId, userName);
+      if (!res.success) {
+        alert(res.message);
+      }
     }
     setBreakStatus(supervisorAudit.getStaffBreakStatus(userId));
   };
@@ -851,17 +858,26 @@ Dhanyawad!
             <span>Import CSV</span>
           </button>
 
-          {/* ☕ 40-Min Flexible Break Button */}
+          {/* ☕ 40-Min Flexible Break Wallet Button */}
           <button
             onClick={handleToggleBreak}
+            disabled={!breakStatus.isOnBreak && (breakStatus.isQuotaExhausted || breakStatus.remainingSec <= 0)}
             className={`tap-target px-3.5 py-2 rounded-xl font-extrabold text-xs flex items-center gap-1.5 transition active:scale-95 shadow-md ${
               breakStatus.isOnBreak
                 ? 'bg-gradient-to-r from-amber-600 to-orange-600 text-white animate-pulse'
+                : breakStatus.isQuotaExhausted || breakStatus.remainingSec <= 0
+                ? 'bg-slate-900 border border-slate-700 text-slate-500 cursor-not-allowed opacity-60'
                 : 'bg-amber-950/80 hover:bg-amber-900 border border-amber-500/50 text-amber-200'
             }`}
           >
-            <span>☕</span>
-            <span>{breakStatus.isOnBreak ? `Break Active (${Math.floor(breakStatus.remainingSec / 60)}m)` : 'Take 40m Break'}</span>
+            <span>{breakStatus.isOnBreak ? '☕' : (breakStatus.isQuotaExhausted || breakStatus.remainingSec <= 0 ? '🔒' : '☕')}</span>
+            <span>
+              {breakStatus.isOnBreak
+                ? `On Break (${Math.floor(breakStatus.remainingSec / 60)}m ${breakStatus.remainingSec % 60}s)`
+                : (breakStatus.isQuotaExhausted || breakStatus.remainingSec <= 0)
+                ? 'Break Limit (0m left)'
+                : `Break (${Math.floor(breakStatus.remainingSec / 60)}m left)`}
+            </span>
           </button>
 
           {/* 🕒 Shift Hours Indicator Badge */}
