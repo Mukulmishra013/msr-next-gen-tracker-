@@ -1,0 +1,36 @@
+# Shopify App Configuration for MSR Next Gen & Maya AGI Automation
+# Documentation: https://shopify.dev/docs/apps/build/cli-for-apps/app-configuration
+
+name = "MSR Next Gen Maya AGI"
+client_id = "a817dbe991c7e8c140bb85b122798617"
+application_url = "https://msr-next-gen-tracker.vercel.app/"
+embedded = true
+handle = "msr-next-gen-tracker"
+
+[access_scopes]
+scopes = "read_orders,write_orders,read_customers,write_customers,read_fulfillments,write_fulfillments,read_merchant_managed_fulfillment_orders,write_merchant_managed_fulfillment_orders"
+
+[access.admin]
+direct_api_mode = "online"
+
+[auth]
+redirect_urls = [
+  "https://msr-next-gen-tracker.vercel.app/api/shopify-auth",
+  "https://msr-next-gen-tracker.vercel.app/api/shopify-webhook",
+  "https://msrnext.netlify.app/api/shopify-auth"
+]
+
+[customer_authentication]
+redirect_uris = [
+  "https://msr-next-gen-tracker.vercel.app/api/customer/auth/callback"
+]
+javascript_origins = [
+  "https://msr-next-gen-tracker.vercel.app"
+]
+
+[webhooks]
+api_version = "2024-01"
+
+[[webhooks.subscriptions]]
+topics = [ "orders/create", "orders/cancelled", "orders/fulfilled" ]
+uri = "https://msr-next-gen-tracker.vercel.app/api/shopify-webhook"
