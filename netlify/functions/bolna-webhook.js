@@ -69,19 +69,20 @@ export default async (req) => {
     let finalStatus = 'confirmed';
     let actionRequired = 'ship_immediately';
     let cancellationReason = null;
+    let rescheduleSlot = extractions.reschedule_slot || null;
     let comboAccepted = false;
     let aiDecision = 'confirmed';
 
-    if (bolnaStatus === 'no-answer' || bolnaStatus === 'busy' || bolnaStatus === 'failed') {
+    if (bolnaStatus === 'no-answer' || bolnaStatus === 'busy' || bolnaStatus === 'failed' || extractions.order_decision === 'no_answer') {
       finalStatus = 'pending_confirmation';
       actionRequired = 'manual_followup';
       aiDecision = 'no_answer';
     } else if (
+      extractions.order_decision === 'cancelled' ||
       transcriptLower.includes('cancel') ||
       transcriptLower.includes('nahi chahiye') ||
       transcriptLower.includes('mat bhejo') ||
-      transcriptLower.includes('wrong order') ||
-      extractions.order_decision === 'cancelled'
+      transcriptLower.includes('wrong order')
     ) {
       finalStatus = 'rto_lost';
       actionRequired = 'cancel_in_shopify';
@@ -95,14 +96,26 @@ export default async (req) => {
         cancellationReason = extractions.cancellation_reason || 'Customer declined delivery';
       }
     } else if (
+      extractions.order_decision === 'rescheduled' ||
       transcriptLower.includes('reschedule') || 
       transcriptLower.includes('baad mein') || 
-      transcriptLower.includes('kal call')
+      transcriptLower.includes('kal aao') ||
+      transcriptLower.includes('sham ko') ||
+      transcriptLower.includes('shaam') ||
+      rescheduleSlot
     ) {
       finalStatus = 'rescheduled';
       actionRequired = 'reschedule_dispatch';
       aiDecision = 'rescheduled';
+      if (!rescheduleSlot) {
+        if (transcriptLower.includes('sham') || transcriptLower.includes('shaam') || transcriptLower.includes('evening')) {
+          rescheduleSlot = 'Today Evening';
+        } else if (transcriptLower.includes('kal') || transcriptLower.includes('tomorrow')) {
+          rescheduleSlot = 'Tomorrow';
+        }
+      }
     } else if (
+      extractions.order_decision === 'confirmed' ||
       transcriptLower.includes('confirm') || 
       transcriptLower.includes('haan') || 
       transcriptLower.includes('bhej do') ||
@@ -121,8 +134,9 @@ export default async (req) => {
     const callMetadata = {
       recording_url: recordingUrl,
       transcript: transcriptText,
-      ai_summary: summary || `Maya AI Call Completed (${aiDecision.toUpperCase()}).`,
+      ai_summary: summary || `Maya AI Call: ${aiDecision.toUpperCase()}${rescheduleSlot ? ` (${rescheduleSlot})` : ''}`,
       ai_decision: aiDecision,
+      reschedule_slot: rescheduleSlot,
       call_duration: durationSec,
       call_source: 'ai_agent',
       action_required: actionRequired,
@@ -141,8 +155,12 @@ export default async (req) => {
 
     // Update by orderId, executionId, or phone
     if (orderId) {
-      await supabase.from('amparo_calls').update(updateFields).eq('shopify_order_id', orderId);
-    } else if (recipientPhone) {
+      const cleanId = String(orderId).replace('#', '').trim();
+      const withHash = `#${cleanId}`;
+      await supabase.from('amparo_calls').update(updateFields).or(`shopify_order_id.eq.${cleanId},shopify_order_id.eq.${withHash}`);
+    }
+    
+    if (recipientPhone) {
       const cleanDigits = String(recipientPhone).replace(/\D/g, '').slice(-10);
       await supabase.from('amparo_calls').update(updateFields).ilike('phone', `%${cleanDigits}%`);
     }

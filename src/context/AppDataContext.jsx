@@ -194,8 +194,28 @@ export function AppDataProvider({ children }) {
             if (payload.eventType === 'INSERT') {
               setAmparoCalls((prev) => [payload.new, ...prev]);
             } else if (payload.eventType === 'UPDATE') {
+              let updated = payload.new;
+              if (updated.notes && updated.notes.includes('[AI_LOG]')) {
+                try {
+                  const match = updated.notes.match(/\[AI_LOG\](.*?)\[\/AI_LOG\]/s);
+                  if (match && match[1]) {
+                    const meta = JSON.parse(match[1]);
+                    updated = {
+                      ...updated,
+                      recording_url: meta.recording_url || updated.recording_url || null,
+                      transcript: meta.transcript || updated.transcript || null,
+                      ai_summary: meta.ai_summary || updated.ai_summary || null,
+                      ai_decision: meta.ai_decision || updated.ai_decision || null,
+                      call_duration_seconds: meta.call_duration || updated.call_duration_seconds || null,
+                      call_source: meta.call_source || (meta.recording_url ? 'ai_agent' : updated.call_source),
+                      action_required: meta.action_required || updated.action_required || null,
+                      bolna_call_id: meta.bolna_call_id || updated.bolna_call_id || null
+                    };
+                  }
+                } catch (e) {}
+              }
               setAmparoCalls((prev) =>
-                prev.map((c) => (c.id === payload.new.id ? payload.new : c))
+                prev.map((c) => (c.id === updated.id || (c.shopify_order_id && c.shopify_order_id === updated.shopify_order_id) ? updated : c))
               );
             }
           }
