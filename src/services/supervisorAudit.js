@@ -7,11 +7,23 @@ const ACTIVITY_STORAGE_KEY = 'msr_telecaller_last_activity';
 const BREAK_STORAGE_KEY = 'msr_telecaller_breaks_v2';
 const DUTY_STATUS_KEY = 'msr_staff_duty_status';
 
-const DAILY_BREAK_QUOTA_SECONDS = 40 * 60; // 2400 seconds (40 minutes)
+function getTodayDateString() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+const DAILY_BREAK_QUOTA_SECONDS = 40 * 60; // 2400 seconds (40 minutes daily)
 
 class SupervisorAuditService {
   constructor() {
     this.listeners = [];
+  }
+
+  getTodayKey() {
+    return getTodayDateString();
   }
 
   // Subscribe to live supervisor alerts
@@ -49,6 +61,7 @@ class SupervisorAuditService {
       isWithinShiftHours: isShift,
       shiftStartText: '11:00 AM',
       shiftEndText: '05:00 PM',
+      currentDateText: now.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }),
       currentTimeText: now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
     };
   }
@@ -97,7 +110,7 @@ class SupervisorAuditService {
     this.notify({ type: 'STATUS_UPDATED', userId, newStatus });
   }
 
-  // 3. Daily 40-Minute Break Wallet System (Supports Multiple Small Breaks)
+  // 3. Daily 40-Minute Break Wallet System (Auto-resets every new day at midnight)
   getBreakData() {
     try {
       const saved = localStorage.getItem(BREAK_STORAGE_KEY);
@@ -107,11 +120,11 @@ class SupervisorAuditService {
   }
 
   getStaffBreakStatus(userId) {
-    const todayStr = new Date().toISOString().slice(0, 10);
+    const todayStr = getTodayDateString();
     const allBreaks = this.getBreakData();
     let userBreak = allBreaks[userId];
 
-    // Reset if it's a new day
+    // Auto-Reset at midnight: If date is different from today, restore full 40 minutes!
     if (!userBreak || userBreak.date !== todayStr) {
       userBreak = {
         date: todayStr,
@@ -119,6 +132,11 @@ class SupervisorAuditService {
         breakStartTime: null,
         usedSecondsToday: 0
       };
+      // Persist the clean daily reset
+      allBreaks[userId] = userBreak;
+      try {
+        localStorage.setItem(BREAK_STORAGE_KEY, JSON.stringify(allBreaks));
+      } catch (e) {}
     }
 
     const totalAllowedSec = DAILY_BREAK_QUOTA_SECONDS; // 2400s (40 min)
@@ -156,7 +174,7 @@ class SupervisorAuditService {
       };
     }
 
-    const todayStr = new Date().toISOString().slice(0, 10);
+    const todayStr = getTodayDateString();
     const allBreaks = this.getBreakData();
     allBreaks[userId] = {
       date: todayStr,
@@ -185,7 +203,7 @@ class SupervisorAuditService {
   }
 
   endBreak(userId, staffName) {
-    const todayStr = new Date().toISOString().slice(0, 10);
+    const todayStr = getTodayDateString();
     const allBreaks = this.getBreakData();
     const current = allBreaks[userId];
     let thisSessionSec = 0;
