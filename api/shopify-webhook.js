@@ -2,7 +2,7 @@
 // Endpoint: https://msrnext.netlify.app/api/shopify-webhook
 
 import { createClient } from '@supabase/supabase-js';
-import { cancelShopifyOrder } from './shopify-order-action.js';
+import { cancelShopifyOrder } from './lib/shopify-order-action.js';
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://blnvunejbmkpckwrdyfy.supabase.co';
 const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_4sR9yc91hhMMtN9kpIpTqw_n8-muO3Z';
