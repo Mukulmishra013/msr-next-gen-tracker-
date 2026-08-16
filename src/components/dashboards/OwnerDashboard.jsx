@@ -370,6 +370,7 @@ export function OwnerDashboard({ onOpenUpiModal, onOpenChat }) {
       <div className="flex items-center gap-2 border-b border-slate-800 pb-2 overflow-x-auto no-scrollbar">
         {[
           { id: 'overview', label: '📊 Financial & Operations' },
+          { id: 'shopify_auto', label: '⚡ Shopify Auto-Verify & Auto-Cancel' },
           { id: 'supervisor', label: '🛡️ Maya AI Supervisor & Staff Watchdog' },
           { id: 'ai_calling', label: `🤖 Maya AI Calling Analytics (${aiCallsCount})` },
           { id: 'orders', label: `📦 Shiprocket Orders (${totalCalls})` },
@@ -553,6 +554,227 @@ export function OwnerDashboard({ onOpenUpiModal, onOpenChat }) {
               </table>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ⚡ Shopify Auto-Verify & Auto-Cancel Pipeline Studio */}
+      {activeOwnerTab === 'shopify_auto' && (
+        <div className="space-y-5">
+          
+          {/* Top Status & Metrics */}
+          <div className="p-5 sm:p-6 rounded-3xl bg-gradient-to-r from-slate-950 via-purple-950/50 to-slate-900 border border-purple-500/40 space-y-3 shadow-2xl">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-3">
+                <span className="text-3xl p-2.5 rounded-2xl bg-black/60 border border-purple-500/40">⚡</span>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-emerald-500 text-black">
+                      Autonomous Pipeline Active
+                    </span>
+                    <span className="text-[11px] font-mono text-purple-300">amparo-store-3405.myshopify.com</span>
+                  </div>
+                  <h3 className="text-base sm:text-lg font-black text-white mt-0.5">
+                    Shopify New Order ➔ Instant Maya AI Verification ➔ Auto-Cancel Pipeline
+                  </h3>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="px-3 py-1.5 rounded-xl bg-emerald-950 border border-emerald-500/50 text-emerald-300 font-mono font-black text-xs">
+                  🟢 0-Second Delay Active
+                </span>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-300 leading-relaxed max-w-3xl">
+              Jaise hi Shopify par naya COD/Prepaid order aata hai, Maya AI 0-second me customer ko automatic call karke verify karti hai. 
+              Agar customer <strong className="text-emerald-400">Confirm (Haan)</strong> karta hai toh order <strong className="text-emerald-400">"Verified"</strong> mark hota hai. 
+              Agar customer <strong className="text-red-400">Cancel / Mana</strong> karta hai, toh order <strong className="text-red-400">Shopify par automatically cancel</strong> ho jata hai taki RTO freight aur packaging ka loss 100% bache!
+            </p>
+          </div>
+
+          {/* 3 Pipeline Stages Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            
+            {/* Stage 1 */}
+            <div className="p-4 rounded-2xl bg-slate-950/90 border border-purple-500/40 space-y-2.5 shadow-lg">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black text-purple-300 uppercase flex items-center gap-1.5">
+                  <Bot className="w-4 h-4 text-yellow-300" />
+                  <span>1. Instant AI Call Dispatch</span>
+                </span>
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
+              </div>
+              <p className="text-xs text-slate-300 leading-relaxed">
+                Shopify Webhook receive hote hi customer ko Hindi me personalized voice call lagti hai:
+                <em className="text-slate-400 block text-[11px] mt-1 bg-black/40 p-2 rounded-xl border border-white/5">
+                  "Namaste [Customer], aapne Amparo Shilajit ka ₹449 ka COD order kiya hai? Confirm karne ke liye 1 dabayein ya Haan bolein."
+                </em>
+              </p>
+            </div>
+
+            {/* Stage 2 */}
+            <div className="p-4 rounded-2xl bg-slate-950/90 border border-emerald-500/40 space-y-2.5 shadow-lg">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black text-emerald-300 uppercase flex items-center gap-1.5">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                  <span>2. Auto-Verification & Tag</span>
+                </span>
+                <span className="px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 text-[10px] font-bold">Confirmed</span>
+              </div>
+              <p className="text-xs text-slate-300 leading-relaxed">
+                Customer dwara confirmation milte hi:
+                <span className="block text-[11px] text-emerald-400 font-bold mt-1">
+                  • Status: 🟢 Confirmed (Ready to Ship)<br/>
+                  • Shopify Tag: `maya_verified`, `ai_confirmed`<br/>
+                  • Warehouse ko dispatch green signal!
+                </span>
+              </p>
+            </div>
+
+            {/* Stage 3 */}
+            <div className="p-4 rounded-2xl bg-slate-950/90 border border-red-500/40 space-y-2.5 shadow-lg">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black text-red-300 uppercase flex items-center gap-1.5">
+                  <Ban className="w-4 h-4 text-red-400" />
+                  <span>3. Auto-Cancel on Shopify</span>
+                </span>
+                <span className="px-2 py-0.5 rounded bg-red-950 text-red-300 text-[10px] font-bold">RTO Shield</span>
+              </div>
+              <p className="text-xs text-slate-300 leading-relaxed">
+                Agar customer ne cancel ya mana kiya:
+                <span className="block text-[11px] text-red-300 font-bold mt-1">
+                  • Status: 🔴 Cancelled by Customer<br/>
+                  • Shopify REST API par Order Auto-Cancel<br/>
+                  • Tag: `maya_ai_cancelled`<br/>
+                  • Courier shipment blocked (Saved ₹120+ RTO)
+                </span>
+              </p>
+            </div>
+
+          </div>
+
+          {/* Webhook Configuration Box */}
+          <div className="glass-card rounded-3xl border border-slate-800 p-5 space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
+              <div>
+                <h4 className="font-extrabold text-sm text-white flex items-center gap-2">
+                  <Truck className="w-4 h-4 text-emerald-400" />
+                  <span>Shopify Store Webhook Configuration</span>
+                </h4>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Shopify Admin ➔ Settings ➔ Notifications ➔ Webhooks me yeh URL add karein.
+                </p>
+              </div>
+
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText('https://msrnext.netlify.app/api/shopify-webhook');
+                  alert('📋 Webhook URL Copied to Clipboard:\nhttps://msrnext.netlify.app/api/shopify-webhook');
+                }}
+                className="tap-target px-3.5 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-black flex items-center gap-1.5 shadow-md shadow-purple-600/30 transition active:scale-95"
+              >
+                <span>📋 Copy Webhook URL</span>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
+              <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800">
+                <span className="text-[10px] font-bold text-slate-400 uppercase">Webhook URL</span>
+                <p className="text-xs font-mono text-purple-300 font-bold break-all mt-0.5">https://msrnext.netlify.app/api/shopify-webhook</p>
+              </div>
+              <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800">
+                <span className="text-[10px] font-bold text-slate-400 uppercase">Event Trigger</span>
+                <p className="text-xs font-mono text-white font-bold mt-0.5">Order creation (`orders/create`)</p>
+              </div>
+              <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800">
+                <span className="text-[10px] font-bold text-slate-400 uppercase">Data Format</span>
+                <p className="text-xs font-mono text-emerald-400 font-bold mt-0.5">JSON (Latest API Version)</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Orders Verification Stream Table */}
+          <div className="glass-card rounded-3xl border border-slate-800 p-5 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <h4 className="font-extrabold text-sm text-white flex items-center gap-2">
+                <Bot className="w-4 h-4 text-yellow-300" />
+                <span>Shopify Orders Auto-Verification & Cancellation Telemetry</span>
+              </h4>
+              <span className="text-xs text-slate-400">{amparoCalls.length} Total Orders Monitored</span>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b border-slate-800 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    <th className="py-2.5 px-3">Order ID</th>
+                    <th className="py-2.5 px-3">Customer</th>
+                    <th className="py-2.5 px-3">Product & Amount</th>
+                    <th className="py-2.5 px-3">AI Decision</th>
+                    <th className="py-2.5 px-3">Shopify Status</th>
+                    <th className="py-2.5 px-3 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/60">
+                  {amparoCalls.slice(0, 15).map((order) => {
+                    const isConfirmed = order.status === 'confirmed' || order.ai_decision === 'confirmed';
+                    const isCancelled = order.status === 'rto_lost' || order.status === 'cancelled' || order.ai_decision === 'cancelled';
+                    return (
+                      <tr key={order.id || order.shopify_order_id} className="hover:bg-slate-800/40 transition">
+                        <td className="py-3 px-3 font-mono font-bold text-white">
+                          {order.shopify_order_id}
+                        </td>
+                        <td className="py-3 px-3">
+                          <p className="font-bold text-white">{order.customer_name}</p>
+                          <p className="text-[10px] font-mono text-slate-400">{order.phone}</p>
+                        </td>
+                        <td className="py-3 px-3">
+                          <p className="font-semibold text-slate-200">{order.product}</p>
+                          <p className="text-[10px] font-mono text-emerald-400 font-bold">₹{order.amount || 449}</p>
+                        </td>
+                        <td className="py-3 px-3">
+                          <span className={`px-2.5 py-1 rounded-xl text-[10px] font-black uppercase inline-block ${
+                            isConfirmed
+                              ? 'bg-emerald-950/80 border border-emerald-500/40 text-emerald-300'
+                              : isCancelled
+                              ? 'bg-red-950/80 border border-red-500/40 text-red-300'
+                              : 'bg-amber-950/80 border border-amber-500/40 text-amber-300'
+                          }`}>
+                            {isConfirmed ? '🟢 Confirmed (Verified)' : isCancelled ? '🔴 Cancelled (Declined)' : '⏳ Pending Call'}
+                          </span>
+                        </td>
+                        <td className="py-3 px-3">
+                          <span className="text-[11px] font-semibold text-slate-300">
+                            {isCancelled ? '🛑 Auto-Cancelled on Shopify' : isConfirmed ? '🏷️ Tagged `maya_verified`' : '📦 Awaiting AI Call'}
+                          </span>
+                        </td>
+                        <td className="py-3 px-3 text-right">
+                          <button
+                            onClick={() => {
+                              triggerAiCall({
+                                id: order.id,
+                                shopify_order_id: order.shopify_order_id,
+                                phone: order.phone,
+                                customer_name: order.customer_name,
+                                product_name: order.product,
+                                order_amount: order.amount || 449,
+                                call_purpose: 'ORDER_CONFIRMATION'
+                              }).then(() => alert(`🚀 Maya AI verification call initiated to ${order.customer_name}!`)).catch(e => alert(e.message));
+                            }}
+                            className="px-2.5 py-1 rounded-lg bg-purple-600 hover:bg-purple-500 text-white font-extrabold text-[11px] shadow-sm transition active:scale-95"
+                          >
+                            <span>🤖 Dial AI Call</span>
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
         </div>
       )}
 

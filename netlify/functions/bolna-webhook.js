@@ -2,6 +2,7 @@
 // Endpoint: https://msrnext.netlify.app/api/bolna-webhook
 
 import { createClient } from '@supabase/supabase-js';
+import { cancelShopifyOrder, addTagsToShopifyOrder } from './shopify-order-action.js';
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://blnvunejbmkpckwrdyfy.supabase.co';
 const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_4sR9yc91hhMMtN9kpIpTqw_n8-muO3Z';
@@ -158,6 +159,27 @@ export default async (req) => {
       const cleanId = String(orderId).replace('#', '').trim();
       const withHash = `#${cleanId}`;
       await supabase.from('amparo_calls').update(updateFields).or(`shopify_order_id.eq.${cleanId},shopify_order_id.eq.${withHash}`);
+
+      // 4. Closed-Loop Shopify Automation
+      try {
+        if (finalStatus === 'rto_lost' || aiDecision === 'cancelled') {
+          // AUTO-CANCEL ON SHOPIFY
+          await cancelShopifyOrder({
+            orderId: cleanId,
+            reason: cancellationReason || 'customer',
+            note: `Auto-cancelled by Maya AI voice call: ${cancellationReason || 'Customer declined delivery'}`
+          });
+        } else if (finalStatus === 'confirmed' || aiDecision === 'confirmed') {
+          // AUTO-TAG AS VERIFIED ON SHOPIFY
+          await addTagsToShopifyOrder({
+            numericId: cleanId,
+            newTags: ['maya_verified', 'ai_confirmed', comboAccepted ? 'maya_combo_upsold' : 'maya_confirmed'],
+            note: `Verified by Maya AI at ${new Date().toISOString()}`
+          });
+        }
+      } catch (shopifyErr) {
+        console.error('Error during Shopify automated action:', shopifyErr);
+      }
     }
     
     if (recipientPhone) {
