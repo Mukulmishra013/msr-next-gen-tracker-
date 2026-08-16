@@ -56,7 +56,8 @@ export function OwnerDashboard({ onOpenUpiModal, onOpenChat }) {
     triggerBatchAiCalls,
     mayaConfig,
     updateMayaConfig,
-    syncBolnaExecutions
+    syncBolnaExecutions,
+    bolnaExecutions
   } = useAppData();
 
   const { sendMessageToAgent } = useAgents();
@@ -82,7 +83,7 @@ export function OwnerDashboard({ onOpenUpiModal, onOpenChat }) {
     try {
       const res = await syncBolnaExecutions();
       if (res.success) {
-        alert(`⚡ SUCCESS: ${res.count || 0} Maya AI calls, audio recordings & transcripts synchronized!`);
+        alert(`⚡ SUCCESS: ${res.count || 0} Real Maya AI calls, audio recordings & transcripts synchronized!`);
       } else {
         alert(`⚠️ Sync Notice: ${res.error || 'Check Bolna API connectivity'}`);
       }
@@ -120,16 +121,24 @@ export function OwnerDashboard({ onOpenUpiModal, onOpenChat }) {
 
   const safeRev = revenueLog || { total_revenue: 124500, growth_amount: 18500, bonus_pool_8pct: 9960 };
 
-  // Calculations
+  // 100% REAL LIVE BOLNA AI CALLS ONLY
+  const realAiCalls = (bolnaExecutions && bolnaExecutions.length > 0)
+    ? bolnaExecutions
+    : amparoCalls.filter((c) => c.call_source === 'ai_agent' || c.recording_url || c.transcript || (c.notes && c.notes.includes('[AI_LOG]')));
+
+  // Real Calculations
   const totalCalls = amparoCalls.length;
   const savedRtoCount = amparoCalls.filter((c) => c.status === 'rto_saved').length;
   const urgentRtoCount = amparoCalls.filter((c) => c.urgent_rto).length;
   const pendingCallsCount = amparoCalls.filter((c) => c.status === 'pending_confirmation').length;
   const deliveredCount = amparoCalls.filter((c) => c.status === 'confirmed').length;
-  const aiCallsCount = amparoCalls.filter((c) => c.call_source === 'ai_agent').length;
-  const manualCallsCount = totalCalls - aiCallsCount;
-  const fakeCancelledCount = amparoCalls.filter((c) => c.status === 'rto_lost' || c.ai_decision === 'fake_order').length;
-  const savedRtoRevenue = (savedRtoCount + fakeCancelledCount) * 150; // Average ₹150 courier RTO charge saved per fake order avoided
+  
+  const aiCallsCount = realAiCalls.length;
+  const aiConfirmedCount = realAiCalls.filter((c) => c.status === 'confirmed' || c.ai_decision === 'confirmed').length;
+  const aiRescheduledCount = realAiCalls.filter((c) => c.status === 'rescheduled' || c.ai_decision === 'rescheduled').length;
+  const fakeCancelledCount = realAiCalls.filter((c) => c.status === 'rto_lost' || c.ai_decision === 'cancelled' || c.ai_decision === 'fake_order').length;
+  const manualCallsCount = Math.max(0, totalCalls - aiCallsCount);
+  const savedRtoRevenue = fakeCancelledCount * 150; // Average ₹150 courier RTO charge saved per fake order avoided
 
   const totalRtoAttempted = amparoCalls.filter((c) => c.call_type === 'RTO Rescue').length || 1;
   const rtoRecoveryRate = totalRtoAttempted > 0 ? Math.round((savedRtoCount / totalRtoAttempted) * 100) : 0;
@@ -399,52 +408,60 @@ export function OwnerDashboard({ onOpenUpiModal, onOpenChat }) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/60">
-                  {amparoCalls.map((call) => (
-                    <tr key={call.id || call.shopify_order_id} className="hover:bg-slate-800/40 transition">
-                      <td className="p-3">
-                        <p className="font-bold text-white">{call.customer_name}</p>
-                        <p className="text-[10px] font-mono text-slate-400">{call.shopify_order_id}</p>
-                      </td>
-                      <td className="p-3 font-mono text-slate-300">{call.phone}</td>
-                      <td className="p-3">
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
-                          call.status === 'confirmed' || call.status === 'rto_saved'
-                            ? 'bg-emerald-950 text-emerald-300 border-emerald-500/40'
-                            : call.status === 'rto_lost' || call.ai_decision === 'fake_order'
-                            ? 'bg-red-950 text-red-300 border-red-500/40'
-                            : 'bg-amber-950 text-amber-300 border-amber-500/40'
-                        }`}>
-                          {call.status}
-                        </span>
-                      </td>
-                      <td className="p-3 font-mono text-slate-300">
-                        {call.call_duration_seconds ? `${call.call_duration_seconds}s` : '—'}
-                      </td>
-                      <td className="p-3 text-[11px] text-slate-300">
-                        {call.action_required || 'ship_immediately'}
-                      </td>
-                      <td className="p-3 text-right space-x-1.5">
-                        <button
-                          onClick={() => handleOpenCustomer360(call)}
-                          className="px-2.5 py-1 rounded-lg bg-purple-950/80 hover:bg-purple-900 border border-purple-500/50 text-purple-200 text-[11px] font-bold inline-flex items-center gap-1 shadow-sm transition active:scale-95"
-                          title="View complete 360° AI recording, transcript, WhatsApp & Actions"
-                        >
-                          <Eye className="w-3.5 h-3.5 text-purple-300" />
-                          <span>👁️ 360° Audit</span>
-                        </button>
-
-                        {call.recording_url && (
-                          <button
-                            onClick={() => handleOpenCustomer360(call)}
-                            className="px-2.5 py-1 rounded-lg bg-emerald-950 border border-emerald-500/40 text-emerald-300 text-[11px] font-bold inline-flex items-center gap-1"
-                          >
-                            <Volume2 className="w-3 h-3 text-emerald-400" />
-                            <span>Play</span>
-                          </button>
-                        )}
+                  {realAiCalls.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="p-8 text-center text-slate-400 text-xs font-semibold">
+                        Abhi koi Maya AI Call Execution record nahi mila hai. Upar "Sync AI History" dabayein.
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    realAiCalls.map((call) => (
+                      <tr key={call.id || call.shopify_order_id} className="hover:bg-slate-800/40 transition">
+                        <td className="p-3">
+                          <p className="font-bold text-white">{call.customer_name}</p>
+                          <p className="text-[10px] font-mono text-slate-400">{call.shopify_order_id}</p>
+                        </td>
+                        <td className="p-3 font-mono text-slate-300">{call.phone}</td>
+                        <td className="p-3">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                            call.status === 'confirmed' || call.ai_decision === 'confirmed'
+                              ? 'bg-emerald-950 text-emerald-300 border-emerald-500/40'
+                              : call.status === 'rto_lost' || call.ai_decision === 'cancelled' || call.ai_decision === 'fake_order'
+                              ? 'bg-red-950 text-red-300 border-red-500/40'
+                              : 'bg-amber-950 text-amber-300 border-amber-500/40'
+                          }`}>
+                            {call.status}
+                          </span>
+                        </td>
+                        <td className="p-3 font-mono text-slate-300">
+                          {call.call_duration_seconds ? `${call.call_duration_seconds}s` : '—'}
+                        </td>
+                        <td className="p-3 text-[11px] text-slate-300">
+                          {call.action_required || 'ship_immediately'}
+                        </td>
+                        <td className="p-3 text-right space-x-1.5">
+                          <button
+                            onClick={() => handleOpenCustomer360(call)}
+                            className="px-2.5 py-1 rounded-lg bg-purple-950/80 hover:bg-purple-900 border border-purple-500/50 text-purple-200 text-[11px] font-bold inline-flex items-center gap-1 shadow-sm transition active:scale-95"
+                            title="View complete 360° AI recording, transcript, WhatsApp & Actions"
+                          >
+                            <Eye className="w-3.5 h-3.5 text-purple-300" />
+                            <span>👁️ 360° Audit</span>
+                          </button>
+
+                          {call.recording_url && (
+                            <button
+                              onClick={() => handleOpenCustomer360(call)}
+                              className="px-2.5 py-1 rounded-lg bg-emerald-950 border border-emerald-500/40 text-emerald-300 text-[11px] font-bold inline-flex items-center gap-1"
+                            >
+                              <Volume2 className="w-3 h-3 text-emerald-400" />
+                              <span>Play</span>
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
