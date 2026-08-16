@@ -89,9 +89,27 @@ export default async (req) => {
       // Clean order ID: '1295'
       const cleanOrderId = String(orderData.shopify_order_id || orderData.order_id || '101').replace('#', '').trim();
 
-      // Clean product: Remove (x1), packaging tags
+      // Clean product: Extract short & natural conversational brand title (e.g. 'Smilika Sunscreen' or 'Amparo Shilajit')
       const rawProduct = String(orderData.product_name || orderData.product || 'Amparo Shilajit Gummies');
-      const cleanProduct = rawProduct.replace(/\(x\d+\)/gi, '').replace(/[\r\n\t]/g, '').trim() || 'Amparo Shilajit Gummies';
+      let cleanProduct = rawProduct;
+      const lowerProd = rawProduct.toLowerCase();
+      if (lowerProd.includes('sunscreen') || lowerProd.includes('suncream') || lowerProd.includes('smilika')) {
+        cleanProduct = 'Smilika Sunscreen';
+      } else if (lowerProd.includes('shilajit') && lowerProd.includes('resin')) {
+        cleanProduct = 'Amparo Shilajit Resin';
+      } else if (lowerProd.includes('shilajit') || lowerProd.includes('gummies')) {
+        cleanProduct = 'Amparo Shilajit Gummies';
+      } else if (lowerProd.includes('energy') || lowerProd.includes('drink')) {
+        cleanProduct = 'Amparo Energy Drink';
+      } else {
+        cleanProduct = rawProduct
+          .split('–')[0]
+          .split('-')[0]
+          .split('(')[0]
+          .replace(/\(x\d+\)/gi, '')
+          .replace(/[\r\n\t]/g, '')
+          .trim() || 'Amparo Product';
+      }
 
       // Clean address / city
       let cleanAddress = String(orderData.delivery_address || orderData.city || orderData.notes || 'India');
