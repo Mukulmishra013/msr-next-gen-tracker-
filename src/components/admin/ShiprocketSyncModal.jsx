@@ -87,6 +87,17 @@ function extractCleanPhoneNumber(rowObj) {
   return null;
 }
 
+// 💰 Precise Currency Amount Parser (Correctly handles decimal like 249.00 -> 249)
+function parseCurrencyAmount(val, fallback = 449) {
+  if (val === undefined || val === null || val === '') return fallback;
+  if (typeof val === 'number') return Math.round(val);
+  const clean = String(val).replace(/,/g, '').trim();
+  const match = clean.match(/[-+]?[0-9]*\.?[0-9]+/);
+  if (!match) return fallback;
+  const num = parseFloat(match[0]);
+  return isNaN(num) ? fallback : Math.round(num);
+}
+
 // 👤 Customer Name Extractor
 function extractCustomerName(rowObj) {
   for (const [key, val] of Object.entries(rowObj)) {
@@ -290,7 +301,7 @@ export function ShiprocketSyncModal({ isOpen, onClose }) {
           seenOrders.add(orderId);
 
           const status = String(row['Status'] || row['Order Status'] || row['Shipment Status'] || row['Financial Status'] || 'Delivered');
-          const amount = Number(String(row['Order Total'] || row['Amount'] || row['Total'] || row['Total Price'] || 449).replace(/\D/g, '')) || 449;
+          const amount = parseCurrencyAmount(row['Order Total'] || row['Amount'] || row['Total'] || row['Total Price'] || row['total'], 449);
           const product = String(row['Product Name'] || row['Product'] || row['Items'] || row['Lineitem name'] || 'Amparo Pure Shilajit');
           const awb = String(row['AWB'] || row['awb'] || row['Tracking Number'] || 'N/A');
           const city = String(row['City'] || row['Customer City'] || row['Destination City'] || row['Shipping City'] || 'India');

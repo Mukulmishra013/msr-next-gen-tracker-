@@ -206,7 +206,9 @@ export function ShopifyCustomersDirectory({ onOpenChat }) {
             const lastName = lnIdx >= 0 ? cleanRow[lnIdx] : '';
             name = `${firstName} ${lastName}`.trim() || 'Customer';
             phone = phoneIdx >= 0 ? cleanRow[phoneIdx] : '';
-            totalSpent = spentIdx >= 0 ? Number(cleanRow[spentIdx].replace(/\D/g, '') || 449) : 449;
+            const rawSpent = spentIdx >= 0 ? cleanRow[spentIdx] : '449';
+            const spentMatch = String(rawSpent).replace(/,/g, '').match(/[-+]?[0-9]*\.?[0-9]+/);
+            totalSpent = spentMatch ? Math.round(parseFloat(spentMatch[0])) : 449;
             ordersCount = ordersIdx >= 0 ? Number(cleanRow[ordersIdx].replace(/\D/g, '') || 1) : 1;
             city = cityIdx >= 0 ? cleanRow[cityIdx] : 'India';
           } else {
@@ -219,7 +221,9 @@ export function ShopifyCustomersDirectory({ onOpenChat }) {
 
             name = nameIdx >= 0 ? cleanRow[nameIdx] : 'Customer';
             phone = phoneIdx >= 0 ? cleanRow[phoneIdx] : '';
-            totalSpent = totalIdx >= 0 ? Number(cleanRow[totalIdx].replace(/\D/g, '') || 449) : 449;
+            const rawTotal = totalIdx >= 0 ? cleanRow[totalIdx] : '449';
+            const totalMatch = String(rawTotal).replace(/,/g, '').match(/[-+]?[0-9]*\.?[0-9]+/);
+            totalSpent = totalMatch ? Math.round(parseFloat(totalMatch[0])) : 449;
             city = cityIdx >= 0 ? cleanRow[cityIdx] : 'India';
             if (itemIdx >= 0 && cleanRow[itemIdx]) {
               products = [cleanRow[itemIdx]];
