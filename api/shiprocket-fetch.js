@@ -1,4 +1,4 @@
-// Direct Shiprocket Live Orders & Historical Archive Sync Serverless Function
+// Direct Shiprocket Live Orders & Live NDR (Non-Delivery Report) Engine
 // Endpoint: https://msr-next-gen-tracker.vercel.app/api/shiprocket-fetch
 
 import { createClient } from '@supabase/supabase-js';
@@ -82,9 +82,9 @@ export default async function handler(req, res) {
         const createdAt = row['Created Date'] || row['Order Date'] || row['Date'] || new Date().toISOString();
 
         const statusUpper = status.toUpperCase();
-        const isRtoActive = (statusUpper.includes('UNDELIVERED-1ST') || statusUpper.includes('UNDELIVERED-2ND') || statusUpper.includes('RTO INITIATED')) && !statusUpper.includes('DELIVERED');
         const isDelivered = statusUpper.includes('DELIVERED') && !statusUpper.includes('RTO');
-        const isCancelled = statusUpper.includes('CANCEL') || statusUpper.includes('3RD ATTEMPT') || statusUpper.includes('RTO DELIVERED');
+        const isCancelled = statusUpper.includes('CANCEL') || statusUpper.includes('RTO DELIVERED');
+        const isNdrActive = (statusUpper.includes('UNDELIVERED') || statusUpper.includes('NDR') || statusUpper.includes('RTO IN TRANSIT') || statusUpper.includes('RTO INITIATED')) && !isDelivered && !isCancelled;
 
         return {
           shopify_order_id: orderId,
@@ -92,9 +92,9 @@ export default async function handler(req, res) {
           phone: validPhone,
           product,
           amount,
-          status: isDelivered ? 'confirmed' : (isRtoActive ? 'rto_attempted' : (isCancelled ? 'rto_lost' : 'pending_confirmation')),
-          urgent_rto: isRtoActive,
-          call_type: isRtoActive ? 'RTO Rescue' : (isDelivered ? 'Old Customer Feedback' : 'Order Confirmation'),
+          status: isDelivered ? 'confirmed' : (isNdrActive ? 'rto_attempted' : (isCancelled ? 'rto_lost' : 'pending_confirmation')),
+          urgent_rto: isNdrActive,
+          call_type: isNdrActive ? 'RTO Rescue' : (isDelivered ? 'Old Customer Feedback' : 'Order Confirmation'),
           shiprocket_shipment_id: awb || orderId,
           created_at: createdAt,
           notes: `Status: ${status} | City: ${city} | Courier: ${courier} | AWB: ${awb || 'N/A'}`
@@ -114,7 +114,7 @@ export default async function handler(req, res) {
 
     // 2. Authenticate with Shiprocket REST API (Multi-Email Auto-Fallback)
     if (!token) {
-      const emailCandidates = [email, 'atulmishra9506348351@gmail.com', 'amparohealthcare013@gmail.com', 'Mukulmishr8887521156@gmail.com'].filter(Boolean);
+      const emailCandidates = [email, 'atulmishra9506348351@gmail.com', 'Mukulmishr8887521156@gmail.com'].filter(Boolean);
       let authSuccess = false;
       let lastErrorMessage = '';
 
@@ -142,72 +142,54 @@ export default async function handler(req, res) {
       if (!authSuccess || !token) {
         return res.status(401).json({
           success: false,
-          message: `Shiprocket authentication failed: ${lastErrorMessage}. Kripya password check karein.`
+          message: `Shiprocket authentication failed: ${lastErrorMessage}. Kripya credentials check karein.`
         });
       }
     }
 
-    // A. If user explicitly requests full 947+ Historical Archive
-    if (fetchArchive) {
-      let allShipments = [];
-      let page = 1;
-      let hasMore = true;
-
-      while (hasMore && page <= 12) {
-        try {
-          const sRes = await fetch(`https://apiv2.shiprocket.in/v1/external/shipments?per_page=100&page=${page}`, {
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }
-          });
-          const sData = await sRes.json();
-          const list = sData?.data || [];
-          if (Array.isArray(list) && list.length > 0) {
-            allShipments = allShipments.concat(list);
-            if (list.length < 100) hasMore = false;
-            else page++;
-          } else {
-            hasMore = false;
-          }
-        } catch (e) {
-          hasMore = false;
-        }
-      }
-
-      const archiveData = allShipments.map((s, idx) => ({
-        id: s.id,
-        order_id: String(s.order_id || s.id),
-        awb: s.awb || 'Pending',
-        courier: s.courier_name || 'Assigned Courier',
-        product: Array.isArray(s.products) && s.products[0] ? s.products[0].name : 'Amparo Product',
-        status: s.status || 'Active',
-        created_at: s.created_at || 'Historical',
-        channel: s.channel_name || 'Shiprocket'
-      }));
-
-      return res.status(200).json({
-        success: true,
-        isArchive: true,
-        count: archiveData.length,
-        archive: archiveData
-      });
-    }
-
-    // B. Default Live Active Orders Sync (Latest Live Orders from Shiprocket)
-    const ordersRes = await fetch('https://apiv2.shiprocket.in/v1/external/orders?per_page=100', {
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      }
-    });
+    // 3. Fetch Live NDR (Non-Delivery Reports) Orders & Live Active Orders Concurrently
+    const [ordersRes, ndrRes] = await Promise.all([
+      fetch('https://apiv2.shiprocket.in/v1/external/orders?per_page=100', {
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }
+      }),
+      fetch('https://apiv2.shiprocket.in/v1/external/ndr/all', {
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }
+      })
+    ]);
 
     const ordersData = await ordersRes.json();
+    const ndrData = await ndrRes.json();
+
     const rawOrders = ordersData?.data || [];
+    const rawNdr = ndrData?.data || (Array.isArray(ndrData) ? ndrData : []);
+
+    // Create NDR Map keyed by channel_order_id or shipment_id
+    const ndrMap = new Map();
+    rawNdr.forEach((n) => {
+      const k1 = String(n.channel_order_id || '').replace('#', '').trim();
+      const k2 = String(n.id || '');
+      const k3 = String(n.awb_code || '');
+      if (k1) ndrMap.set(k1, n);
+      if (k2) ndrMap.set(k2, n);
+      if (k3) ndrMap.set(k3, n);
+    });
 
     const activeLiveOrders = rawOrders.map((o) => {
-      const statusStr = String(o.status || '').toUpperCase();
+      const orderCleanId = String(o.channel_order_id || (o.others && o.others.name) || o.id).replace('#', '').trim();
+      const awbCode = o.shipments && o.shipments[0] ? String(o.shipments[0].awb) : '';
       
-      const isRtoActive = (statusStr.includes('UNDELIVERED-1ST') || statusStr.includes('UNDELIVERED-2ND') || statusStr.includes('RTO INITIATED') || statusStr.includes('RTO IN TRANSIT')) && !statusStr.includes('3RD') && !statusStr.includes('RTO DELIVERED');
+      const ndrMatch = ndrMap.get(orderCleanId) || (awbCode ? ndrMap.get(awbCode) : null);
+      const statusStr = String(o.status || '').toUpperCase();
+
+      // NDR Priority: If present in live NDR, it is 100% active RTO Rescue
+      const isNdrActive = Boolean(ndrMatch) || (
+        (statusStr.includes('UNDELIVERED') || statusStr.includes('NDR') || statusStr.includes('RTO IN TRANSIT') || statusStr.includes('RTO INITIATED') || statusStr.includes('1ST ATTEMPT') || statusStr.includes('2ND ATTEMPT')) &&
+        !statusStr.includes('DELIVERED') &&
+        !statusStr.includes('3RD ATTEMPT')
+      );
+
       const isDelivered = statusStr.includes('DELIVERED') && !statusStr.includes('RTO');
-      const isCancelled = statusStr.includes('CANCEL') || statusStr.includes('3RD ATTEMPT') || statusStr.includes('RTO DELIVERED');
+      const isFinalReturnedToOffice = statusStr.includes('RTO DELIVERED') || statusStr.includes('3RD ATTEMPT') || statusStr.includes('CANCEL');
 
       const items = Array.isArray(o.products) && o.products.length > 0
         ? o.products.map((p) => p.name).join(', ')
@@ -216,36 +198,41 @@ export default async function handler(req, res) {
       const rawPhone = String(
         o.customer_phone ||
         o.customer_mobile ||
-        o.customer_alternate_phone ||
         (o.others && o.others.billing_phone) ||
-        (o.others && o.others.billing_phone_number) ||
         ''
       );
 
       const cleanDigits = rawPhone.replace(/\D/g, '');
       const validPhone = cleanDigits.length >= 10 ? `+91${cleanDigits.slice(-10)}` : (rawPhone && !rawPhone.includes('xxx') ? rawPhone : '+91');
-      const custName = o.customer_name || (o.others && o.others.billing_name) || 'Customer';
-      const awb = o.shipments && o.shipments[0] ? String(o.shipments[0].awb) : '';
-      const rawCourier = o.shipments && o.shipments[0] ? String(o.shipments[0].courier_name || 'Courier') : 'Courier';
-      const cleanCourier = rawCourier.replace(/surface|express|air|b2b/gi, '').trim() || 'कूरियर पार्टनर';
-      const rawEtd = o.shipments && o.shipments[0] ? (o.shipments[0].etd || o.shipments[0].edd || o.shipments[0].expected_delivery_date || '') : '';
-      const city = o.customer_city || (o.others && o.others.billing_city) || 'India';
+      const custName = o.customer_name || (o.others && o.others.billing_name) || (ndrMatch ? ndrMatch.customer_name : 'Customer');
+      const rawCourier = o.shipments && o.shipments[0] ? String(o.shipments[0].courier_name || 'Courier') : (ndrMatch ? ndrMatch.courier : 'Courier');
+      const cleanCourier = rawCourier.replace(/surface|express|air|b2b/gi, '').trim() || 'Courier';
+      const city = o.customer_city || (o.others && o.others.billing_city) || (ndrMatch ? ndrMatch.customer_city : 'India');
+      const finalAwb = awbCode || (ndrMatch ? ndrMatch.awb_code : 'Pending');
 
-      let smartTimeline = 'तीन से पाँच दिन में';
-      if (statusStr.includes('OUT FOR DELIVERY')) {
-        smartTimeline = 'आज शाम तक (डिलीवरी बॉय एरिया में है)';
-      } else if (statusStr.includes('DESTINATION HUB') || statusStr.includes('UNDELIVERED') || isRtoActive) {
-        smartTimeline = 'आज या कल तक';
-      } else if (rawEtd) {
-        try {
-          const d = new Date(rawEtd);
-          if (!isNaN(d.getTime())) {
-            const months = ['जनवरी', 'फ़रवरी', 'मार्च', 'अप्रैल', 'मई', 'जून', 'जुलाई', 'अगस्त', 'सितंबर', 'अक्टूबर', 'नवंबर', 'दिसंबर'];
-            smartTimeline = `${d.getDate()} ${months[d.getMonth()]} तक`;
-          }
-        } catch (e) {}
-      } else if (statusStr.includes('IN TRANSIT') || statusStr.includes('SHIPPED')) {
-        smartTimeline = 'दो से तीन दिन में';
+      let attemptInfo = '';
+      if (ndrMatch) {
+        attemptInfo = `[NDR ${ndrMatch.attempts || 1}st Attempt: ${ndrMatch.reason || 'Consignee Unreachable'}]`;
+      } else if (statusStr.includes('1ST')) {
+        attemptInfo = `[1st Attempt Fail]`;
+      } else if (statusStr.includes('2ND')) {
+        attemptInfo = `[2nd Attempt Fail]`;
+      } else if (statusStr.includes('3RD')) {
+        attemptInfo = `[3rd Attempt Fail]`;
+      }
+
+      let finalStatus = 'pending_confirmation';
+      let callType = 'Order Confirmation';
+
+      if (isNdrActive) {
+        finalStatus = 'rto_attempted';
+        callType = 'RTO Rescue';
+      } else if (isDelivered) {
+        finalStatus = 'delivered';
+        callType = 'Old Customer Feedback';
+      } else if (isFinalReturnedToOffice) {
+        finalStatus = 'rto_lost';
+        callType = 'Order Cancelled';
       }
 
       return {
@@ -253,21 +240,19 @@ export default async function handler(req, res) {
         customer_name: custName === 'Not Authorized' ? 'Verified Buyer' : custName,
         phone: validPhone,
         product: items,
-        amount: Number(o.total || (o.others && o.others.subtotal_price) || 588),
-        status: isDelivered ? 'confirmed' : (isRtoActive ? 'rto_attempted' : (isCancelled ? 'rto_lost' : 'pending_confirmation')),
-        urgent_rto: isRtoActive,
-        call_type: isRtoActive ? 'RTO Rescue' : (isDelivered ? 'Old Customer Feedback' : 'Order Confirmation'),
-        shiprocket_shipment_id: awb || String(o.id),
+        amount: Number(o.total || (o.others && o.others.subtotal_price) || 449),
+        status: finalStatus,
+        urgent_rto: isNdrActive,
+        call_type: callType,
+        shiprocket_shipment_id: finalAwb,
         courier_name: cleanCourier,
-        expected_delivery_date: rawEtd || smartTimeline,
-        delivery_timeline: `${cleanCourier} कूरियर से ${smartTimeline}`,
-        created_at: o.created_at || new Date().toISOString(),
-        notes: `Status: ${o.status || 'Active'} | City: ${city} | Courier: ${cleanCourier} | AWB: ${awb || 'Pending'} | EDD: ${smartTimeline}`
+        created_at: o.created_at || (ndrMatch ? ndrMatch.created_at : new Date().toISOString()),
+        notes: `Status: ${ndrMatch ? 'Active NDR Action Required' : (o.status || 'Active')} ${attemptInfo} | City: ${city} | Courier: ${cleanCourier} | AWB: ${finalAwb}`
       };
     });
 
     if (activeLiveOrders.length > 0) {
-      // Fetch existing orders from database to preserve real unmasked phone numbers & customer names
+      // Preserve existing real unmasked phone numbers & customer names from Supabase
       const { data: existingDbOrders } = await supabase
         .from('amparo_calls')
         .select('shopify_order_id, phone, customer_name');
@@ -276,7 +261,7 @@ export default async function handler(req, res) {
       if (existingDbOrders) {
         existingDbOrders.forEach((item) => {
           if (item.phone && item.phone !== '+91' && !item.phone.includes('xxx')) {
-            phoneMap.set(String(item.shopify_order_id), {
+            phoneMap.set(String(item.shopify_order_id).replace('#', '').trim(), {
               phone: item.phone,
               customer_name: item.customer_name
             });
@@ -285,7 +270,8 @@ export default async function handler(req, res) {
       }
 
       const finalMergedOrders = activeLiveOrders.map((o) => {
-        const existing = phoneMap.get(String(o.shopify_order_id));
+        const cleanK = String(o.shopify_order_id).replace('#', '').trim();
+        const existing = phoneMap.get(cleanK);
         return {
           ...o,
           phone: (o.phone && o.phone !== '+91' && !o.phone.includes('xxx')) ? o.phone : (existing?.phone || o.phone),
@@ -298,6 +284,7 @@ export default async function handler(req, res) {
       return res.status(200).json({
         success: true,
         count: finalMergedOrders.length,
+        ndrCount: rawNdr.length,
         orders: finalMergedOrders
       });
     }
