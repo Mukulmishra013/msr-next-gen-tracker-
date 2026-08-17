@@ -26,6 +26,7 @@ export function ShiprocketSyncModal({ isOpen, onClose }) {
   const { setAmparoCalls } = useAppData();
   const [email, setEmail] = useState(() => localStorage.getItem('msr_sr_email') || DEFAULT_EMAIL);
   const [password, setPassword] = useState(() => localStorage.getItem('msr_sr_pass') || DEFAULT_PASS);
+  const [apiToken, setApiToken] = useState(() => localStorage.getItem('msr_sr_token') || '');
   const [showCreds, setShowCreds] = useState(false);
   const [loading, setLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState('');
@@ -41,6 +42,7 @@ export function ShiprocketSyncModal({ isOpen, onClose }) {
 
     localStorage.setItem('msr_sr_email', email.trim());
     localStorage.setItem('msr_sr_pass', password.trim());
+    if (apiToken.trim()) localStorage.setItem('msr_sr_token', apiToken.trim());
 
     try {
       // 1. Try via Vercel Backend Serverless Function
@@ -49,7 +51,8 @@ export function ShiprocketSyncModal({ isOpen, onClose }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: email.trim(),
-          password: password.trim()
+          password: password.trim(),
+          token: apiToken.trim() || undefined
         })
       });
 
@@ -72,27 +75,32 @@ export function ShiprocketSyncModal({ isOpen, onClose }) {
     } catch (err) {
       console.warn('Backend Shiprocket fetch failed, trying direct browser request:', err);
 
-      // Fallback: Direct Browser Call (Useful if Shiprocket whitelists Client IP)
+      // Fallback: Direct Browser Call
       try {
-        const authRes = await fetch('https://apiv2.shiprocket.in/v1/external/auth/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            email: email.trim(),
-            password: password.trim()
-          })
-        });
+        let activeToken = apiToken.trim();
 
-        const authData = await authRes.json();
-        if (!authData.token) {
-          throw new Error(authData.message || 'Shiprocket email/password incorrect.');
+        if (!activeToken) {
+          const authRes = await fetch('https://apiv2.shiprocket.in/v1/external/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              email: email.trim(),
+              password: password.trim()
+            })
+          });
+
+          const authData = await authRes.json();
+          if (!authData.token) {
+            throw new Error(authData.message || 'Shiprocket authentication failed.');
+          }
+          activeToken = authData.token;
         }
 
         setStatusMessage('2/3: Live orders fetch ho rahe hain...');
         const ordRes = await fetch('https://apiv2.shiprocket.in/v1/external/orders?per_page=100', {
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${authData.token}`
+            'Authorization': `Bearer ${activeToken}`
           }
         });
 
@@ -143,7 +151,7 @@ export function ShiprocketSyncModal({ isOpen, onClose }) {
           return;
         }
       } catch (browserErr) {
-        setErrorMsg(browserErr.message || 'Shiprocket authentication failed. Kripya email/password verify karein ya CSV upload karein.');
+        setErrorMsg(browserErr.message || 'Shiprocket login failed. Kripya API key ya password check karein ya CSV upload karein.');
       }
     } finally {
       setLoading(false);
@@ -240,40 +248,57 @@ export function ShiprocketSyncModal({ isOpen, onClose }) {
 
         {/* Credentials Form (Toggleable) */}
         <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-300">Shiprocket Account Credentials</span>
-            <button
-              onClick={() => setShowCreds(!showCreds)}
-              className="text-[11px] text-purple-400 font-semibold hover:underline"
-            >
-              {showCreds ? 'Hide Details' : 'Edit Credentials'}
-            </button>
-          </div>
-
-          {showCreds && (
-            <div className="space-y-2.5 p-3 rounded-2xl bg-slate-950 border border-slate-800">
-              <div>
-                <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Email</label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono"
-                  placeholder="amparohealthcare013@gmail.com"
-                />
-              </div>
-              <div>
-                <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Password</label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono"
-                  placeholder="Shiprocket Password"
-                />
-              </div>
+          <div className="space-y-2 p-3 rounded-2xl bg-slate-950 border border-slate-800">
+            <div>
+              <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">
+                Shiprocket API Key / Token (Optional)
+              </label>
+              <input
+                type="text"
+                value={apiToken}
+                onChange={(e) => setApiToken(e.target.value)}
+                className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-emerald-400 font-mono"
+                placeholder="Paste njkO... API Key if generated"
+              />
             </div>
-          )}
+
+            <div className="pt-1">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[10px] font-bold text-slate-400 uppercase">Or Login Email & Password</span>
+                <button
+                  onClick={() => setShowCreds(!showCreds)}
+                  className="text-[10px] text-purple-400 font-semibold hover:underline"
+                >
+                  {showCreds ? 'Hide' : 'Edit Email/Password'}
+                </button>
+              </div>
+
+              {showCreds && (
+                <div className="space-y-2 pt-1 border-t border-slate-800/80">
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase block mb-0.5">Email</label>
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white font-mono"
+                      placeholder="atulmishra9506348351@gmail.com"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase block mb-0.5">Password</label>
+                    <input
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white font-mono"
+                      placeholder="Shiprocket Password"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
 
           {errorMsg && (
             <div className="p-3 rounded-xl bg-red-950/60 border border-red-500/50 text-red-300 text-xs">
