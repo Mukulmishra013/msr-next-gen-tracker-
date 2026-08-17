@@ -1750,7 +1750,7 @@ Dhanyawad!
           
           {/* Search Bar & Filter Tabs */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-800 pb-3">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center justify-between gap-3">
               <div>
                 <h3 className="font-extrabold text-base text-white flex items-center gap-2">
                   <ShoppingBag className="w-4 h-4 text-purple-400" />
@@ -1758,6 +1758,15 @@ Dhanyawad!
                 </h3>
                 <p className="text-xs text-slate-400">1-Click Maya AI Calling, Audio Recordings, Re-Orders & Shopify Sync</p>
               </div>
+
+              {/* ⚡ 1-Click Telecaller Live Sync Button */}
+              <button
+                onClick={() => setShiprocketModalOpen(true)}
+                className="tap-target px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-xs flex items-center gap-1.5 shadow-md shadow-emerald-600/30 transition active:scale-95 whitespace-nowrap"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>⚡ Live Sync Shiprocket</span>
+              </button>
             </div>
 
             <div className="flex items-center gap-2 flex-wrap">
@@ -1928,6 +1937,22 @@ Dhanyawad!
                               {new Date(call.created_at).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true })}
                             </span>
                           )}
+
+                          {/* ⚠️ NDR Attempt Badge & Alert */}
+                          {(() => {
+                            const notesUpper = String(call.notes || '').toUpperCase();
+                            const statusUpper = String(call.status || '').toUpperCase();
+                            if (notesUpper.includes('3RD ATTEMPT') || statusUpper.includes('3RD') || notesUpper.includes('ATTEMPT 3')) {
+                              return <span className="bg-red-950 text-red-300 border border-red-500 font-extrabold text-[10px] px-2 py-0.5 rounded-md animate-pulse flex items-center gap-1">🚨 FINAL 3RD ATTEMPT FAIL</span>;
+                            }
+                            if (notesUpper.includes('2ND ATTEMPT') || statusUpper.includes('2ND') || notesUpper.includes('UNDELIVERED-2ND') || notesUpper.includes('ATTEMPT 2')) {
+                              return <span className="bg-amber-950 text-amber-300 border border-amber-500 font-extrabold text-[10px] px-2 py-0.5 rounded-md flex items-center gap-1">⚠️ 2ND ATTEMPT FAIL (1 Chance Left!)</span>;
+                            }
+                            if (notesUpper.includes('1ST ATTEMPT') || statusUpper.includes('1ST') || notesUpper.includes('UNDELIVERED-1ST') || notesUpper.includes('ATTEMPT 1') || call.urgent_rto) {
+                              return <span className="bg-orange-950 text-orange-300 border border-orange-500/70 font-bold text-[10px] px-2 py-0.5 rounded-md flex items-center gap-1">⚠️ 1ST ATTEMPT FAIL (+₹50 Save RTO)</span>;
+                            }
+                            return null;
+                          })()}
 
                           {call.call_source === 'ai_agent' && (
                             <span className="bg-purple-900/60 text-purple-300 border border-purple-500/40 text-[9px] font-bold px-1.5 py-0.5 rounded">
