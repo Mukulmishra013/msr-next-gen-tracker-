@@ -307,8 +307,23 @@ export function ShiprocketSyncModal({ isOpen, onClose }) {
           const city = String(row['City'] || row['Customer City'] || row['Destination City'] || row['Shipping City'] || 'India');
 
           const statusLower = status.toLowerCase();
-          const isDelivered = statusLower.includes('deliv') && !statusLower.includes('rto');
-          const isRto = statusLower.includes('rto') || statusLower.includes('undeliv');
+          const isFinalCancelled = statusLower.includes('cancel') || statusLower.includes('rto delivered') || statusLower.includes('3rd attempt');
+          const isDelivered = statusLower.includes('deliv') && !isFinalCancelled;
+          const isRtoActive = (statusLower.includes('undeliv') || statusLower.includes('rto initiated') || statusLower.includes('rto in transit') || statusLower.includes('1st attempt') || statusLower.includes('2nd attempt')) && !isDelivered && !isFinalCancelled;
+
+          let callType = 'Order Confirmation';
+          let finalStatus = 'pending_confirmation';
+
+          if (isDelivered) {
+            finalStatus = 'delivered';
+            callType = 'Old Customer Feedback';
+          } else if (isRtoActive) {
+            finalStatus = 'rto_attempted';
+            callType = 'RTO Rescue';
+          } else if (isFinalCancelled) {
+            finalStatus = 'rto_lost';
+            callType = 'Order Cancelled';
+          }
 
           parsedOrders.push({
             shopify_order_id: orderId,
@@ -316,9 +331,9 @@ export function ShiprocketSyncModal({ isOpen, onClose }) {
             phone: realPhone || '+91',
             product,
             amount,
-            status: isDelivered ? 'confirmed' : (isRto ? 'rto_attempted' : 'pending_confirmation'),
-            urgent_rto: isRto,
-            call_type: isRto ? 'RTO Rescue' : (isDelivered ? 'Delivery Feedback' : 'Order Confirmation'),
+            status: finalStatus,
+            urgent_rto: isRtoActive,
+            call_type: callType,
             shiprocket_shipment_id: awb,
             notes: `Status: ${status} | City: ${city} | AWB: ${awb}`
           });
@@ -326,10 +341,17 @@ export function ShiprocketSyncModal({ isOpen, onClose }) {
 
         if (parsedOrders.length > 0) {
           try {
-            await supabase.from('amparo_calls').upsert(parsedOrders, { onConflict: 'shopify_order_id' });
-          } catch (e) {}
+            // Clean replace to eliminate old corrupted/stale rows
+            await supabase.from('amparo_calls').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+            // Insert in chunks of 50
+            for (let c = 0; c < parsedOrders.length; c += 50) {
+              await supabase.from('amparo_calls').insert(parsedOrders.slice(c, c + 50));
+            }
+          } catch (e) {
+            console.error('Supabase batch insert error:', e);
+          }
           if (setAmparoCalls) setAmparoCalls(parsedOrders);
-          setStatusMessage(`✅ BINGO! ${parsedOrders.length} Real Orders unique phone numbers ke sath successfully load ho gaye!`);
+          setStatusMessage(`✅ SUCCESS! ${parsedOrders.length} Real Orders unique phone numbers & proper categories ke sath load ho gaye!`);
           setTimeout(() => { if (onClose) onClose(); }, 1500);
         } else {
           setErrorMsg('CSV file me valid customer rows nahi mile.');
