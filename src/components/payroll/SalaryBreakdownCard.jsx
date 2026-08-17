@@ -26,7 +26,7 @@ import { SalarySlipPdfModal } from './SalarySlipPdfModal';
 
 export function SalaryBreakdownCard({ onOpenUpiModal }) {
   const { currentUser } = useAuth();
-  const { payroll, incentives, revenueLog, attendance } = useAppData();
+  const { payroll, incentives, revenueLog, attendance, mayaConfig } = useAppData();
   const isOwner = currentUser.role === 'owner';
 
   const [filterType, setFilterType] = useState('ALL'); // 'ALL' | 'RTO' | 'REPEAT' | 'CONFIRM'
