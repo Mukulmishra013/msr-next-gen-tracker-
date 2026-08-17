@@ -1731,7 +1731,7 @@ Dhanyawad!
                 return (
                   <div
                     key={task.id || task.shopify_order_id || idx}
-                    className={`p-4 rounded-2xl border transition relative space-y-3 ${
+                    className={`p-3.5 sm:p-4 rounded-2xl border transition relative space-y-3 overflow-hidden w-full max-w-full ${
                       isClaimed
                         ? (isDelivered ? 'bg-emerald-950/30 border-emerald-500/60' : 'bg-amber-950/20 border-amber-500/50')
                         : task.task_type === 'RTO_RESCUE'
@@ -1742,98 +1742,99 @@ Dhanyawad!
                     }`}
                   >
                     {/* Task Header */}
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-1.5">
-                        <span className="w-5 h-5 rounded-full bg-slate-800 text-white font-bold text-xs flex items-center justify-center font-mono">
+                    <div className="flex items-center justify-between gap-1.5 flex-wrap min-w-0">
+                      <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
+                        <span className="w-5 h-5 rounded-full bg-slate-800 text-white font-bold text-xs flex items-center justify-center font-mono shrink-0">
                           #{idx + 1}
                         </span>
-                        <span className={`px-2 py-0.5 rounded-md text-[10px] font-black text-white uppercase tracking-wider ${task.badge_color}`}>
+                        <span className={`px-2 py-0.5 rounded-md text-[10px] font-black text-white uppercase tracking-wider truncate max-w-[150px] sm:max-w-none ${task.badge_color}`}>
                           {task.task_title}
                         </span>
                       </div>
 
-                      <span className="px-2.5 py-0.5 rounded-lg bg-emerald-950 text-emerald-300 border border-emerald-500/40 text-xs font-black font-mono">
+                      <span className="px-2.5 py-0.5 rounded-lg bg-emerald-950 text-emerald-300 border border-emerald-500/40 text-xs font-black font-mono shrink-0">
                         +₹{task.incentive_amount} Incentive
                       </span>
                     </div>
 
                     {/* Customer & Product Info with 3D Thumbnail */}
-                    <div className="flex items-start gap-3">
-                      <ProductImageBadge productName={task.product || 'Amparo Shilajit Gummies'} size="md" />
-                      <div className="space-y-1 flex-1">
-                        <div className="flex items-center justify-between">
-                          <span className="font-extrabold text-sm text-white">{task.customer_name}</span>
-                          <span className="text-xs font-mono text-emerald-400 font-bold">₹{task.amount} ({task.shopify_order_id})</span>
+                    <div className="flex items-start gap-2.5 min-w-0 w-full">
+                      <div className="shrink-0">
+                        <ProductImageBadge productName={task.product || 'Amparo Shilajit Gummies'} size="md" />
+                      </div>
+                      <div className="space-y-1 flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-1.5 flex-wrap">
+                          <span className="font-extrabold text-sm text-white truncate max-w-[130px] sm:max-w-none">{task.customer_name}</span>
+                          <span className="text-xs font-mono text-emerald-400 font-bold shrink-0">₹{task.amount} ({task.shopify_order_id})</span>
                         </div>
-                        <p className="text-[11px] text-purple-300 font-semibold truncate">{task.product || 'Amparo Shilajit Gummies'}</p>
+                        <p className="text-[11px] text-purple-300 font-semibold truncate max-w-full">{task.product || 'Amparo Shilajit Gummies'}</p>
 
-                      {/* Phone with Inline Edit */}
-                      <div className="flex items-center gap-2">
-                        {editingPhoneId === task.id ? (
-                          <div className="flex items-center gap-1">
-                            <input
-                              type="tel"
-                              autoFocus
-                              value={editingPhoneVal}
-                              onChange={(e) => setEditingPhoneVal(e.target.value)}
-                              placeholder="Enter 10-digit number"
-                              className="bg-slate-950 border border-emerald-500 rounded-lg px-2 py-0.5 text-xs font-mono text-emerald-300 w-32 focus:outline-none"
-                            />
+                        {/* Phone with Inline Edit */}
+                        <div className="flex items-center gap-2 flex-wrap min-w-0 pt-0.5">
+                          {editingPhoneId === task.id ? (
+                            <div className="flex items-center gap-1 shrink-0">
+                              <input
+                                type="tel"
+                                autoFocus
+                                value={editingPhoneVal}
+                                onChange={(e) => setEditingPhoneVal(e.target.value)}
+                                placeholder="Enter 10-digit number"
+                                className="bg-slate-950 border border-emerald-500 rounded-lg px-2 py-0.5 text-xs font-mono text-emerald-300 w-32 focus:outline-none"
+                              />
+                              <button
+                                onClick={() => handleSavePhoneInline(task.id)}
+                                className="p-1 rounded-md bg-emerald-600 text-white hover:bg-emerald-500"
+                              >
+                                <Save className="w-3 h-3" />
+                              </button>
+                            </div>
+                          ) : (
                             <button
-                              onClick={() => handleSavePhoneInline(task.id)}
-                              className="p-1 rounded-md bg-emerald-600 text-white hover:bg-emerald-500"
+                              onClick={() => {
+                                setEditingPhoneId(task.id);
+                                setEditingPhoneVal(isMasked ? '' : String(task.phone).replace(/\D/g, '').slice(-10));
+                              }}
+                              className={`text-xs font-bold font-mono px-2 py-0.5 rounded-lg flex items-center gap-1 transition shrink-0 ${
+                                isMasked
+                                  ? 'bg-amber-950/80 text-amber-300 border border-amber-500/50'
+                                  : 'bg-emerald-950/60 text-emerald-300 border border-emerald-500/40'
+                              }`}
                             >
-                              <Save className="w-3 h-3" />
+                              <Phone className="w-3 h-3 text-amber-400" />
+                              <span>{displayPhone}</span>
+                              <Edit3 className="w-2.5 h-2.5 opacity-60 ml-0.5" />
                             </button>
-                          </div>
-                        ) : (
-                          <button
-                            onClick={() => {
-                              setEditingPhoneId(task.id);
-                              setEditingPhoneVal(isMasked ? '' : String(task.phone).replace(/\D/g, '').slice(-10));
-                            }}
-                            className={`text-xs font-bold font-mono px-2 py-0.5 rounded-lg flex items-center gap-1 transition ${
-                              isMasked
-                                ? 'bg-amber-950/80 text-amber-300 border border-amber-500/50'
-                                : 'bg-emerald-950/60 text-emerald-300 border border-emerald-500/40'
-                            }`}
-                          >
-                            <Phone className="w-3 h-3 text-amber-400" />
-                            <span>{displayPhone}</span>
-                            <Edit3 className="w-2.5 h-2.5 opacity-60 ml-0.5" />
-                          </button>
-                        )}
-                        <p className="text-xs text-slate-300 truncate max-w-xs">{task.product}</p>
-                      </div>
+                          )}
+                        </div>
 
-                      {/* 🚚 Real Shiprocket Courier & Delivery Timeline Badge */}
-                      <div className="flex items-center gap-2 text-[10px] flex-wrap">
-                        <span className="px-2 py-0.5 rounded-lg bg-blue-950/80 border border-blue-500/40 text-blue-300 font-bold flex items-center gap-1">
-                          <Truck className="w-3 h-3 text-blue-400" />
-                          <span>{task.courier_name || 'Shiprocket Courier'}</span>
-                        </span>
-                        <span className="px-2 py-0.5 rounded-lg bg-indigo-950/80 border border-indigo-500/40 text-indigo-300 font-semibold flex items-center gap-1">
-                          <Clock className="w-3 h-3 text-indigo-400" />
-                          <span>EDD: {task.expected_delivery_date || '3-5 दिन में'}</span>
-                        </span>
+                        {/* 🚚 Real Shiprocket Courier & Delivery Timeline Badge */}
+                        <div className="flex items-center gap-1.5 text-[10px] flex-wrap pt-0.5">
+                          <span className="px-2 py-0.5 rounded-lg bg-blue-950/80 border border-blue-500/40 text-blue-300 font-bold flex items-center gap-1 shrink-0">
+                            <Truck className="w-3 h-3 text-blue-400" />
+                            <span className="truncate max-w-[100px]">{task.courier_name || 'Shiprocket'}</span>
+                          </span>
+                          <span className="px-2 py-0.5 rounded-lg bg-indigo-950/80 border border-indigo-500/40 text-indigo-300 font-semibold flex items-center gap-1 shrink-0">
+                            <Clock className="w-3 h-3 text-indigo-400" />
+                            <span>EDD: {task.expected_delivery_date || '3-5 दिन'}</span>
+                          </span>
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  {/* 💡 Maya AI Smart Calling Tip (Groq Llama 3.3) */}
-                    <div className="p-2.5 rounded-xl bg-slate-950/80 border border-purple-500/30 text-[11px] text-purple-200 leading-relaxed flex items-start gap-1.5">
+                    {/* 💡 Maya AI Smart Calling Tip (Groq Llama 3.3) */}
+                    <div className="p-2.5 rounded-xl bg-slate-950/80 border border-purple-500/30 text-[11px] text-purple-200 leading-relaxed flex items-start gap-1.5 min-w-0">
                       <Lightbulb className="w-3.5 h-3.5 text-yellow-300 shrink-0 mt-0.5" />
-                      <span>{task.ai_tip}</span>
+                      <span className="break-words">{task.ai_tip}</span>
                     </div>
 
-                    {/* Action Buttons Matrix */}
-                    <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-800/80">
+                    {/* Action Buttons Matrix (Contained 2-Row Layout) */}
+                    <div className="pt-2 border-t border-slate-800/80 space-y-2 w-full">
                       
-                      {/* Telecaller Manual Tools (Earn Incentive) */}
-                      <div className="flex items-center gap-1.5">
+                      {/* Row 1: Calling & Outreach Tools */}
+                      <div className="flex items-center gap-1.5 flex-wrap">
                         <a
                           href={`tel:${task.phone}`}
-                          className="tap-target px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs flex items-center gap-1"
+                          className="tap-target px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs flex items-center gap-1 transition active:scale-95"
                         >
                           <PhoneCall className="w-3 h-3 text-emerald-400" />
                           <span>Call</span>
@@ -1841,7 +1842,7 @@ Dhanyawad!
 
                         <button
                           onClick={() => handleOpenWhatsappModal(task)}
-                          className="tap-target px-3 py-1.5 rounded-xl bg-emerald-950 hover:bg-emerald-900 border border-emerald-500/40 text-emerald-300 font-bold text-xs flex items-center gap-1"
+                          className="tap-target px-2.5 py-1.5 rounded-xl bg-emerald-950 hover:bg-emerald-900 border border-emerald-500/40 text-emerald-300 font-bold text-xs flex items-center gap-1 transition active:scale-95"
                         >
                           <MessageSquare className="w-3 h-3 text-emerald-400" />
                           <span>WhatsApp</span>
@@ -1849,60 +1850,55 @@ Dhanyawad!
 
                         <button
                           onClick={() => handleOpenCustomer360(task)}
-                          className="tap-target px-3 py-1.5 rounded-xl bg-purple-950/80 hover:bg-purple-900 border border-purple-500/50 text-purple-200 font-bold text-xs flex items-center gap-1 shadow-sm"
+                          className="tap-target px-2.5 py-1.5 rounded-xl bg-purple-950/80 hover:bg-purple-900 border border-purple-500/50 text-purple-200 font-bold text-xs flex items-center gap-1 transition active:scale-95"
                           title="View 360° AI Call Recording, Full Transcript, WhatsApp & Actions"
                         >
                           <Eye className="w-3.5 h-3.5 text-purple-300" />
                           <span>360° Audit</span>
                         </button>
+
+                        {/* Delegate to Maya AI Dial */}
+                        <button
+                          onClick={() => handleAiCallButtonClick(task, task.task_type)}
+                          className="tap-target px-2.5 py-1.5 rounded-xl bg-purple-950/80 hover:bg-purple-900 text-purple-300 border border-purple-500/40 text-[11px] font-bold flex items-center gap-1 transition active:scale-95"
+                          title="Maya AI ko call karne dein"
+                        >
+                          <Bot className="w-3 h-3 text-purple-400" />
+                          <span>AI Dial</span>
+                        </button>
                       </div>
 
-                      {/* Claim Incentive Button vs AI Auto-Dial */}
-                      <div className="flex items-center gap-1.5">
+                      {/* Row 2: Claim Incentive & Status Badge */}
+                      <div className="pt-1 border-t border-slate-900 flex items-center gap-1.5 flex-wrap">
                         {isClaimed && isDelivered ? (
-                          <span className="px-3 py-1.5 rounded-xl bg-emerald-600 text-white text-xs font-black flex items-center gap-1 shadow-md shadow-emerald-600/30">
+                          <span className="px-3 py-1.5 rounded-xl bg-emerald-600 text-white text-xs font-black flex items-center gap-1 shadow-md">
                             <Check className="w-3.5 h-3.5" />
                             <span>✅ Delivered ({task.call_source === 'ai_agent' || task.ai_dialed ? '+₹20 AI-Assist' : `+₹${task.incentive_amount} Paid`})</span>
                           </span>
                         ) : isClaimed ? (
-                          <button
-                            disabled
-                            className="px-3 py-1.5 rounded-xl bg-amber-950/80 border border-amber-500/50 text-amber-300 text-xs font-black flex items-center gap-1 cursor-not-allowed opacity-90 shadow-sm"
+                          <span
+                            className="px-3 py-1.5 rounded-xl bg-amber-950/80 border border-amber-500/50 text-amber-300 text-xs font-black flex items-center gap-1 opacity-90"
                             title="Task Done! Customer ko delivery hone par yeh incentive automatic release ho jayega."
                           >
                             <Clock className="w-3.5 h-3.5 text-amber-400" />
-                            <span>⏳ Done ({task.call_source === 'ai_agent' || task.ai_dialed ? '+₹20 AI-Assist' : `+₹${task.incentive_amount}`} Pending)</span>
-                          </button>
+                            <span>⏳ Done ({task.call_source === 'ai_agent' || task.ai_dialed ? '+₹20 AI' : `+₹${task.incentive_amount}`} Pending Delivery)</span>
+                          </span>
                         ) : task.call_source === 'ai_agent' || task.ai_dialed ? (
                           <button
                             onClick={() => claimTelecallerTaskIncentive(task.id || task.shopify_order_id, 20, task.task_title, currentUser)}
                             className="tap-target px-3 py-1.5 rounded-xl bg-purple-950 hover:bg-purple-900 border border-purple-500/50 text-purple-200 font-bold text-xs flex items-center gap-1 shadow-md transition active:scale-95"
-                            title="AI ne call kiya hai - Telecaller ko supervision/review incentive (+₹20) milega"
                           >
                             <Bot className="w-3.5 h-3.5 text-purple-400" />
-                            <span>Done (AI-Assist +₹20)</span>
+                            <span>Claim AI-Assist (+₹20)</span>
                           </button>
                         ) : (
-                          <>
-                            {/* Claim Manual Full Incentive (1-Time Action Lock) */}
-                            <button
-                              onClick={() => claimTelecallerTaskIncentive(task.id || task.shopify_order_id, task.incentive_amount, task.task_title, currentUser)}
-                              className="tap-target px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-xs flex items-center gap-1 shadow-md shadow-emerald-600/30 transition active:scale-95"
-                            >
-                              <Award className="w-3.5 h-3.5 text-yellow-300" />
-                              <span>Done (Manual +₹{task.incentive_amount})</span>
-                            </button>
-
-                            {/* Delegate to Maya AI (Zero/Half Cost Prevention) */}
-                            <button
-                              onClick={() => handleAiCallButtonClick(task, task.task_type)}
-                              className="tap-target px-2.5 py-1.5 rounded-xl bg-purple-950/80 hover:bg-purple-900 text-purple-300 border border-purple-500/40 text-[11px] font-bold flex items-center gap-1"
-                              title="Maya AI ko call karne dein (Incentive reduces to ₹20 AI-Assist)"
-                            >
-                              <Bot className="w-3 h-3 text-purple-400" />
-                              <span>AI Dial</span>
-                            </button>
-                          </>
+                          <button
+                            onClick={() => claimTelecallerTaskIncentive(task.id || task.shopify_order_id, task.incentive_amount, task.task_title, currentUser)}
+                            className="tap-target px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-xs flex items-center gap-1.5 shadow-md shadow-emerald-600/30 transition active:scale-95 w-full sm:w-auto justify-center"
+                          >
+                            <Award className="w-3.5 h-3.5 text-yellow-300" />
+                            <span>Done (Claim +₹{task.incentive_amount} Incentive)</span>
+                          </button>
                         )}
                       </div>
 
