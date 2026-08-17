@@ -431,17 +431,18 @@ class SupervisorAuditService {
     const activeWarnings = this.getActiveWarnings(user.id);
     const recentWarningTypes = activeWarnings.map((w) => w.category);
 
-    // Attendance Missing Check (Only for Office On-Site Staff, WFH staff can work freely from home!)
+    // Strict Attendance Check (WFH & Office Staff must punch daily check-in to protect daily salary)
     const workMode = getStaffWorkMode(user.id);
-    if (workMode === 'OFFICE' && (!userAttendance || userAttendance.status === 'absent') && !recentWarningTypes.includes('ATTENDANCE')) {
+    const isWfh = workMode === 'WFH';
+    if ((!userAttendance || userAttendance.status === 'absent') && !recentWarningTypes.includes('ATTENDANCE')) {
       this.issueWarning({
         userId: user.id,
         userName: user.name,
         category: 'ATTENDANCE',
         severity: 'high',
-        title: '📍 GPS Haaziri Missing (Attendance Warning)',
-        reason: '11:00 AM Shift chalu ho chuki hai par aapne office geofence haaziri punch nahi ki hai.',
-        actionRequired: 'GPS Haaziri tab me jakar Check-In punch karein ya Admin se WFH mode toggle karwayein.'
+        title: `🚨 Strict HR Notice: Daily Attendance Missing (${isWfh ? 'Work From Home' : 'Office On-Site'})`,
+        reason: `11:00 AM Shift shuru ho chuki hai par aapne aaj ka ${isWfh ? '1-Click WFH Check-in' : 'Office GPS Check-in'} punch nahi kiya hai. Strict Rule: Bina attendance ke aaj ki daily base salary deduct ho sakti hai!`,
+        actionRequired: isWfh ? 'Upar "GPS / WFH Haaziri" button dabakar 1-Click WFH Check-In punch karein.' : 'Office geofence ke andar GPS Check-in punch karein.'
       });
     }
 
@@ -452,8 +453,8 @@ class SupervisorAuditService {
         userName: user.name,
         category: 'INACTIVITY',
         severity: 'warning',
-        title: `⏱️ Inactivity Warning (${idleMinutes}m Idle)`,
-        reason: `Aap pichhle ${idleMinutes} minute se inactive hain. Queue me ${urgentRtoPending} Urgent RTO orders pending hain!`,
+        title: `⏱️ Inactivity Alert (${idleMinutes}m Idle)`,
+        reason: `Aap pichhle ${idleMinutes} minute se idle hain. Live queue me ${urgentRtoPending} Urgent NDR/RTO orders pending hain (+₹50 Incentive/order)!`,
         actionRequired: 'Customer calling ya WhatsApp task turant shuru karein.'
       });
     }
@@ -461,11 +462,35 @@ class SupervisorAuditService {
     return {
       dutyStatus: 'ACTIVE',
       isMonitoringActive: true,
+      workMode,
       idleMinutes,
       completedTasksCount,
       urgentRtoPending,
       attendanceStatus: userAttendance?.status || 'unmarked',
       breakStatus
+    };
+  }
+
+  // 6. Maya AI Real-Time Guidance & Objection Handling Feed for Telecallers
+  getTelecallerLiveGuidance({ user, amparoCalls = [], attendance = [], incentives = [] }) {
+    if (!user) return null;
+    const workMode = getStaffWorkMode(user.id);
+    const isWfh = workMode === 'WFH';
+    const userAttendance = attendance.find(
+      (a) => a.user_id === user.id || a.employee_name?.toLowerCase() === user.name?.toLowerCase()
+    );
+    const isPresent = Boolean(userAttendance && userAttendance.status === 'present');
+    const urgentCount = amparoCalls.filter((c) => c.urgent_rto && c.status !== 'confirmed' && c.status !== 'rto_saved').length;
+    const breakStatus = this.getStaffBreakStatus(user.id);
+
+    return {
+      workMode,
+      isWfh,
+      isPresent,
+      attendanceBadge: isPresent ? '✅ WFH Attendance: PRESENT' : '🚨 Attendance Unmarked (Salary Cut Risk)',
+      urgentRtoFocus: urgentCount > 0 ? `🚨 ${urgentCount} Urgent NDR Orders Pending (+₹50/order bounty)! Pehle inhein call karein.` : '🎉 Sabhi Urgent NDR Orders processed hain!',
+      objectionTip: '💡 Objection Pro-Tip: Agar customer bole "Delivery boy ka call nahi aaya", toh boliye: "Sir humne courier supervisor ko priority instructions bhej di hain, kal dopahar tak aapko parcel mil jayega."',
+      breakWalletText: `☕ Break Wallet: ${breakStatus.usedMinutesToday}/40m used (${breakStatus.remainingMinutes}m remaining)`
     };
   }
 }

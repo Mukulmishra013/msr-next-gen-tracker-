@@ -1048,6 +1048,70 @@ Dhanyawad!
         </div>
       )}
 
+      {/* 🛡️ Maya AI Supervisor Live Guidance & Strict Attendance Box */}
+      <div className="p-4 sm:p-5 rounded-3xl bg-gradient-to-r from-purple-950/70 via-slate-900 to-indigo-950/70 border border-purple-500/40 space-y-3.5 shadow-xl">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800/80 pb-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-purple-900/60 border border-purple-400/40 flex items-center justify-center text-xl shadow-md">
+              🤖
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h4 className="font-extrabold text-sm text-white flex items-center gap-1.5">
+                  <span>Maya AI Supervisor Live HR & Calling Guidance</span>
+                </h4>
+                <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full border ${
+                  attendance.some(a => (a.user_id === currentUser?.id || a.employee_name?.toLowerCase() === currentUser?.name?.toLowerCase()) && a.status === 'present')
+                    ? 'bg-emerald-950 border-emerald-500 text-emerald-300'
+                    : 'bg-red-950 border-red-500 text-red-300 animate-pulse'
+                }`}>
+                  {attendance.some(a => (a.user_id === currentUser?.id || a.employee_name?.toLowerCase() === currentUser?.name?.toLowerCase()) && a.status === 'present')
+                    ? '✅ WFH Attendance: PRESENT'
+                    : '🚨 WFH Haaziri Missing (Salary Cut Risk)'}
+                </span>
+              </div>
+              <p className="text-xs text-slate-400 mt-0.5">Shift 11:00 AM - 05:00 PM • Strict Attendance & Daily Base Pay Rules Active</p>
+            </div>
+          </div>
+
+          {/* 🏠 1-Click WFH Attendance Punch Button */}
+          {!attendance.some(a => (a.user_id === currentUser?.id || a.employee_name?.toLowerCase() === currentUser?.name?.toLowerCase()) && a.status === 'present') && (
+            <button
+              onClick={() => setIsGpsModalOpen(true)}
+              className="tap-target px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-black text-xs flex items-center gap-2 shadow-lg shadow-blue-600/40 transition active:scale-95 animate-bounce-subtle self-start sm:self-auto"
+            >
+              <Home className="w-4 h-4" />
+              <span>🏠 Punch WFH Attendance (Save Salary)</span>
+            </button>
+          )}
+        </div>
+
+        {/* Smart Advice Feed */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+          <div className="p-3.5 rounded-2xl bg-slate-950/80 border border-slate-800 space-y-1">
+            <span className="font-bold text-amber-300 flex items-center gap-1.5">
+              <Zap className="w-3.5 h-3.5 text-yellow-400" />
+              <span>Current Calling Focus:</span>
+            </span>
+            <p className="text-slate-300 leading-relaxed">
+              {urgentCount > 0
+                ? `🚨 ${urgentCount} Urgent NDR Orders queue me hain (+₹50 bounty per saved order). Customer ko call karke kal ke liye Re-Attempt schedule karein!`
+                : '🎉 All urgent NDR calls processed! Continue with regular orders & repeat customer feedback.'}
+            </p>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-slate-950/80 border border-slate-800 space-y-1">
+            <span className="font-bold text-cyan-300 flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+              <span>Objection Pro-Tip:</span>
+            </span>
+            <p className="text-slate-300 leading-relaxed">
+              Jab customer bole "Delivery boy ka call nahi aaya", toh boliye: <em className="text-white">"Maine courier supervisor ko priority delivery instruction daal di hai, kal dopahar tak parcel mil jayega."</em>
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* 🚨 Autonomous Maya AI HR & Supervisor Live Warning Alert Bar */}
       {activeSupervisorWarnings.length > 0 && (
         <div className="space-y-2">
