@@ -272,6 +272,24 @@ export function ContentCallingDashboard({ onOpenChat, initialSubTab }) {
   const [aiModalPhone, setAiModalPhone] = useState('');
   const [aiModalPurpose, setAiModalPurpose] = useState('ORDER_CONFIRMATION');
 
+  // Intercept Android hardware/browser back button & Escape key so modal closes instead of app exiting
+  useEffect(() => {
+    if (!selectedCustomerDetail) return;
+    window.history.pushState({ modal: 'customer_360' }, '');
+    const handlePopState = () => {
+      setSelectedCustomerDetail(null);
+    };
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') setSelectedCustomerDetail(null);
+    };
+    window.addEventListener('popstate', handlePopState);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [selectedCustomerDetail]);
+
   // 🔄 Courier NDR Re-Attempt & Reschedule Modal State
   const [ndrModalOrder, setNdrModalOrder] = useState(null);
   const [ndrReattemptDate, setNdrReattemptDate] = useState(() => {
@@ -2567,56 +2585,65 @@ Dhanyawad!
 
       {/* 🌟 CUSTOMER 360° AI CALL AUDIT & ACTION HUB MODAL */}
       {selectedCustomerDetail && (
-        <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 animate-scale-up">
-          <div className="w-full max-w-2xl bg-slate-900 border border-purple-500/50 rounded-3xl p-5 sm:p-6 shadow-2xl space-y-4 max-h-[90vh] flex flex-col">
+        <div 
+          className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-2.5 sm:p-4 animate-scale-up"
+          onClick={() => setSelectedCustomerDetail(null)}
+        >
+          <div 
+            className="w-full max-w-2xl bg-slate-900 border border-purple-500/50 rounded-3xl p-4 sm:p-6 shadow-2xl space-y-4 max-h-[92vh] flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
             
             {/* Modal Header */}
-            <div className="flex items-start justify-between border-b border-slate-800 pb-3">
-              <div className="space-y-1">
+            <div className="flex items-start justify-between border-b border-slate-800 pb-3 gap-2">
+              <div className="space-y-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <h3 className="font-extrabold text-lg text-white">
+                  <h3 className="font-extrabold text-base sm:text-lg text-white truncate max-w-[180px] sm:max-w-none">
                     {selectedCustomerDetail.customer_name || 'Customer'}
                   </h3>
-                  <span className="text-xs font-mono font-bold text-emerald-400 bg-emerald-950/80 border border-emerald-500/40 px-2 py-0.5 rounded-lg">
+                  <span className="text-xs font-mono font-bold text-emerald-400 bg-emerald-950/80 border border-emerald-500/40 px-2 py-0.5 rounded-lg shrink-0">
                     ₹{selectedCustomerDetail.amount || 449} COD
                   </span>
-                  <span className="text-[11px] font-mono text-purple-300 bg-purple-950/80 border border-purple-500/40 px-2 py-0.5 rounded-lg">
+                  <span className="text-[11px] font-mono text-purple-300 bg-purple-950/80 border border-purple-500/40 px-2 py-0.5 rounded-lg shrink-0">
                     {selectedCustomerDetail.shopify_order_id}
                   </span>
                   {selectedCustomerDetail.status === 'confirmed' && (
-                    <span className="bg-emerald-600 text-white text-[10px] font-black px-2 py-0.5 rounded-md">
+                    <span className="bg-emerald-600 text-white text-[10px] font-black px-2 py-0.5 rounded-md shrink-0">
                       CONFIRMED
                     </span>
                   )}
                   {selectedCustomerDetail.status === 'rescheduled' && (
-                    <span className="bg-amber-500 text-slate-950 text-[10px] font-black px-2 py-0.5 rounded-md">
+                    <span className="bg-amber-500 text-slate-950 text-[10px] font-black px-2 py-0.5 rounded-md shrink-0">
                       RESCHEDULED
                     </span>
                   )}
                   {selectedCustomerDetail.status === 'rto_lost' && (
-                    <span className="bg-red-600 text-white text-[10px] font-black px-2 py-0.5 rounded-md">
+                    <span className="bg-red-600 text-white text-[10px] font-black px-2 py-0.5 rounded-md shrink-0">
                       CANCELLED
                     </span>
                   )}
                 </div>
 
-                <div className="flex items-center gap-3 text-xs text-slate-400 font-mono">
-                  <span className="flex items-center gap-1 text-emerald-300 font-bold">
+                <div className="flex items-center gap-2 text-xs text-slate-400 font-mono flex-wrap">
+                  <span className="flex items-center gap-1 text-emerald-300 font-bold shrink-0">
                     <Phone className="w-3.5 h-3.5 text-emerald-400" />
                     {selectedCustomerDetail.phone || 'No Phone'}
                   </span>
                   <span>•</span>
-                  <span className="text-slate-300 truncate max-w-[280px]">
+                  <span className="text-slate-300 truncate max-w-[200px] sm:max-w-[280px]">
                     📦 {selectedCustomerDetail.product}
                   </span>
                 </div>
               </div>
 
+              {/* Prominent Red Close / Cut Button */}
               <button
                 onClick={() => setSelectedCustomerDetail(null)}
-                className="p-1.5 rounded-xl bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 transition"
+                className="tap-target px-3 py-1.5 rounded-xl bg-red-950/90 hover:bg-red-900 border border-red-500/60 text-red-200 font-black text-xs flex items-center gap-1 shrink-0 transition active:scale-95 shadow-md shadow-red-950/50"
+                title="Modal band karein (Close)"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4 text-red-400" />
+                <span>Cut (✕)</span>
               </button>
             </div>
 
@@ -2949,6 +2976,15 @@ Dhanyawad!
                   <span>🤖 Re-Dial Maya AI</span>
                 </button>
               </div>
+
+              {/* Bottom Sticky Return / Close Button */}
+              <button
+                onClick={() => setSelectedCustomerDetail(null)}
+                className="tap-target w-full py-2.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-black text-xs flex items-center justify-center gap-2 border border-slate-700 transition active:scale-95 shadow-md"
+              >
+                <X className="w-4 h-4 text-red-400" />
+                <span>Close & Return to Calling Queue (वापस जाएं ✕)</span>
+              </button>
             </div>
 
           </div>
