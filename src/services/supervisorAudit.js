@@ -1,6 +1,8 @@
 // Maya Autonomous AI Supervisor & HR Watchdog Service (Maya Sentinel)
 // Shift Hours: 11:00 AM to 5:00 PM | 40-Min Daily Break Wallet (Multiple Small Breaks Supported) | Admin Work Status Control (Active/Off/Leave)
 
+import { getStaffWorkMode } from './geolocation';
+
 const AUDIT_STORAGE_KEY = 'msr_supervisor_audit_logs';
 const WARNINGS_STORAGE_KEY = 'msr_telecaller_active_warnings';
 const ACTIVITY_STORAGE_KEY = 'msr_telecaller_last_activity';
@@ -429,8 +431,9 @@ class SupervisorAuditService {
     const activeWarnings = this.getActiveWarnings(user.id);
     const recentWarningTypes = activeWarnings.map((w) => w.category);
 
-    // Attendance Missing Check
-    if ((!userAttendance || userAttendance.status === 'absent') && !recentWarningTypes.includes('ATTENDANCE')) {
+    // Attendance Missing Check (Only for Office On-Site Staff, WFH staff can work freely from home!)
+    const workMode = getStaffWorkMode(user.id);
+    if (workMode === 'OFFICE' && (!userAttendance || userAttendance.status === 'absent') && !recentWarningTypes.includes('ATTENDANCE')) {
       this.issueWarning({
         userId: user.id,
         userName: user.name,
@@ -438,7 +441,7 @@ class SupervisorAuditService {
         severity: 'high',
         title: '📍 GPS Haaziri Missing (Attendance Warning)',
         reason: '11:00 AM Shift chalu ho chuki hai par aapne office geofence haaziri punch nahi ki hai.',
-        actionRequired: 'GPS Haaziri tab me jakar Check-In punch karein.'
+        actionRequired: 'GPS Haaziri tab me jakar Check-In punch karein ya Admin se WFH mode toggle karwayein.'
       });
     }
 

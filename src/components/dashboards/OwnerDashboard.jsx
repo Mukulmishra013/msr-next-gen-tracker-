@@ -9,6 +9,13 @@ import { supervisorAudit } from '../../services/supervisorAudit';
 import { adminTaskService } from '../../services/adminTaskService';
 import { ShopifyCustomersDirectory } from '../admin/ShopifyCustomersDirectory';
 import { 
+  getOfficeLocation, 
+  setOfficeLocation, 
+  getAllStaffWorkModes, 
+  setStaffWorkMode, 
+  getCurrentGpsPosition 
+} from '../../services/geolocation';
+import { 
   TrendingUp, 
   Users, 
   MapPin, 
@@ -94,6 +101,11 @@ export function OwnerDashboard({ onOpenUpiModal, onOpenChat }) {
   const [newTaskPriority, setNewTaskPriority] = useState('urgent');
   const [newTaskTarget, setNewTaskTarget] = useState('ALL');
   const [newTaskDeadline, setNewTaskDeadline] = useState('Today by 04:30 PM');
+
+  // Dynamic Office GPS Geofence & WFH Modes
+  const [officeConfig, setOfficeConfig] = useState(() => getOfficeLocation());
+  const [staffModes, setStaffModes] = useState(() => getAllStaffWorkModes());
+  const [isCapturingOfficeGps, setIsCapturingOfficeGps] = useState(false);
 
   useEffect(() => {
     const unsub1 = supervisorAudit.subscribe(() => {
@@ -859,6 +871,96 @@ export function OwnerDashboard({ onOpenUpiModal, onOpenChat }) {
               </div>
             </div>
 
+            {/* 📍 Admin Dynamic Office GPS Geofence & Location Settings Card */}
+            <div className="p-4 rounded-2xl bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 border border-emerald-500/30 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-2.5">
+                <div className="flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-emerald-400" />
+                  <h4 className="font-extrabold text-sm text-white">
+                    📍 Office GPS Geofence & Location Configuration
+                  </h4>
+                </div>
+                <button
+                  onClick={async () => {
+                    setIsCapturingOfficeGps(true);
+                    try {
+                      const pos = await getCurrentGpsPosition();
+                      const updated = {
+                        ...officeConfig,
+                        lat: pos.lat,
+                        lng: pos.lng
+                      };
+                      setOfficeConfig(updated);
+                      setOfficeLocation(updated);
+                      alert(`✅ GPS Auto-Detected!\nOffice Latitude: ${pos.lat}\nOffice Longitude: ${pos.lng}`);
+                    } catch (e) {
+                      alert('GPS Error: ' + e.message);
+                    } finally {
+                      setIsCapturingOfficeGps(false);
+                    }
+                  }}
+                  disabled={isCapturingOfficeGps}
+                  className="tap-target px-3 py-1.5 rounded-xl bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-500/40 text-emerald-300 text-xs font-bold flex items-center gap-1.5 transition active:scale-95 self-start sm:self-auto"
+                >
+                  <Compass className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>{isCapturingOfficeGps ? 'Detecting GPS...' : '📍 Auto-Detect Current GPS as Office'}</span>
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Office Name</label>
+                  <input
+                    type="text"
+                    value={officeConfig.name}
+                    onChange={(e) => setOfficeConfig({ ...officeConfig, name: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-white font-semibold focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Latitude</label>
+                  <input
+                    type="number"
+                    step="any"
+                    value={officeConfig.lat}
+                    onChange={(e) => setOfficeConfig({ ...officeConfig, lat: Number(e.target.value) })}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs font-mono text-white focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Longitude</label>
+                  <input
+                    type="number"
+                    step="any"
+                    value={officeConfig.lng}
+                    onChange={(e) => setOfficeConfig({ ...officeConfig, lng: Number(e.target.value) })}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs font-mono text-white focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Geofence Radius (Meters)</label>
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="number"
+                      value={officeConfig.radiusMeters}
+                      onChange={(e) => setOfficeConfig({ ...officeConfig, radiusMeters: Number(e.target.value) })}
+                      className="w-full bg-slate-950 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs font-mono text-white focus:outline-none focus:border-emerald-500"
+                    />
+                    <button
+                      onClick={() => {
+                        setOfficeLocation(officeConfig);
+                        alert(`✅ Office Geofence Updated!\nLocation: ${officeConfig.name}\nRadius: ${officeConfig.radiusMeters}m`);
+                      }}
+                      className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1 shadow-sm transition active:scale-95"
+                    >
+                      <Save className="w-3 h-3" />
+                      <span>Save</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {/* Staff Cards Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {[
@@ -868,7 +970,8 @@ export function OwnerDashboard({ onOpenUpiModal, onOpenChat }) {
                   role: 'Content & Telecalling Closer',
                   avatar: '👩‍💼',
                   phone: '+919876543210',
-                  attendance: 'Present (GPS Verified)',
+                  attendance: staffModes['usr_priya_telecaller'] === 'WFH' ? 'Present (Work From Home)' : 'Present (GPS Verified)',
+                  workMode: staffModes['usr_priya_telecaller'] || 'WFH',
                   status: supervisorAudit.getStaffDutyStatus('usr_priya_telecaller'),
                   breakInfo: supervisorAudit.getStaffBreakStatus('usr_priya_telecaller'),
                   lastActive: staffActivities['usr_priya_telecaller']?.lastActive ? `${Math.floor((Date.now() - staffActivities['usr_priya_telecaller'].lastActive) / 60000)}m ago` : '2m ago',
@@ -882,7 +985,8 @@ export function OwnerDashboard({ onOpenUpiModal, onOpenChat }) {
                   role: 'Telecaller & Field Liaison',
                   avatar: '👨‍💼',
                   phone: '+919123456780',
-                  attendance: 'Present (GPS Verified)',
+                  attendance: staffModes['usr_rahul_telecaller'] === 'WFH' ? 'Present (Work From Home)' : 'Present (GPS Verified)',
+                  workMode: staffModes['usr_rahul_telecaller'] || 'WFH',
                   status: supervisorAudit.getStaffDutyStatus('usr_rahul_telecaller'),
                   breakInfo: supervisorAudit.getStaffBreakStatus('usr_rahul_telecaller'),
                   lastActive: staffActivities['usr_rahul_telecaller']?.lastActive ? `${Math.floor((Date.now() - staffActivities['usr_rahul_telecaller'].lastActive) / 60000)}m ago` : '8m ago',
@@ -898,12 +1002,15 @@ export function OwnerDashboard({ onOpenUpiModal, onOpenChat }) {
                       ? 'bg-slate-950/90 border-slate-800 hover:border-purple-500/40'
                       : staff.status === 'LEAVE'
                       ? 'bg-indigo-950/40 border-indigo-500/40'
-                      : 'bg-slate-900/40 border-slate-800 opacity-80'
+                      : 'bg-slate-900/60 border-slate-800 opacity-80'
                   }`}
                 >
-                  <div className="flex items-start justify-between gap-2">
+                  {/* Staff Header */}
+                  <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3">
-                      <span className="text-3xl p-2 rounded-2xl bg-slate-900 border border-slate-700">{staff.avatar}</span>
+                      <div className="w-11 h-11 rounded-2xl bg-purple-950/80 border border-purple-500/40 flex items-center justify-center text-xl shadow-md">
+                        {staff.avatar}
+                      </div>
                       <div>
                         <h4 className="font-extrabold text-sm text-white flex items-center gap-1.5">
                           <span>{staff.name}</span>
@@ -938,10 +1045,48 @@ export function OwnerDashboard({ onOpenUpiModal, onOpenChat }) {
                     </div>
                   </div>
 
+                  {/* 🏠 Work Mode (WFH vs Office On-Site) Toggle */}
+                  <div className="p-2.5 rounded-xl bg-slate-900/90 border border-slate-800 space-y-1.5">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">
+                      Work Location & Geofence Mode:
+                    </span>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <button
+                        onClick={() => {
+                          const updated = setStaffWorkMode(staff.id, 'WFH');
+                          setStaffModes({ ...updated });
+                          supervisorAudit.clearUserWarnings(staff.id);
+                          alert(`🏠 ${staff.name} ko Work From Home (WFH) assign kiya gaya! GPS geofence restriction removed.`);
+                        }}
+                        className={`px-2 py-1.5 rounded-lg text-[11px] font-black transition flex items-center justify-center gap-1 ${
+                          staff.workMode === 'WFH'
+                            ? 'bg-blue-600 text-white shadow-sm'
+                            : 'bg-slate-950 text-slate-400 hover:text-white border border-slate-800'
+                        }`}
+                      >
+                        <span>🏠 Work From Home (WFH)</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          const updated = setStaffWorkMode(staff.id, 'OFFICE');
+                          setStaffModes({ ...updated });
+                          alert(`🏢 ${staff.name} ko Office On-Site assign kiya gaya! (${officeConfig.radiusMeters}m Geofence Active)`);
+                        }}
+                        className={`px-2 py-1.5 rounded-lg text-[11px] font-black transition flex items-center justify-center gap-1 ${
+                          staff.workMode === 'OFFICE'
+                            ? 'bg-emerald-600 text-white shadow-sm'
+                            : 'bg-slate-950 text-slate-400 hover:text-white border border-slate-800'
+                        }`}
+                      >
+                        <span>🏢 Office On-Site</span>
+                      </button>
+                    </div>
+                  </div>
+
                   {/* Admin Work Status Controls (Active / Paused / Leave) */}
                   <div className="p-2.5 rounded-xl bg-slate-900/90 border border-slate-800 space-y-1.5">
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">
-                      Admin Work Status & AI Watchdog Control:
+                      Admin Duty & Watchdog Status:
                     </span>
                     <div className="grid grid-cols-3 gap-1.5">
                       <button

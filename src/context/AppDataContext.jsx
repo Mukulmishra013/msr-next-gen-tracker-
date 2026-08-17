@@ -12,7 +12,7 @@ import {
 } from '../data/mockData';
 import { supabase, isSupabaseConfigured } from '../services/supabase';
 import { agentMesh } from '../services/agentGraph';
-import { checkGeofence } from '../services/geolocation';
+import { checkGeofence, getStaffWorkMode, getOfficeLocation } from '../services/geolocation';
 import confetti from 'canvas-confetti';
 
 const AppDataContext = createContext(null);
@@ -907,14 +907,17 @@ export function AppDataProvider({ children }) {
     return newVisit;
   };
 
-  // --- Attendance Check-in Action ---
+  // --- Attendance Check-in Action (Supports Admin Dynamic Office GPS & WFH) ---
   const recordAttendanceCheckIn = async (user, gpsCoords) => {
-    const geo = checkGeofence(gpsCoords.lat, gpsCoords.lng);
+    const workMode = getStaffWorkMode(user.id);
+    const isWfh = workMode === 'WFH';
+    const office = getOfficeLocation();
+    const geo = isWfh ? { withinGeofence: true, distanceMeters: 0, status: 'present' } : checkGeofence(gpsCoords.lat, gpsCoords.lng, office);
     const today = new Date().toISOString().split('T')[0];
     const timeStr = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
 
     const isFieldRole = user.role === 'field_executive';
-    const isPresent = isFieldRole || geo.withinGeofence;
+    const isPresent = isWfh || isFieldRole || geo.withinGeofence;
 
     const newRecord = {
       id: `att_${Date.now()}`,
@@ -923,11 +926,12 @@ export function AppDataProvider({ children }) {
       role: user.role,
       date: today,
       check_in_time: timeStr,
-      check_in_lat: gpsCoords.lat,
-      check_in_lng: gpsCoords.lng,
+      check_in_lat: isWfh ? office.lat : gpsCoords.lat,
+      check_in_lng: isWfh ? office.lng : gpsCoords.lng,
       within_geofence: isPresent,
       distance_meters: geo.distanceMeters,
-      status: isPresent ? 'present' : 'outside_office'
+      status: isPresent ? 'present' : 'outside_office',
+      work_mode: workMode
     };
 
     setAttendance((prev) => {
