@@ -876,6 +876,33 @@ export function OwnerDashboard({ onOpenUpiModal, onOpenChat }) {
               </div>
             </div>
 
+            {/* 💸 8% Monthly Agency Growth Bonus Pool Governance (Default OFF - Admin Controlled) */}
+            <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-950/40 via-slate-900 to-slate-950 border border-amber-500/30 space-y-2">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <Gift className="w-5 h-5 text-amber-400 shrink-0" />
+                  <div>
+                    <h4 className="font-extrabold text-sm text-white">8% Monthly Agency Growth Bonus Pool</h4>
+                    <p className="text-xs text-slate-400">Team incentive split from net agency growth (₹9,960 pool / ₹3,320 per member)</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    const next = !mayaConfig?.enableGrowthBonus;
+                    updateMayaConfig({ enableGrowthBonus: next });
+                    alert(next ? '✅ 8% Growth Bonus Pool ACTIVATED for all staff!' : '⏸️ 8% Growth Bonus Pool DEACTIVATED (Default OFF).');
+                  }}
+                  className={`tap-target px-4 py-2 rounded-xl text-xs font-black transition self-start sm:self-auto ${
+                    mayaConfig?.enableGrowthBonus
+                      ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30'
+                      : 'bg-slate-800 text-slate-400 border border-slate-700'
+                  }`}
+                >
+                  {mayaConfig?.enableGrowthBonus ? '🟢 BONUS ACTIVE (ON)' : '⚪ BONUS DISABLED (OFF)'}
+                </button>
+              </div>
+            </div>
+
             {/* 📍 Admin Dynamic Office GPS Geofence & Location Settings Card */}
             <div className="p-4 rounded-2xl bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 border border-emerald-500/30 space-y-3">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-2.5">

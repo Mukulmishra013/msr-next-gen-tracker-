@@ -65,7 +65,8 @@ export function AppDataProvider({ children }) {
       comboDiscountText: 'एक सौ रुपये की छूट',
       enableCrossSell: true,
       deliveryTimeline: 'तीन से पाँच दिन',
-      brandName: 'Amparo Store'
+      brandName: 'Amparo Store',
+      enableGrowthBonus: false // Default OFF - Admin Controlled!
     };
   });
 

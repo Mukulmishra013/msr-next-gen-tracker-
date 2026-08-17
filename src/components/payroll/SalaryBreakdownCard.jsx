@@ -103,14 +103,16 @@ export function SalaryBreakdownCard({ onOpenUpiModal }) {
           </div>
         </div>
 
-        {/* 8% Agency Growth Bonus Pool Info */}
-        <div className="p-3 rounded-2xl bg-slate-950/80 border border-amber-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
-          <div className="flex items-center gap-2 text-amber-200">
-            <Gift className="w-4 h-4 text-amber-400 shrink-0" />
-            <span><strong>Agency Growth Bonus:</strong> Agency net growth ₹{safeRevenue.growth_amount?.toLocaleString('en-IN') || '18,500'} ➔ ₹{safeRevenue.bonus_per_member?.toLocaleString('en-IN') || '3,320'} per staff member!</span>
+        {/* 8% Agency Growth Bonus Pool Info (Admin Controlled - Default OFF) */}
+        {Boolean(mayaConfig?.enableGrowthBonus) && (
+          <div className="p-3 rounded-2xl bg-slate-950/80 border border-amber-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+            <div className="flex items-center gap-2 text-amber-200">
+              <Gift className="w-4 h-4 text-amber-400 shrink-0" />
+              <span><strong>Agency Growth Bonus:</strong> Agency net growth ₹{safeRevenue.growth_amount?.toLocaleString('en-IN') || '18,500'} ➔ ₹{safeRevenue.bonus_per_member?.toLocaleString('en-IN') || '3,320'} per staff member!</span>
+            </div>
+            <span className="text-[10px] text-amber-400 font-bold uppercase shrink-0">Split Active</span>
           </div>
-          <span className="text-[10px] text-amber-400 font-bold uppercase shrink-0">Split Active</span>
-        </div>
+        )}
       </div>
 
       {/* OWNER VIEW vs TELECALLER INDIVIDUAL DETAILED SALARY DOSSIER */}
@@ -420,7 +422,7 @@ export function SalaryBreakdownCard({ onOpenUpiModal }) {
             month: 'August 2026',
             presentDays,
             verifiedIncentives: liveEarnedIncentiveTotal,
-            growthBonus: safeRevenue.bonus_per_member || 3320,
+            growthBonus: mayaConfig?.enableGrowthBonus ? (safeRevenue.bonus_per_member || 3320) : 0,
             spotPraises: 0
           }}
         />
