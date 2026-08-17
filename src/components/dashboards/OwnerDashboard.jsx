@@ -8,6 +8,7 @@ import { ShiprocketSyncModal } from '../admin/ShiprocketSyncModal';
 import { supervisorAudit } from '../../services/supervisorAudit';
 import { adminTaskService } from '../../services/adminTaskService';
 import { ShopifyCustomersDirectory } from '../admin/ShopifyCustomersDirectory';
+import { Staff360DossierModal } from '../admin/Staff360DossierModal';
 import { 
   getOfficeLocation, 
   setOfficeLocation, 
@@ -109,6 +110,7 @@ export function OwnerDashboard({ onOpenUpiModal, onOpenChat }) {
   const [officeConfig, setOfficeConfig] = useState(() => getOfficeLocation());
   const [staffModes, setStaffModes] = useState(() => getAllStaffWorkModes());
   const [isCapturingOfficeGps, setIsCapturingOfficeGps] = useState(false);
+  const [selectedDossierUser, setSelectedDossierUser] = useState(null);
 
   useEffect(() => {
     const unsub1 = supervisorAudit.subscribe(() => {
@@ -1151,21 +1153,29 @@ export function OwnerDashboard({ onOpenUpiModal, onOpenChat }) {
                   </div>
 
                   {/* Supervisor Direct Actions */}
-                  <div className="flex items-center gap-2 pt-1">
+                  <div className="flex items-center gap-2 pt-1 flex-wrap">
+                    <button
+                      onClick={() => setSelectedDossierUser(staff)}
+                      className="tap-target flex-1 px-3 py-1.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-[11px] font-black flex items-center justify-center gap-1 shadow-md shadow-purple-600/30 transition active:scale-95"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>👁️ 360° Dossier & AI Report</span>
+                    </button>
+
                     <button
                       onClick={() => handleAdminIssueWarning(staff.name, staff.id)}
-                      className="tap-target flex-1 px-3 py-1.5 rounded-xl bg-amber-950/70 hover:bg-amber-900/90 text-amber-200 border border-amber-500/50 text-[11px] font-extrabold flex items-center justify-center gap-1 shadow-sm transition active:scale-95"
+                      className="tap-target px-3 py-1.5 rounded-xl bg-amber-950/70 hover:bg-amber-900/90 text-amber-200 border border-amber-500/50 text-[11px] font-extrabold flex items-center justify-center gap-1 shadow-sm transition active:scale-95"
                     >
                       <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
-                      <span>🚨 Direct Nudge</span>
+                      <span>🚨 Nudge</span>
                     </button>
 
                     <button
                       onClick={() => handleAdminSendPraise(staff.name)}
-                      className="tap-target flex-1 px-3 py-1.5 rounded-xl bg-emerald-950/70 hover:bg-emerald-900/90 text-emerald-200 border border-emerald-500/50 text-[11px] font-extrabold flex items-center justify-center gap-1 shadow-sm transition active:scale-95"
+                      className="tap-target px-3 py-1.5 rounded-xl bg-emerald-950/70 hover:bg-emerald-900/90 text-emerald-200 border border-emerald-500/50 text-[11px] font-extrabold flex items-center justify-center gap-1 shadow-sm transition active:scale-95"
                     >
                       <Gift className="w-3.5 h-3.5 text-yellow-300" />
-                      <span>🎁 Award Praise</span>
+                      <span>🎁 Praise</span>
                     </button>
                   </div>
                 </div>
@@ -2241,6 +2251,15 @@ export function OwnerDashboard({ onOpenUpiModal, onOpenChat }) {
             </form>
           </div>
         </div>
+      )}
+
+      {/* 👑 Staff 360° Dossier & Maya AI Performance Modal */}
+      {selectedDossierUser && (
+        <Staff360DossierModal
+          isOpen={Boolean(selectedDossierUser)}
+          user={selectedDossierUser}
+          onClose={() => setSelectedDossierUser(null)}
+        />
       )}
 
     </div>

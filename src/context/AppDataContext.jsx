@@ -22,7 +22,16 @@ export function AppDataProvider({ children }) {
   const [msrLeads, setMsrLeads] = useState(MOCK_MSR_LEADS);
   const [videos, setVideos] = useState(MOCK_VIDEOS);
   const [fieldVisits, setFieldVisits] = useState(MOCK_FIELD_VISITS);
-  const [attendance, setAttendance] = useState(MOCK_ATTENDANCE);
+  const [attendance, setAttendance] = useState(() => {
+    try {
+      const local = localStorage.getItem('msr_local_attendance');
+      if (local) {
+        const parsed = JSON.parse(local);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {}
+    return MOCK_ATTENDANCE;
+  });
   const [revenueLog, setRevenueLog] = useState(MOCK_REVENUE_LOG);
   const [incentives, setIncentives] = useState(() => {
     try {
@@ -69,6 +78,12 @@ export function AppDataProvider({ children }) {
       return merged;
     });
   };
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('msr_local_attendance', JSON.stringify(attendance));
+    } catch (e) {}
+  }, [attendance]);
 
   // Trigger win celebration confetti
   const triggerWinCelebration = () => {

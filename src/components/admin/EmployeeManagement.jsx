@@ -28,6 +28,7 @@ import {
   Check
 } from 'lucide-react';
 import { StaffAttendanceCalendarModal } from '../attendance/StaffAttendanceCalendarModal';
+import { Staff360DossierModal } from './Staff360DossierModal';
 
 export function EmployeeManagement() {
   const { availableUsers, addCustomRoleUser, updateUserProfile, deleteUser, switchUserRole, currentUser } = useAuth();
@@ -36,6 +37,7 @@ export function EmployeeManagement() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
   const [viewCalendarUser, setViewCalendarUser] = useState(null);
+  const [selectedDossierUser, setSelectedDossierUser] = useState(null);
   const [successMsg, setSuccessMsg] = useState('');
 
   const [formData, setFormData] = useState({
@@ -437,13 +439,23 @@ export function EmployeeManagement() {
               <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-800/80">
                 {!isOwner ? (
                   <>
-                    <button
-                      onClick={() => setViewCalendarUser(user)}
-                      className="tap-target px-3 py-1.5 rounded-xl bg-purple-950/80 hover:bg-purple-900 border border-purple-500/40 text-purple-300 text-xs font-bold flex items-center gap-1 transition active:scale-95"
-                    >
-                      <Calendar className="w-3.5 h-3.5 text-purple-400" />
-                      <span>📅 View Attendance Sheet</span>
-                    </button>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <button
+                        onClick={() => setSelectedDossierUser(user)}
+                        className="tap-target px-3 py-1.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black text-xs flex items-center gap-1 shadow-md shadow-purple-600/30 transition active:scale-95"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                        <span>👁️ 360° Dossier & AI Audit</span>
+                      </button>
+
+                      <button
+                        onClick={() => setViewCalendarUser(user)}
+                        className="tap-target px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold flex items-center gap-1 transition active:scale-95"
+                      >
+                        <Calendar className="w-3.5 h-3.5 text-purple-400" />
+                        <span>Calendar</span>
+                      </button>
+                    </div>
 
                     <div className="flex items-center gap-1.5">
                       <button
@@ -575,6 +587,15 @@ export function EmployeeManagement() {
           isOpen={Boolean(viewCalendarUser)}
           user={viewCalendarUser}
           onClose={() => setViewCalendarUser(null)}
+        />
+      )}
+
+      {/* 👑 Staff 360° Dossier & Maya AI Performance Modal */}
+      {selectedDossierUser && (
+        <Staff360DossierModal
+          isOpen={Boolean(selectedDossierUser)}
+          user={selectedDossierUser}
+          onClose={() => setSelectedDossierUser(null)}
         />
       )}
 
