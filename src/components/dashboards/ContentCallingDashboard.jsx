@@ -1867,6 +1867,14 @@ Dhanyawad!
                           <span className="text-xs font-mono text-emerald-400 font-bold">₹{call.amount}</span>
                           <span className="text-[10px] text-slate-400 font-mono">({call.shopify_order_id})</span>
 
+                          {/* 🚚 AWB Tracking Badge */}
+                          {call.shiprocket_shipment_id && call.shiprocket_shipment_id !== 'N/A' && (
+                            <span className="bg-blue-950/80 text-blue-300 border border-blue-500/40 text-[10px] font-mono font-bold px-2 py-0.5 rounded-md flex items-center gap-1">
+                              <Truck className="w-3 h-3 text-blue-400" />
+                              AWB: {call.shiprocket_shipment_id}
+                            </span>
+                          )}
+
                           {call.call_source === 'ai_agent' && (
                             <span className="bg-purple-900/60 text-purple-300 border border-purple-500/40 text-[9px] font-bold px-1.5 py-0.5 rounded">
                               🤖 AI Verified
