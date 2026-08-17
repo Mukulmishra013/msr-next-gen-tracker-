@@ -6,7 +6,7 @@ import { createClient } from '@supabase/supabase-js';
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://blnvunejbmkpckwrdyfy.supabase.co';
 const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_4sR9yc91hhMMtN9kpIpTqw_n8-muO3Z';
 
-const DEFAULT_SHIPROCKET_EMAIL = 'atulmishra9506348351@gmail.com';
+const DEFAULT_SHIPROCKET_EMAIL = 'amparohealthcare013@gmail.com';
 const DEFAULT_SHIPROCKET_PASS = '^zCGyq0I%uoef9Syy98qdZm*Z4h4ntQC';
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);

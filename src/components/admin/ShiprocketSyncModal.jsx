@@ -16,7 +16,7 @@ import {
   ExternalLink
 } from 'lucide-react';
 
-const SHIPROCKET_EMAIL = 'atulmishra9506348351@gmail.com';
+const SHIPROCKET_EMAIL = 'amparohealthcare013@gmail.com';
 const SHIPROCKET_PASS = '^zCGyq0I%uoef9Syy98qdZm*Z4h4ntQC';
 
 export function ShiprocketSyncModal({ isOpen, onClose }) {

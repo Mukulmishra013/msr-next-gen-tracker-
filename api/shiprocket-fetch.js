@@ -1,26 +1,24 @@
-// Netlify Serverless Function: Direct Shiprocket Live Orders & Historical Archive Engine
-// Endpoint: https://msrnext.netlify.app/api/shiprocket-fetch
+// Direct Shiprocket Live Orders & Historical Archive Sync Serverless Function
+// Endpoint: https://msr-next-gen-tracker.vercel.app/api/shiprocket-fetch
 
 import { createClient } from '@supabase/supabase-js';
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://blnvunejbmkpckwrdyfy.supabase.co';
 const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_4sR9yc91hhMMtN9kpIpTqw_n8-muO3Z';
 
-const DEFAULT_SHIPROCKET_EMAIL = 'atulmishra9506348351@gmail.com';
-const DEFAULT_SHIPROCKET_PASS = '^zCGyq0I%uoef9Syy98qdZm*Z4h4ntQC';
+const DEFAULT_SHIPROCKET_EMAIL = process.env.SHIPROCKET_EMAIL || process.env.VITE_SHIPROCKET_EMAIL || 'amparohealthcare013@gmail.com';
+const DEFAULT_SHIPROCKET_PASS = process.env.SHIPROCKET_PASSWORD || process.env.VITE_SHIPROCKET_PASSWORD || '^zCGyq0I%uoef9Syy98qdZm*Z4h4ntQC';
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-export default async (req) => {
+export default async function handler(req, res) {
+  // CORS Headers
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', '*');
+
   if (req.method === 'OPTIONS') {
-    return new Response(null, {
-      status: 204,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
-        'Access-Control-Allow-Headers': '*'
-      }
-    });
+    return res.status(200).end();
   }
 
   try {
@@ -31,14 +29,21 @@ export default async (req) => {
     let fetchArchive = false;
 
     if (req.method === 'POST') {
-      try {
-        const body = await req.json();
+      let body = req.body;
+      if (typeof body === 'string') {
+        try {
+          body = JSON.parse(body);
+        } catch (e) {}
+      }
+      if (body) {
         if (body.email) email = body.email.trim();
         if (body.password) password = body.password.trim();
         if (body.token) token = body.token.trim();
         if (body.csvOrders) rawCsvOrders = body.csvOrders;
         if (body.fetchArchive) fetchArchive = true;
-      } catch (e) {}
+      }
+    } else if (req.method === 'GET') {
+      if (req.query?.archive === 'true') fetchArchive = true;
     }
 
     // 1. If CSV Orders uploaded directly from Shiprocket Order Export
@@ -77,7 +82,6 @@ export default async (req) => {
         const createdAt = row['Created Date'] || row['Order Date'] || row['Date'] || new Date().toISOString();
 
         const statusUpper = status.toUpperCase();
-        // Active RTO only if not already delivered or closed 3rd attempt
         const isRtoActive = (statusUpper.includes('UNDELIVERED-1ST') || statusUpper.includes('UNDELIVERED-2ND') || statusUpper.includes('RTO INITIATED')) && !statusUpper.includes('DELIVERED');
         const isDelivered = statusUpper.includes('DELIVERED') && !statusUpper.includes('RTO');
         const isCancelled = statusUpper.includes('CANCEL') || statusUpper.includes('3RD ATTEMPT') || statusUpper.includes('RTO DELIVERED');
@@ -98,20 +102,14 @@ export default async (req) => {
       });
 
       if (mappedOrders.length > 0) {
-        await supabase.from('amparo_calls').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-        for (let i = 0; i < mappedOrders.length; i += 100) {
-          await supabase.from('amparo_calls').insert(mappedOrders.slice(i, i + 100));
-        }
+        await supabase.from('amparo_calls').upsert(mappedOrders, { onConflict: 'shopify_order_id' });
       }
 
-      return new Response(
-        JSON.stringify({
-          success: true,
-          count: mappedOrders.length,
-          orders: mappedOrders
-        }),
-        { status: 200, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
-      );
+      return res.status(200).json({
+        success: true,
+        count: mappedOrders.length,
+        orders: mappedOrders
+      });
     }
 
     // 2. Authenticate with Shiprocket REST API
@@ -126,13 +124,10 @@ export default async (req) => {
       if (authData && authData.token) {
         token = authData.token;
       } else {
-        return new Response(
-          JSON.stringify({
-            success: false,
-            message: authData.message || 'Shiprocket authentication failed.'
-          }),
-          { status: 401, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
-        );
+        return res.status(401).json({
+          success: false,
+          message: authData.message || 'Shiprocket authentication failed with email: ' + email
+        });
       }
     }
 
@@ -172,18 +167,15 @@ export default async (req) => {
         channel: s.channel_name || 'Shiprocket'
       }));
 
-      return new Response(
-        JSON.stringify({
-          success: true,
-          isArchive: true,
-          count: archiveData.length,
-          archive: archiveData
-        }),
-        { status: 200, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
-      );
+      return res.status(200).json({
+        success: true,
+        isArchive: true,
+        count: archiveData.length,
+        archive: archiveData
+      });
     }
 
-    // B. Default Live Active Orders Sync (Latest 43 Live Orders - Clean & Active)
+    // B. Default Live Active Orders Sync (Latest Live Orders from Shiprocket)
     const ordersRes = await fetch('https://apiv2.shiprocket.in/v1/external/orders?per_page=100', {
       headers: {
         'Content-Type': 'application/json',
@@ -197,8 +189,6 @@ export default async (req) => {
     const activeLiveOrders = rawOrders.map((o) => {
       const statusStr = String(o.status || '').toUpperCase();
       
-      // Urgent RTO: ONLY active 1st or 2nd attempt that can actually be rescued!
-      // Exclude 3rd attempt finished or dead RTO delivered cases from active queue
       const isRtoActive = (statusStr.includes('UNDELIVERED-1ST') || statusStr.includes('UNDELIVERED-2ND') || statusStr.includes('RTO INITIATED') || statusStr.includes('RTO IN TRANSIT')) && !statusStr.includes('3RD') && !statusStr.includes('RTO DELIVERED');
       const isDelivered = statusStr.includes('DELIVERED') && !statusStr.includes('RTO');
       const isCancelled = statusStr.includes('CANCEL') || statusStr.includes('3RD ATTEMPT') || statusStr.includes('RTO DELIVERED');
@@ -217,7 +207,7 @@ export default async (req) => {
       );
 
       const cleanDigits = rawPhone.replace(/\D/g, '');
-      const validPhone = cleanDigits.length >= 10 ? `+91${cleanDigits.slice(-10)}` : '+91';
+      const validPhone = cleanDigits.length >= 10 ? `+91${cleanDigits.slice(-10)}` : (rawPhone && !rawPhone.includes('xxx') ? rawPhone : '+91');
       const custName = o.customer_name || (o.others && o.others.billing_name) || 'Customer';
       const awb = o.shipments && o.shipments[0] ? String(o.shipments[0].awb) : '';
       const rawCourier = o.shipments && o.shipments[0] ? String(o.shipments[0].courier_name || 'Courier') : 'Courier';
@@ -225,7 +215,6 @@ export default async (req) => {
       const rawEtd = o.shipments && o.shipments[0] ? (o.shipments[0].etd || o.shipments[0].edd || o.shipments[0].expected_delivery_date || '') : '';
       const city = o.customer_city || (o.others && o.others.billing_city) || 'India';
 
-      // Smart Natural Conversational Delivery Timeline from Shiprocket Live Status
       let smartTimeline = 'तीन से पाँच दिन में';
       if (statusStr.includes('OUT FOR DELIVERY')) {
         smartTimeline = 'आज शाम तक (डिलीवरी बॉय एरिया में है)';
@@ -262,22 +251,18 @@ export default async (req) => {
     });
 
     if (activeLiveOrders.length > 0) {
-      await supabase.from('amparo_calls').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-      await supabase.from('amparo_calls').insert(activeLiveOrders);
+      await supabase.from('amparo_calls').upsert(activeLiveOrders, { onConflict: 'shopify_order_id' });
     }
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        count: activeLiveOrders.length,
-        orders: activeLiveOrders
-      }),
-      { status: 200, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
-    );
+    return res.status(200).json({
+      success: true,
+      count: activeLiveOrders.length,
+      orders: activeLiveOrders
+    });
   } catch (err) {
-    return new Response(
-      JSON.stringify({ success: false, error: err.message }),
-      { status: 500, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
-    );
+    return res.status(500).json({
+      success: false,
+      error: err.message
+    });
   }
-};
+}
