@@ -174,7 +174,25 @@ export function AppDataProvider({ children }) {
         }
 
         if (attRes.data && attRes.data.length > 0) {
-          setAttendance(attRes.data);
+          setAttendance((prev) => {
+            const map = new Map();
+            prev.forEach((item) => map.set(`${item.user_id || 'usr_priya_telecaller'}_${item.date}`, item));
+            attRes.data.forEach((item) => {
+              const uId = item.user_id || 'usr_priya_telecaller';
+              const existing = map.get(`${uId}_${item.date}`);
+              map.set(`${uId}_${item.date}`, {
+                ...existing,
+                ...item,
+                user_id: uId,
+                employee_name: item.employee_name || item.userName || existing?.employee_name || 'Priya Singh'
+              });
+            });
+            const merged = Array.from(map.values());
+            try {
+              localStorage.setItem('msr_local_attendance', JSON.stringify(merged));
+            } catch (e) {}
+            return merged;
+          });
         }
 
         if (revRes.data && revRes.data.length > 0) {

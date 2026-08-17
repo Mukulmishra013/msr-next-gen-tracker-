@@ -173,6 +173,7 @@ export function ContentCallingDashboard({ onOpenChat }) {
       supervisorAudit.runAutonomousAudit({
         user: currentUser,
         amparoCalls,
+        attendance,
         incentives
       });
       setActiveSupervisorWarnings(supervisorAudit.getActiveWarnings(currentUser?.id || 'usr_priya_telecaller'));

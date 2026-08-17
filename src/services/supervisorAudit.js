@@ -420,9 +420,12 @@ class SupervisorAuditService {
     const lastActive = userActivity?.lastActive || now - 60000;
     const idleMinutes = Math.floor((now - lastActive) / 60000);
 
+    const todayStr = new Date().toISOString().split('T')[0];
     const userAttendance = attendance.find(
-      (a) => a.user_id === user.id || a.employee_name?.toLowerCase() === user.name?.toLowerCase()
+      (a) => (a.user_id === user.id || a.employee_name?.toLowerCase() === user.name?.toLowerCase()) &&
+             (a.date === todayStr || a.status === 'present')
     );
+    const isPresent = Boolean(userAttendance && userAttendance.status === 'present');
 
     const userIncentives = incentives.filter((i) => i.user_id === user.id);
     const completedTasksCount = userIncentives.length;
@@ -434,7 +437,7 @@ class SupervisorAuditService {
     // Strict Attendance Check (WFH & Office Staff must punch daily check-in to protect daily salary)
     const workMode = getStaffWorkMode(user.id);
     const isWfh = workMode === 'WFH';
-    if ((!userAttendance || userAttendance.status === 'absent') && !recentWarningTypes.includes('ATTENDANCE')) {
+    if (!isPresent && !recentWarningTypes.includes('ATTENDANCE')) {
       this.issueWarning({
         userId: user.id,
         userName: user.name,
@@ -442,8 +445,12 @@ class SupervisorAuditService {
         severity: 'high',
         title: `🚨 Strict HR Notice: Daily Attendance Missing (${isWfh ? 'Work From Home' : 'Office On-Site'})`,
         reason: `11:00 AM Shift shuru ho chuki hai par aapne aaj ka ${isWfh ? '1-Click WFH Check-in' : 'Office GPS Check-in'} punch nahi kiya hai. Strict Rule: Bina attendance ke aaj ki daily base salary deduct ho sakti hai!`,
-        actionRequired: isWfh ? 'Upar "GPS / WFH Haaziri" button dabakar 1-Click WFH Check-In punch karein.' : 'Office geofence ke andar GPS Check-in punch karein.'
+        actionRequired: isWfh ? 'Upar "1-Click WFH Attendance" button dabakar Haaziri punch karein.' : 'Office geofence ke andar GPS Check-in punch karein.'
       });
+    } else if (isPresent) {
+      // Auto-clear attendance warnings if present
+      const attWarnings = activeWarnings.filter((w) => w.category === 'ATTENDANCE');
+      attWarnings.forEach((w) => this.dismissWarning(w.id));
     }
 
     // Inactivity Check (> 20 mins)
