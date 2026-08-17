@@ -1797,98 +1797,105 @@ Dhanyawad!
       {activeCallTab !== 'daily_duty' && activeCallTab !== 'master_archive' && (
         <div className="glass-card rounded-3xl border border-slate-800 p-5 space-y-4">
           
-          {/* Search Bar & Filter Tabs */}
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-800 pb-3">
-            <div className="flex items-center justify-between gap-3">
+          {/* Redesigned Clean Header Bar */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800/80 pb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-purple-950/80 border border-purple-500/40 flex items-center justify-center text-purple-400 shadow-md shadow-purple-500/10">
+                <ShoppingBag className="w-5 h-5" />
+              </div>
               <div>
-                <h3 className="font-extrabold text-base text-white flex items-center gap-2">
-                  <ShoppingBag className="w-4 h-4 text-purple-400" />
-                  <span>Shiprocket Orders Center ({amparoCalls.length} Total Orders)</span>
-                </h3>
-                <p className="text-xs text-slate-400">1-Click Maya AI Calling, Audio Recordings, Re-Orders & Shopify Sync</p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="font-extrabold text-base text-white tracking-wide">
+                    Shiprocket Orders Center
+                  </h3>
+                  <span className="bg-purple-500/20 text-purple-300 border border-purple-500/40 text-[11px] font-mono font-bold px-2.5 py-0.5 rounded-full">
+                    {amparoCalls.length} Total Orders
+                  </span>
+                </div>
+                <p className="text-xs text-slate-400 mt-0.5">1-Click Maya AI Calling, Audio Recordings, Re-Orders & Shopify Sync</p>
               </div>
+            </div>
 
-              {/* ⚡ 1-Click Telecaller Live Sync Button */}
+            {/* ⚡ 1-Click Telecaller Live Sync Button */}
+            <button
+              onClick={() => setShiprocketModalOpen(true)}
+              className="tap-target self-start sm:self-auto px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-xs flex items-center gap-2 shadow-lg shadow-emerald-600/30 transition active:scale-95 whitespace-nowrap"
+            >
+              <RefreshCw className="w-4 h-4" />
+              <span>⚡ Live Sync Shiprocket</span>
+            </button>
+          </div>
+
+          {/* Search Bar & Date Filter Controls */}
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pt-1">
+            {/* Search Input */}
+            <div className="relative flex-1 max-w-lg">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search by customer name, phone, order ID, or AWB tracking..."
+                className="w-full bg-slate-950 border border-slate-700/80 rounded-2xl pl-10 pr-9 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 transition shadow-inner"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white text-xs bg-slate-800 rounded-full w-5 h-5 flex items-center justify-center"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+
+            {/* Date Range Selector */}
+            <div className="flex items-center gap-1 bg-slate-950 p-1.5 rounded-2xl border border-slate-800 self-start lg:self-auto">
+              {[
+                { id: 'ALL', label: 'All Time' },
+                { id: 'TODAY', label: '📅 Today' },
+                { id: 'YESTERDAY', label: 'Yesterday' },
+                { id: '7DAYS', label: 'Last 7 Days' }
+              ].map((df) => (
+                <button
+                  key={df.id}
+                  onClick={() => setCallDateFilter(df.id)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
+                    callDateFilter === df.id
+                      ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  {df.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Queue Tabs Bar */}
+          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1 pt-1 border-t border-slate-800/60">
+            {[
+              { id: 'all', label: `All Orders (${amparoCalls.length})` },
+              { id: 'urgent_rto', label: `🚨 Urgent NDR/RTO (${urgentCount})`, highlight: true },
+              { id: 'pending', label: `⏳ Pending (${pendingCount})` },
+              { id: 'old_customers', label: `🌿 Old Customers (${oldCustomersCount})` },
+              { id: 'ai_history', label: `🎧 AI Logs & Audio (${aiCallsCount})` },
+              { id: 'ai_confirmed', label: `🟢 Confirmed (${confirmedCalls})` },
+              { id: 'ai_fake_cancelled', label: `🔴 Cancelled (${fakeCancelledCount})` }
+            ].map((tab) => (
               <button
-                onClick={() => setShiprocketModalOpen(true)}
-                className="tap-target px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-xs flex items-center gap-1.5 shadow-md shadow-emerald-600/30 transition active:scale-95 whitespace-nowrap"
+                key={tab.id}
+                onClick={() => setActiveCallTab(tab.id)}
+                className={`px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition flex items-center gap-1.5 ${
+                  activeCallTab === tab.id
+                    ? tab.highlight
+                      ? 'bg-gradient-to-r from-red-600 to-amber-600 text-white shadow-lg shadow-red-600/30 font-black'
+                      : 'bg-purple-600 text-white shadow-lg shadow-purple-600/30 font-black'
+                    : 'bg-slate-900/90 text-slate-400 hover:text-slate-200 hover:bg-slate-800 border border-slate-800'
+                }`}
               >
-                <RefreshCw className="w-3.5 h-3.5" />
-                <span>⚡ Live Sync Shiprocket</span>
+                {tab.label}
               </button>
-            </div>
-
-            <div className="flex items-center gap-2 flex-wrap">
-              {/* Search Box */}
-              <div className="relative">
-                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search name, phone, order ID..."
-                  className="bg-slate-900 border border-slate-700 rounded-xl pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 w-52 sm:w-64"
-                />
-                {searchQuery && (
-                  <button
-                    onClick={() => setSearchQuery('')}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white text-xs"
-                  >
-                    ✕
-                  </button>
-                )}
-              </div>
-
-              {/* Date Filter & Tabs */}
-              <div className="flex items-center gap-2 flex-wrap">
-                {/* Date Range Selector */}
-                <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800">
-                  {[
-                    { id: 'ALL', label: 'All Time' },
-                    { id: 'TODAY', label: '📅 Today' },
-                    { id: 'YESTERDAY', label: 'Yesterday' },
-                    { id: '7DAYS', label: 'Last 7 Days' }
-                  ].map((df) => (
-                    <button
-                      key={df.id}
-                      onClick={() => setCallDateFilter(df.id)}
-                      className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition ${
-                        callDateFilter === df.id
-                          ? 'bg-purple-600 text-white shadow-sm'
-                          : 'text-slate-400 hover:text-white'
-                      }`}
-                    >
-                      {df.label}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Queue Tabs */}
-                <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
-                  {[
-                    { id: 'all', label: `All (${amparoCalls.length})` },
-                    { id: 'urgent_rto', label: `🚨 Urgent NDR/RTO (${urgentCount})` },
-                    { id: 'pending', label: `⏳ Pending (${pendingCount})` },
-                    { id: 'old_customers', label: `🌿 Old Customers (${oldCustomersCount})` },
-                    { id: 'ai_history', label: `🎧 AI Logs & Audio (${aiCallsCount})` },
-                    { id: 'ai_confirmed', label: `🟢 Confirmed (${confirmedCalls})` },
-                    { id: 'ai_fake_cancelled', label: `🔴 Cancelled (${fakeCancelledCount})` }
-                  ].map((tab) => (
-                    <button
-                      key={tab.id}
-                      onClick={() => setActiveCallTab(tab.id)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition ${
-                        activeCallTab === tab.id
-                          ? 'bg-purple-600 text-white shadow-md shadow-purple-600/20'
-                          : 'bg-slate-900 text-slate-400 hover:text-slate-200'
-                      }`}
-                    >
-                      {tab.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
+            ))}
           </div>
 
           {/* Calls List */}
