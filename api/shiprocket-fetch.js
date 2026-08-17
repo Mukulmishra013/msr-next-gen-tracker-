@@ -112,21 +112,37 @@ export default async function handler(req, res) {
       });
     }
 
-    // 2. Authenticate with Shiprocket REST API
+    // 2. Authenticate with Shiprocket REST API (Multi-Email Auto-Fallback)
     if (!token) {
-      const authRes = await fetch('https://apiv2.shiprocket.in/v1/external/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
-      });
+      const emailCandidates = [email, 'atulmishra9506348351@gmail.com', 'amparohealthcare013@gmail.com', 'Mukulmishr8887521156@gmail.com'].filter(Boolean);
+      let authSuccess = false;
+      let lastErrorMessage = '';
 
-      const authData = await authRes.json();
-      if (authData && authData.token) {
-        token = authData.token;
-      } else {
+      for (const candEmail of emailCandidates) {
+        try {
+          const authRes = await fetch('https://apiv2.shiprocket.in/v1/external/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: candEmail, password })
+          });
+
+          const authData = await authRes.json();
+          if (authRes.ok && authData && authData.token) {
+            token = authData.token;
+            authSuccess = true;
+            break;
+          } else {
+            lastErrorMessage = authData.message || 'Authentication error';
+          }
+        } catch (e) {
+          lastErrorMessage = e.message;
+        }
+      }
+
+      if (!authSuccess || !token) {
         return res.status(401).json({
           success: false,
-          message: authData.message || 'Shiprocket authentication failed with email: ' + email
+          message: `Shiprocket authentication failed: ${lastErrorMessage}. Kripya password check karein.`
         });
       }
     }

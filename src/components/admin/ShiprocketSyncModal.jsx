@@ -19,7 +19,7 @@ import {
   Sparkles
 } from 'lucide-react';
 
-const DEFAULT_EMAIL = 'Mukulmishr8887521156@gmail.com';
+const DEFAULT_EMAIL = 'atulmishra9506348351@gmail.com';
 const DEFAULT_PASS = '^zCGyq0I%uoef9Syy98qdZm*Z4h4ntQC';
 
 export function ShiprocketSyncModal({ isOpen, onClose }) {
