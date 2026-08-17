@@ -43,12 +43,13 @@
   transform: translateY(-2px);
 }
 
-/* Big tactile mobile tap target minimum 48px */
+/* Mobile tap target styling */
 .tap-target {
-  min-height: 48px;
+  min-height: 36px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  max-width: 100%;
 }
 
 /* Subtle glow for AI agents */
