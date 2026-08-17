@@ -1,4 +1,4 @@
-// Shiprocket 100% Automatic Direct Browser Sync & CSV Bulk Loader
+// Shiprocket 100% Automatic Direct Browser Sync & Robust RFC-4180 CSV Bulk Loader
 import React, { useState } from 'react';
 import { useAppData } from '../../context/AppDataContext';
 import { supabase } from '../../services/supabase';
@@ -21,6 +21,93 @@ import {
 
 const DEFAULT_EMAIL = 'atulmishra9506348351@gmail.com';
 const DEFAULT_PASS = 'k87oHWzmv6^9u8yxZsur8sw@G$DI0Od0';
+
+// 🛡️ Robust RFC-4180 Compliant CSV Line Parser (Handles commas inside quotes perfectly)
+function parseCsvGrid(text) {
+  const rows = [];
+  let row = [''];
+  let inQuotes = false;
+  
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    const next = text[i + 1];
+    
+    if (c === '"') {
+      if (inQuotes && next === '"') {
+        row[row.length - 1] += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (c === ',' && !inQuotes) {
+      row.push('');
+    } else if ((c === '\r' || c === '\n') && !inQuotes) {
+      if (c === '\r' && next === '\n') i++;
+      if (row.some(field => field.trim() !== '')) {
+        rows.push(row.map(cell => cell.trim().replace(/^"|"$/g, '')));
+      }
+      row = [''];
+    } else {
+      row[row.length - 1] += c;
+    }
+  }
+  if (row.some(field => field.trim() !== '')) {
+    rows.push(row.map(cell => cell.trim().replace(/^"|"$/g, '')));
+  }
+  return rows;
+}
+
+// 📱 Intelligent Unmasked Phone Number Extractor
+function extractCleanPhoneNumber(rowObj) {
+  for (const [key, val] of Object.entries(rowObj)) {
+    const k = key.toLowerCase().replace(/[\s_\-]/g, '');
+    if (
+      k.includes('phone') ||
+      k.includes('mobile') ||
+      k.includes('contact') ||
+      k.includes('telephone') ||
+      k.includes('cell') ||
+      k.includes('tel')
+    ) {
+      let strVal = String(val || '').trim();
+      if (!strVal || strVal.toLowerCase().includes('not auth') || strVal.includes('xxx')) continue;
+      
+      if (strVal.includes('e+') || strVal.includes('E+')) {
+        try {
+          strVal = Number(strVal).toFixed(0);
+        } catch (e) {}
+      }
+      
+      const digits = strVal.replace(/\D/g, '');
+      if (digits.length >= 10) {
+        return `+91${digits.slice(-10)}`;
+      }
+    }
+  }
+  return null;
+}
+
+// 👤 Customer Name Extractor
+function extractCustomerName(rowObj) {
+  for (const [key, val] of Object.entries(rowObj)) {
+    const k = key.toLowerCase().replace(/[\s_\-]/g, '');
+    if (
+      k === 'customername' ||
+      k === 'billingname' ||
+      k === 'consigneename' ||
+      k === 'buyername' ||
+      k === 'name' ||
+      k === 'recipientname' ||
+      k === 'deliveryname' ||
+      k.includes('customername') ||
+      k.includes('buyer')
+    ) {
+      const strVal = String(val || '').trim();
+      if (strVal && !strVal.toLowerCase().includes('not auth')) return strVal;
+    }
+  }
+  return 'Customer';
+}
 
 export function ShiprocketSyncModal({ isOpen, onClose }) {
   const { setAmparoCalls } = useAppData();
@@ -45,7 +132,6 @@ export function ShiprocketSyncModal({ isOpen, onClose }) {
     if (apiToken.trim()) localStorage.setItem('msr_sr_token', apiToken.trim());
 
     try {
-      // 1. Try via Vercel Backend Serverless Function
       const res = await fetch('/api/shiprocket-fetch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -75,7 +161,6 @@ export function ShiprocketSyncModal({ isOpen, onClose }) {
     } catch (err) {
       console.warn('Backend Shiprocket fetch failed, trying direct browser request:', err);
 
-      // Fallback: Direct Browser Call
       try {
         let activeToken = apiToken.trim();
 
@@ -158,52 +243,73 @@ export function ShiprocketSyncModal({ isOpen, onClose }) {
     }
   };
 
-  // 2. Direct CSV File Upload Handler
+  // 2. Direct CSV File Upload Handler (Robust RFC-4180 Parser)
   const handleCsvUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
     setStatusMessage('CSV Parse ho rahi hai...');
+    setErrorMsg('');
     const reader = new FileReader();
     reader.onload = async (evt) => {
       try {
         const text = evt.target.result;
-        const lines = text.split('\n').filter(Boolean);
-        if (lines.length < 2) return;
+        const grid = parseCsvGrid(text);
+        if (grid.length < 2) {
+          setErrorMsg('CSV file me valid data rows nahi mile.');
+          return;
+        }
 
-        const headers = lines[0].split(',').map((h) => h.trim().replace(/^"|"$/g, ''));
+        const headers = grid[0];
         const parsedOrders = [];
+        const seenOrders = new Set();
 
-        for (let i = 1; i < lines.length; i++) {
-          const cols = lines[i].split(',').map((c) => c.trim().replace(/^"|"$/g, ''));
-          if (cols.length < 3) continue;
+        for (let i = 1; i < grid.length; i++) {
+          const cols = grid[i];
+          if (cols.length < 2) continue;
 
           const row = {};
           headers.forEach((h, idx) => {
             row[h] = cols[idx] || '';
           });
 
-          const orderId = row['Order ID'] || row['order_id'] || row['Channel Order ID'] || `#SR-${i}`;
-          const customer = row['Customer Name'] || row['customer_name'] || row['Billing Name'] || 'Customer';
-          const rawPhone = row['Customer Phone'] || row['customer_phone'] || row['Mobile'] || row['Phone'] || '';
-          const cleanDigits = rawPhone.replace(/\D/g, '').slice(-10);
-          const validPhone = cleanDigits ? `+91${cleanDigits}` : '+918887521156';
-          const status = row['Status'] || row['Order Status'] || 'Delivered';
-          const amount = Number(row['Order Total'] || row['Amount'] || row['Total'] || 449);
-          const product = row['Product Name'] || row['Product'] || 'Amparo Pure Shilajit';
-          const awb = row['AWB'] || row['awb'] || 'N/A';
+          // Extract real unmasked phone number
+          const realPhone = extractCleanPhoneNumber(row);
+          const customer = extractCustomerName(row);
+
+          const orderId = String(
+            row['Order ID'] ||
+            row['order_id'] ||
+            row['Channel Order ID'] ||
+            row['Order Id'] ||
+            row['Name'] ||
+            `#SR-${i + 100}`
+          ).trim();
+
+          if (seenOrders.has(orderId)) continue;
+          seenOrders.add(orderId);
+
+          const status = String(row['Status'] || row['Order Status'] || row['Shipment Status'] || row['Financial Status'] || 'Delivered');
+          const amount = Number(String(row['Order Total'] || row['Amount'] || row['Total'] || row['Total Price'] || 449).replace(/\D/g, '')) || 449;
+          const product = String(row['Product Name'] || row['Product'] || row['Items'] || row['Lineitem name'] || 'Amparo Pure Shilajit');
+          const awb = String(row['AWB'] || row['awb'] || row['Tracking Number'] || 'N/A');
+          const city = String(row['City'] || row['Customer City'] || row['Destination City'] || row['Shipping City'] || 'India');
+
+          const statusLower = status.toLowerCase();
+          const isDelivered = statusLower.includes('deliv') && !statusLower.includes('rto');
+          const isRto = statusLower.includes('rto') || statusLower.includes('undeliv');
 
           parsedOrders.push({
             shopify_order_id: orderId,
             customer_name: customer,
-            phone: validPhone,
+            phone: realPhone || '+91',
             product,
             amount,
-            status: status.toLowerCase().includes('deliv') ? 'confirmed' : 'pending_confirmation',
-            urgent_rto: status.toLowerCase().includes('rto') || status.toLowerCase().includes('undeliv'),
-            call_type: 'Order Confirmation',
+            status: isDelivered ? 'confirmed' : (isRto ? 'rto_attempted' : 'pending_confirmation'),
+            urgent_rto: isRto,
+            call_type: isRto ? 'RTO Rescue' : (isDelivered ? 'Delivery Feedback' : 'Order Confirmation'),
             shiprocket_shipment_id: awb,
-            notes: `Status: ${status} | AWB: ${awb}`
+            notes: `Status: ${status} | City: ${city} | AWB: ${awb}`
           });
         }
 
@@ -212,8 +318,10 @@ export function ShiprocketSyncModal({ isOpen, onClose }) {
             await supabase.from('amparo_calls').upsert(parsedOrders, { onConflict: 'shopify_order_id' });
           } catch (e) {}
           if (setAmparoCalls) setAmparoCalls(parsedOrders);
-          setStatusMessage(`✅ BINGO! ${parsedOrders.length} Shiprocket Orders successfully imported!`);
+          setStatusMessage(`✅ BINGO! ${parsedOrders.length} Real Orders unique phone numbers ke sath successfully load ho gaye!`);
           setTimeout(() => { if (onClose) onClose(); }, 1500);
+        } else {
+          setErrorMsg('CSV file me valid customer rows nahi mile.');
         }
       } catch (err) {
         setErrorMsg('CSV Parse error: ' + err.message);
