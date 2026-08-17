@@ -58,6 +58,8 @@ import {
 } from 'lucide-react';
 import { sounds } from '../../utils/soundEffects';
 import { StaffAttendanceCalendarModal } from '../attendance/StaffAttendanceCalendarModal';
+import { GpsCheckInModal } from '../attendance/GpsCheckInModal';
+import { getOfficeLocation, getStaffWorkMode } from '../../services/geolocation';
 
 function ProductImageBadge({ productName, size = 'md' }) {
   const isShilajit = productName?.toLowerCase()?.includes('shilajit') || productName?.toLowerCase()?.includes('gummies');
@@ -104,6 +106,7 @@ export function ContentCallingDashboard({ onOpenChat }) {
     incentives, 
     updateCallStatus, 
     updateCallPhone,
+    recordAttendanceCheckIn,
     claimTelecallerTaskIncentive,
     triggerAiCall,
     triggerBatchAiCalls,
@@ -116,6 +119,8 @@ export function ContentCallingDashboard({ onOpenChat }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [showSopModal, setShowSopModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [isGpsModalOpen, setIsGpsModalOpen] = useState(false);
+  const [punchingAttendance, setPunchingAttendance] = useState(false);
   const [activeWhatsappOrder, setActiveWhatsappOrder] = useState(null);
   const [customWaMessage, setCustomWaMessage] = useState('');
   const [targetPhone, setTargetPhone] = useState('');
@@ -127,6 +132,26 @@ export function ContentCallingDashboard({ onOpenChat }) {
   const [importStatus, setImportStatus] = useState('');
   const [isSyncingSr, setIsSyncingSr] = useState(false);
   const [isSyncingAi, setIsSyncingAi] = useState(false);
+
+  // 1-Click WFH Attendance Punch Handler
+  const handleDirectWfhPunch = async () => {
+    if (!currentUser) return;
+    setPunchingAttendance(true);
+    try {
+      const office = getOfficeLocation();
+      const coords = { lat: office.lat, lng: office.lng };
+      const res = await recordAttendanceCheckIn(currentUser, coords);
+      supervisorAudit.clearUserWarnings(currentUser.id);
+      try {
+        sounds.playCelebrate();
+      } catch (e) {}
+      alert(`🎉 Haaziri Lag Gayi: PRESENT (Work From Home) ✅\nTime: ${res.check_in_time}\nDaily Base Pay Secure Ho Gayi Hai!`);
+    } catch (e) {
+      alert('Attendance Error: ' + e.message);
+    } finally {
+      setPunchingAttendance(false);
+    }
+  };
 
   // Autonomous Maya HR & Supervisor Watchdog Alerts & Shift/Break Logic
   const [activeSupervisorWarnings, setActiveSupervisorWarnings] = useState(() => {
@@ -1093,14 +1118,29 @@ Dhanyawad!
             </button>
 
             {/* 🏠 1-Click WFH Attendance Punch Button */}
-            {!attendance.some(a => (a.user_id === currentUser?.id || a.employee_name?.toLowerCase() === currentUser?.name?.toLowerCase()) && a.status === 'present') && (
-              <button
-                onClick={() => setIsGpsModalOpen(true)}
-                className="tap-target px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-black text-xs flex items-center gap-2 shadow-lg shadow-blue-600/40 transition active:scale-95 animate-bounce-subtle"
-              >
-                <Home className="w-4 h-4" />
-                <span>🏠 Punch WFH Attendance (Save Salary)</span>
-              </button>
+            {!attendance.some(a => (a.user_id === currentUser?.id || a.employee_name?.toLowerCase() === currentUser?.name?.toLowerCase()) && a.status === 'present') ? (
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={handleDirectWfhPunch}
+                  disabled={punchingAttendance}
+                  className="tap-target px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-black text-xs flex items-center gap-2 shadow-lg shadow-blue-600/40 transition active:scale-95 animate-bounce-subtle disabled:opacity-50"
+                >
+                  <Home className="w-4 h-4" />
+                  <span>{punchingAttendance ? 'Punching...' : '🏠 1-Click WFH Attendance'}</span>
+                </button>
+                <button
+                  onClick={() => setIsGpsModalOpen(true)}
+                  className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold"
+                  title="Open Full GPS Options"
+                >
+                  <Compass className="w-4 h-4 text-emerald-400" />
+                </button>
+              </div>
+            ) : (
+              <span className="px-3 py-1.5 rounded-xl bg-emerald-950/80 border border-emerald-500/40 text-emerald-300 text-xs font-black flex items-center gap-1">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                <span>Haaziri: PRESENT ✅</span>
+              </span>
             )}
           </div>
         </div>
@@ -3262,6 +3302,14 @@ Dhanyawad!
           isOpen={showMyCalendarModal}
           user={currentUser}
           onClose={() => setShowMyCalendarModal(false)}
+        />
+      )}
+
+      {/* 📍 GPS & WFH Check-In Modal */}
+      {isGpsModalOpen && (
+        <GpsCheckInModal
+          isOpen={isGpsModalOpen}
+          onClose={() => setIsGpsModalOpen(false)}
         />
       )}
 
