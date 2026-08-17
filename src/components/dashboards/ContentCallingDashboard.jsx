@@ -243,6 +243,7 @@ export function ContentCallingDashboard({ onOpenChat }) {
   const [isArchiveLoading, setIsArchiveLoading] = useState(false);
   const [archiveFilter, setArchiveFilter] = useState('ALL');
   const [archiveSearch, setArchiveSearch] = useState('');
+  const [callDateFilter, setCallDateFilter] = useState('ALL');
 
   const handleFetchArchive = async () => {
     setIsArchiveLoading(true);
@@ -353,7 +354,12 @@ export function ContentCallingDashboard({ onOpenChat }) {
     return sum + Number(task.incentive_amount || 40);
   }, 0);
 
-  const sortedCalls = [...amparoCalls].sort((a, b) => (b.urgent_rto ? 1 : 0) - (a.urgent_rto ? 1 : 0));
+  const sortedCalls = [...amparoCalls].sort((a, b) => {
+    const timeA = new Date(a.created_at || a.date || 0).getTime();
+    const timeB = new Date(b.created_at || b.date || 0).getTime();
+    if (timeA && timeB && timeA !== timeB) return timeB - timeA;
+    return (b.urgent_rto ? 1 : 0) - (a.urgent_rto ? 1 : 0);
+  });
   
   const filteredCalls = sortedCalls.filter((c) => {
     if (searchQuery.trim()) {
@@ -362,7 +368,22 @@ export function ContentCallingDashboard({ onOpenChat }) {
       const matchOrder = (c.shopify_order_id || '').toLowerCase().includes(q);
       const matchPhone = (c.phone || '').includes(q);
       const matchProd = (c.product || '').toLowerCase().includes(q);
-      if (!matchName && !matchOrder && !matchPhone && !matchProd) return false;
+      const matchAwb = (c.shiprocket_shipment_id || '').toLowerCase().includes(q);
+      if (!matchName && !matchOrder && !matchPhone && !matchProd && !matchAwb) return false;
+    }
+
+    if (callDateFilter !== 'ALL') {
+      const now = new Date();
+      const callDate = new Date(c.created_at || c.date || now);
+      const isToday = callDate.toDateString() === now.toDateString();
+      const yesterday = new Date(now);
+      yesterday.setDate(now.getDate() - 1);
+      const isYesterday = callDate.toDateString() === yesterday.toDateString();
+      const is7Days = (now - callDate) <= 7 * 24 * 60 * 60 * 1000;
+
+      if (callDateFilter === 'TODAY' && !isToday) return false;
+      if (callDateFilter === 'YESTERDAY' && !isYesterday) return false;
+      if (callDateFilter === '7DAYS' && !is7Days) return false;
     }
 
     if (activeCallTab === 'daily_duty') return true;
@@ -1760,29 +1781,54 @@ Dhanyawad!
                 )}
               </div>
 
-              {/* Tabs */}
-              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
-                {[
-                  { id: 'all', label: `All (${amparoCalls.length})` },
-                  { id: 'urgent_rto', label: `🚨 Urgent RTO (${urgentCount})` },
-                  { id: 'pending', label: `⏳ Pending (${pendingCount})` },
-                  { id: 'old_customers', label: `🌿 Old Customers (${oldCustomersCount})` },
-                  { id: 'ai_history', label: `🎧 AI Logs & Audio (${aiCallsCount})` },
-                  { id: 'ai_confirmed', label: `🟢 Confirmed (${confirmedCalls})` },
-                  { id: 'ai_fake_cancelled', label: `🔴 Cancelled (${fakeCancelledCount})` }
-                ].map((tab) => (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveCallTab(tab.id)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition ${
-                      activeCallTab === tab.id
-                        ? 'bg-purple-600 text-white shadow-md shadow-purple-600/20'
-                        : 'bg-slate-900 text-slate-400 hover:text-slate-200'
-                    }`}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
+              {/* Date Filter & Tabs */}
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* Date Range Selector */}
+                <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800">
+                  {[
+                    { id: 'ALL', label: 'All Time' },
+                    { id: 'TODAY', label: '📅 Today' },
+                    { id: 'YESTERDAY', label: 'Yesterday' },
+                    { id: '7DAYS', label: 'Last 7 Days' }
+                  ].map((df) => (
+                    <button
+                      key={df.id}
+                      onClick={() => setCallDateFilter(df.id)}
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition ${
+                        callDateFilter === df.id
+                          ? 'bg-purple-600 text-white shadow-sm'
+                          : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      {df.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Queue Tabs */}
+                <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+                  {[
+                    { id: 'all', label: `All (${amparoCalls.length})` },
+                    { id: 'urgent_rto', label: `🚨 Urgent NDR/RTO (${urgentCount})` },
+                    { id: 'pending', label: `⏳ Pending (${pendingCount})` },
+                    { id: 'old_customers', label: `🌿 Old Customers (${oldCustomersCount})` },
+                    { id: 'ai_history', label: `🎧 AI Logs & Audio (${aiCallsCount})` },
+                    { id: 'ai_confirmed', label: `🟢 Confirmed (${confirmedCalls})` },
+                    { id: 'ai_fake_cancelled', label: `🔴 Cancelled (${fakeCancelledCount})` }
+                  ].map((tab) => (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveCallTab(tab.id)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition ${
+                        activeCallTab === tab.id
+                          ? 'bg-purple-600 text-white shadow-md shadow-purple-600/20'
+                          : 'bg-slate-900 text-slate-400 hover:text-slate-200'
+                      }`}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
@@ -1872,6 +1918,14 @@ Dhanyawad!
                             <span className="bg-blue-950/80 text-blue-300 border border-blue-500/40 text-[10px] font-mono font-bold px-2 py-0.5 rounded-md flex items-center gap-1">
                               <Truck className="w-3 h-3 text-blue-400" />
                               AWB: {call.shiprocket_shipment_id}
+                            </span>
+                          )}
+
+                          {/* 📅 Created Order Date Badge */}
+                          {call.created_at && (
+                            <span className="bg-slate-900 text-slate-300 border border-slate-700/80 text-[10px] font-mono px-2 py-0.5 rounded-md flex items-center gap-1">
+                              <Calendar className="w-3 h-3 text-purple-400" />
+                              {new Date(call.created_at).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true })}
                             </span>
                           )}
 

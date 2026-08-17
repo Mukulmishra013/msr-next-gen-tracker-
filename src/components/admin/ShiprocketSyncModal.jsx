@@ -120,6 +120,54 @@ function extractCustomerName(rowObj) {
   return 'Customer';
 }
 
+// 🚚 AWB Tracking Code Extractor
+function extractAwbCode(rowObj) {
+  for (const [key, val] of Object.entries(rowObj)) {
+    const k = key.toLowerCase().replace(/[\s_\-]/g, '');
+    if (
+      k === 'awb' ||
+      k === 'awbcode' ||
+      k === 'awbnumber' ||
+      k === 'trackingno' ||
+      k === 'trackingnumber' ||
+      k === 'waybill' ||
+      k === 'couriertracking' ||
+      k === 'shipmentid' ||
+      k.includes('awb') ||
+      k.includes('tracking')
+    ) {
+      const strVal = String(val || '').trim();
+      if (strVal && strVal !== 'N/A' && strVal !== '-' && !strVal.toLowerCase().includes('pending')) {
+        return strVal;
+      }
+    }
+  }
+  return null;
+}
+
+// 📅 Created Order Date Extractor
+function extractOrderDate(rowObj) {
+  for (const [key, val] of Object.entries(rowObj)) {
+    const k = key.toLowerCase().replace(/[\s_\-]/g, '');
+    if (
+      k === 'orderdate' ||
+      k === 'createdat' ||
+      k === 'date' ||
+      k === 'createddate' ||
+      k.includes('orderdate') ||
+      k.includes('createdat')
+    ) {
+      const strVal = String(val || '').trim();
+      if (strVal) {
+        const d = new Date(strVal);
+        if (!isNaN(d.getTime())) return d.toISOString();
+        return strVal;
+      }
+    }
+  }
+  return new Date().toISOString();
+}
+
 export function ShiprocketSyncModal({ isOpen, onClose }) {
   const { setAmparoCalls } = useAppData();
   const [email, setEmail] = useState(() => localStorage.getItem('msr_sr_email') || DEFAULT_EMAIL);
@@ -287,6 +335,8 @@ export function ShiprocketSyncModal({ isOpen, onClose }) {
           // Extract real unmasked phone number
           const realPhone = extractCleanPhoneNumber(row);
           const customer = extractCustomerName(row);
+          const awbCode = extractAwbCode(row) || String(row['AWB'] || row['awb'] || row['Tracking Number'] || '');
+          const orderDate = extractOrderDate(row);
 
           const orderId = String(
             row['Order ID'] ||
@@ -303,13 +353,23 @@ export function ShiprocketSyncModal({ isOpen, onClose }) {
           const status = String(row['Status'] || row['Order Status'] || row['Shipment Status'] || row['Financial Status'] || 'Delivered');
           const amount = parseCurrencyAmount(row['Order Total'] || row['Amount'] || row['Total'] || row['Total Price'] || row['total'], 449);
           const product = String(row['Product Name'] || row['Product'] || row['Items'] || row['Lineitem name'] || 'Amparo Pure Shilajit');
-          const awb = String(row['AWB'] || row['awb'] || row['Tracking Number'] || 'N/A');
           const city = String(row['City'] || row['Customer City'] || row['Destination City'] || row['Shipping City'] || 'India');
+          const ndrReason = String(row['NDR Reason'] || row['NDR Status'] || row['Activity'] || row['Scan Remark'] || '');
 
           const statusLower = status.toLowerCase();
-          const isFinalCancelled = statusLower.includes('cancel') || statusLower.includes('rto delivered') || statusLower.includes('3rd attempt');
+          const isFinalCancelled = statusLower.includes('cancel') || statusLower.includes('rto delivered') || statusLower.includes('3rd attempt') || statusLower.includes('lost');
           const isDelivered = statusLower.includes('deliv') && !isFinalCancelled;
-          const isRtoActive = (statusLower.includes('undeliv') || statusLower.includes('rto initiated') || statusLower.includes('rto in transit') || statusLower.includes('1st attempt') || statusLower.includes('2nd attempt')) && !isDelivered && !isFinalCancelled;
+          const isRtoActive = (
+            statusLower.includes('undeliv') ||
+            statusLower.includes('ndr') ||
+            statusLower.includes('rto initiated') ||
+            statusLower.includes('rto in transit') ||
+            statusLower.includes('1st attempt') ||
+            statusLower.includes('2nd attempt') ||
+            statusLower.includes('failed') ||
+            statusLower.includes('refused') ||
+            ndrReason.length > 0
+          ) && !isDelivered && !isFinalCancelled;
 
           let callType = 'Order Confirmation';
           let finalStatus = 'pending_confirmation';
@@ -334,8 +394,9 @@ export function ShiprocketSyncModal({ isOpen, onClose }) {
             status: finalStatus,
             urgent_rto: isRtoActive,
             call_type: callType,
-            shiprocket_shipment_id: awb,
-            notes: `Status: ${status} | City: ${city} | AWB: ${awb}`
+            shiprocket_shipment_id: awbCode || 'Pending',
+            created_at: orderDate,
+            notes: `Status: ${status}${ndrReason ? ` (NDR: ${ndrReason})` : ''} | City: ${city} | AWB: ${awbCode || 'Pending'}`
           });
         }
 
