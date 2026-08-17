@@ -232,6 +232,18 @@ export function ContentCallingDashboard({ onOpenChat }) {
   const [aiModalPhone, setAiModalPhone] = useState('');
   const [aiModalPurpose, setAiModalPurpose] = useState('ORDER_CONFIRMATION');
 
+  // 🔄 Courier NDR Re-Attempt & Reschedule Modal State
+  const [ndrModalOrder, setNdrModalOrder] = useState(null);
+  const [ndrReattemptDate, setNdrReattemptDate] = useState(() => {
+    const t = new Date();
+    t.setDate(t.getDate() + 1);
+    return t.toISOString().split('T')[0];
+  });
+  const [ndrComments, setNdrComments] = useState('Customer requested re-attempt delivery, please deliver on priority.');
+  const [ndrAlternatePhone, setNdrAlternatePhone] = useState('');
+  const [ndrAddressUpdate, setNdrAddressUpdate] = useState('');
+  const [ndrSubmitting, setNdrSubmitting] = useState(false);
+
   // Dedicated 947+ Historical Shipments Archive States
   const [archiveList, setArchiveList] = useState(() => {
     try {
@@ -407,6 +419,43 @@ export function ContentCallingDashboard({ onOpenChat }) {
     }
     return true;
   });
+
+  // 🔄 Handle Courier NDR Re-Attempt / Reschedule Action directly with Shiprocket
+  const handleSubmitNdrAction = async (actionType = 're-attempt') => {
+    if (!ndrModalOrder) return;
+    setNdrSubmitting(true);
+    try {
+      const res = await fetch('/api/shiprocket-ndr-action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          awb: ndrModalOrder.shiprocket_shipment_id,
+          orderId: ndrModalOrder.shopify_order_id,
+          action: actionType,
+          deferred_date: ndrReattemptDate,
+          comments: ndrComments,
+          phone: ndrAlternatePhone || ndrModalOrder.phone,
+          address: ndrAddressUpdate || undefined,
+          telecallerName: currentUser.name || 'Telecaller'
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        if (actionType === 're-attempt') {
+          claimTelecallerTaskIncentive(ndrModalOrder.id, 50, '🚨 RTO Rescued & Re-Attempt Scheduled', currentUser);
+          try { playCoinDrop(); } catch(e) {}
+        }
+        alert(`🎉 SHIPROCKET SUCCESS:\n${data.message}`);
+        setNdrModalOrder(null);
+      } else {
+        alert(`⚠️ Shiprocket Update Notice:\n${data.message}`);
+      }
+    } catch (err) {
+      alert('Action error: ' + err.message);
+    } finally {
+      setNdrSubmitting(false);
+    }
+  };
 
   // Handle Maya AI Call Click
   const handleAiCallButtonClick = (call, forcedPurpose = null) => {
@@ -2078,6 +2127,21 @@ Dhanyawad!
                           <span>WhatsApp ➔</span>
                         </button>
 
+                        {/* 🔄 Courier NDR Re-Attempt / Reschedule Button */}
+                        {(call.urgent_rto || call.call_type === 'RTO Rescue' || (call.notes && call.notes.includes('NDR'))) && (
+                          <button
+                            onClick={() => {
+                              setNdrModalOrder(call);
+                              setNdrAlternatePhone(String(call.phone || '').replace(/\D/g, '').slice(-10));
+                              setNdrAddressUpdate('');
+                            }}
+                            className="tap-target px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-black text-xs flex items-center gap-1.5 shadow-md shadow-amber-600/30 transition active:scale-95"
+                          >
+                            <RotateCw className="w-3.5 h-3.5 animate-spin-slow" />
+                            <span>🔄 Re-Attempt (+₹50)</span>
+                          </button>
+                        )}
+
                         <button
                           onClick={() => updateCallStatus(call.id, 'confirmed')}
                           className="tap-target px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold flex items-center gap-1 transition active:scale-95"
@@ -2955,6 +3019,148 @@ Dhanyawad!
             >
               Close Guide ➔
             </button>
+
+          </div>
+        </div>
+      )}
+
+      {/* 🔄 MODAL 6: COURIER NDR RE-ATTEMPT & RESCHEDULE (SHIPROCKET DIRECT ACTION) */}
+      {ndrModalOrder && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
+          <div className="w-full max-w-lg bg-slate-900 border border-amber-500/60 rounded-3xl p-6 shadow-2xl space-y-4 animate-scale-up my-auto">
+            
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-amber-950/80 border border-amber-500/50 flex items-center justify-center shadow-lg shadow-amber-500/20">
+                  <RotateCw className="w-5 h-5 text-amber-400 animate-spin-slow" />
+                </div>
+                <div>
+                  <h3 className="font-black text-base text-white flex items-center gap-2">
+                    <span>Courier Delivery Re-Attempt Schedule</span>
+                    <span className="text-[10px] bg-amber-500/20 border border-amber-500/40 text-amber-300 font-mono px-1.5 py-0.5 rounded">
+                      +₹50 Bounty
+                    </span>
+                  </h3>
+                  <p className="text-xs text-slate-400">Directly send instruction to Shiprocket & Courier Partner</p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setNdrModalOrder(null)}
+                className="p-1.5 rounded-xl bg-slate-800 text-slate-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Order Details Banner */}
+            <div className="p-3.5 rounded-2xl bg-slate-950 border border-slate-800 space-y-1 text-xs">
+              <div className="flex justify-between items-center">
+                <span className="text-slate-400 font-semibold">Order ID:</span>
+                <span className="font-mono text-white font-bold">{ndrModalOrder.shopify_order_id}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-400 font-semibold">Customer Name:</span>
+                <span className="text-white font-bold">{ndrModalOrder.customer_name}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-400 font-semibold">AWB Tracking Code:</span>
+                <span className="font-mono text-blue-400 font-bold bg-blue-950/60 px-2 py-0.5 rounded border border-blue-500/30">
+                  {ndrModalOrder.shiprocket_shipment_id || 'Pending'}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-400 font-semibold">Amount:</span>
+                <span className="font-mono text-emerald-400 font-bold">₹{ndrModalOrder.amount} (COD)</span>
+              </div>
+            </div>
+
+            {/* Form Fields */}
+            <div className="space-y-3">
+              
+              {/* 1. Re-Attempt Date Picker */}
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-1">
+                  📅 Re-Attempt Delivery Date:
+                </label>
+                <input
+                  type="date"
+                  value={ndrReattemptDate}
+                  onChange={(e) => setNdrReattemptDate(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs font-mono text-white focus:outline-none focus:border-amber-500"
+                />
+              </div>
+
+              {/* 2. Alternate Phone Number */}
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-1">
+                  📞 Alternate Mobile Number (Optional):
+                </label>
+                <input
+                  type="tel"
+                  maxLength={10}
+                  value={ndrAlternatePhone}
+                  onChange={(e) => setNdrAlternatePhone(e.target.value.replace(/\D/g, ''))}
+                  placeholder="Enter alternate 10-digit number if given by buyer"
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs font-mono text-white placeholder-slate-500 focus:outline-none focus:border-amber-500"
+                />
+              </div>
+
+              {/* 3. Address Update / Landmark */}
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-1">
+                  🏠 Updated Address / Landmark (Optional):
+                </label>
+                <input
+                  type="text"
+                  value={ndrAddressUpdate}
+                  onChange={(e) => setNdrAddressUpdate(e.target.value)}
+                  placeholder="e.g. Near Shiv Mandir, Gate No 2"
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500"
+                />
+              </div>
+
+              {/* 4. Instructions for Courier Delivery Boy */}
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-1">
+                  📝 Note for Delivery Boy / Courier Partner:
+                </label>
+                <textarea
+                  rows={2}
+                  value={ndrComments}
+                  onChange={(e) => setNdrComments(e.target.value)}
+                  placeholder="e.g. Customer verified, please call before delivery"
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 font-sans"
+                />
+              </div>
+
+            </div>
+
+            {/* Action Buttons */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t border-slate-800">
+              {/* Mark Return (RTO) */}
+              <button
+                type="button"
+                disabled={ndrSubmitting}
+                onClick={() => handleSubmitNdrAction('rto')}
+                className="tap-target px-4 py-2.5 rounded-xl bg-red-950/80 hover:bg-red-900 border border-red-500/50 text-red-300 font-bold text-xs flex items-center justify-center gap-1.5 transition active:scale-95 disabled:opacity-50"
+              >
+                <Ban className="w-3.5 h-3.5 text-red-400" />
+                <span>Return to Origin (RTO)</span>
+              </button>
+
+              {/* Submit Courier Re-Attempt to Shiprocket */}
+              <button
+                type="button"
+                disabled={ndrSubmitting}
+                onClick={() => handleSubmitNdrAction('re-attempt')}
+                className="tap-target px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-black text-xs flex items-center justify-center gap-2 shadow-lg shadow-orange-600/30 transition active:scale-95 disabled:opacity-50"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${ndrSubmitting ? 'animate-spin' : ''}`} />
+                <span>{ndrSubmitting ? 'Submitting to Shiprocket...' : '⚡ Submit Re-Attempt (+₹50)'}</span>
+              </button>
+            </div>
 
           </div>
         </div>
