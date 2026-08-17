@@ -97,6 +97,7 @@ export function ContentCallingDashboard({ onOpenChat }) {
   const { 
     amparoCalls, 
     setAmparoCalls, 
+    attendance = [],
     incentives, 
     updateCallStatus, 
     updateCallPhone,
