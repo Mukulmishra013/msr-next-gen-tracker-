@@ -18,8 +18,11 @@ import {
   Phone, 
   ArrowUpRight,
   Info,
-  Calendar
+  Calendar,
+  Truck,
+  Printer
 } from 'lucide-react';
+import { SalarySlipPdfModal } from './SalarySlipPdfModal';
 
 export function SalaryBreakdownCard({ onOpenUpiModal }) {
   const { currentUser } = useAuth();
@@ -27,6 +30,7 @@ export function SalaryBreakdownCard({ onOpenUpiModal }) {
   const isOwner = currentUser.role === 'owner';
 
   const [filterType, setFilterType] = useState('ALL'); // 'ALL' | 'RTO' | 'REPEAT' | 'CONFIRM'
+  const [showSlipModal, setShowSlipModal] = useState(false);
 
   const safeRevenue = revenueLog || {
     growth_amount: 18500,
@@ -280,11 +284,11 @@ export function SalaryBreakdownCard({ onOpenUpiModal }) {
 
             <div className="flex items-center gap-2 shrink-0">
               <button
-                onClick={() => alert(`✅ Salary Slip Generated for ${currentUser.name}\nMonth: August 2026\nBase Salary Accrued: ₹${baseSalaryAccrued}\nLive Calling Incentives: ₹${liveEarnedIncentiveTotal}\nTotal Payout: ₹${totalGrossEarnings}\nUPI ID: ${currentUser.upi_id || `${currentUser.phone}@upi`}`)}
-                className="tap-target px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs flex items-center gap-1.5 border border-slate-700 transition active:scale-95 w-full sm:w-auto justify-center"
+                onClick={() => setShowSlipModal(true)}
+                className="tap-target px-4 py-2.5 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black text-xs flex items-center gap-2 shadow-lg shadow-purple-600/30 transition active:scale-95 w-full sm:w-auto justify-center"
               >
-                <Download className="w-3.5 h-3.5 text-purple-400" />
-                <span>Download Slip</span>
+                <Printer className="w-4 h-4 text-purple-200" />
+                <span>🖨️ Official Salary Slip & Appraisal (PDF)</span>
               </button>
             </div>
           </div>
@@ -297,7 +301,7 @@ export function SalaryBreakdownCard({ onOpenUpiModal }) {
                   <Flame className="w-4 h-4 text-orange-400" />
                   <span>Itemized Task & Incentive Bounty History ({filteredIncentives.length} Records)</span>
                 </h4>
-                <p className="text-xs text-slate-400">Har call aur order par earned bonus ki complete live receipt</p>
+                <p className="text-xs text-slate-400">Shiprocket Live Delivery Verified — Fake claim protection active</p>
               </div>
 
               {/* Filter Pills */}
@@ -330,40 +334,96 @@ export function SalaryBreakdownCard({ onOpenUpiModal }) {
                 <p className="text-[11px] text-purple-400">Calling queue se Urgent RTOs ko call karein aur instant ₹50 per order earn karein!</p>
               </div>
             ) : (
-              <div className="space-y-2 max-h-80 overflow-y-auto pr-1 custom-scrollbar">
-                {filteredIncentives.map((inc) => (
-                  <div 
-                    key={inc.id} 
-                    className="p-3 rounded-2xl bg-slate-950/80 border border-slate-800/80 hover:border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 transition text-xs"
-                  >
-                    <div className="space-y-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-bold text-white text-xs break-words">{inc.title}</span>
-                        <span className="text-[10px] font-mono text-purple-300 bg-purple-950/80 px-2 py-0.2 rounded border border-purple-500/30">
-                          {inc.order_id || inc.call_id || 'MSR-TASK'}
+              <div className="space-y-2.5 max-h-80 overflow-y-auto pr-1 custom-scrollbar">
+                {filteredIncentives.map((inc) => {
+                  const isDelivered = inc.status === 'approved_paid' || inc.paid || inc.delivery_status === 'DELIVERED';
+                  const isOutForDelivery = inc.status === 'pending_delivery' || inc.delivery_status === 'OUT_FOR_DELIVERY';
+                  const isCancelled = inc.status === 'forfeited_cancelled' || inc.delivery_status === 'RTO';
+
+                  return (
+                    <div 
+                      key={inc.id} 
+                      className="p-3.5 rounded-2xl bg-slate-950/90 border border-slate-800/80 hover:border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition text-xs"
+                    >
+                      <div className="space-y-1.5 min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap min-w-0">
+                          <span className="font-extrabold text-white text-xs break-words">{inc.title}</span>
+                          <span className="text-[10px] font-mono text-purple-300 bg-purple-950/80 px-2 py-0.5 rounded-md border border-purple-500/30">
+                            {inc.order_id || inc.call_id || 'MSR-TASK'}
+                          </span>
+                          
+                          {/* Shiprocket Delivery Verification Badge */}
+                          {isDelivered ? (
+                            <span className="text-[9px] font-mono font-bold text-emerald-300 bg-emerald-950/80 px-2 py-0.5 rounded border border-emerald-500/40 flex items-center gap-1">
+                              <Truck className="w-2.5 h-2.5 text-emerald-400" />
+                              <span>Shiprocket: DELIVERED ✅</span>
+                            </span>
+                          ) : isOutForDelivery ? (
+                            <span className="text-[9px] font-mono font-bold text-amber-300 bg-amber-950/80 px-2 py-0.5 rounded border border-amber-500/40 flex items-center gap-1">
+                              <Clock className="w-2.5 h-2.5 text-amber-400" />
+                              <span>Shiprocket: IN-TRANSIT (Escrow ⏳)</span>
+                            </span>
+                          ) : isCancelled ? (
+                            <span className="text-[9px] font-mono font-bold text-red-300 bg-red-950/80 px-2 py-0.5 rounded border border-red-500/40">
+                              Shiprocket: RTO CANCELLED ❌
+                            </span>
+                          ) : (
+                            <span className="text-[9px] font-mono font-bold text-slate-300 bg-slate-900 px-2 py-0.5 rounded border border-slate-700">
+                              Shiprocket Verified
+                            </span>
+                          )}
+                        </div>
+
+                        <p className="text-[11px] text-slate-400">
+                          {inc.customer_name ? `Customer: ${inc.customer_name}` : 'Telecalling Performance Bounty'} • {inc.date || 'August 2026'}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0">
+                        {isDelivered ? (
+                          <span className="px-2.5 py-1 rounded-xl bg-emerald-950 text-emerald-300 border border-emerald-500/40 text-[10px] font-black flex items-center gap-1">
+                            <Check className="w-3 h-3 text-emerald-400" />
+                            <span>Bounty Added ✅</span>
+                          </span>
+                        ) : isOutForDelivery ? (
+                          <span className="px-2.5 py-1 rounded-xl bg-amber-950 text-amber-300 border border-amber-500/40 text-[10px] font-black flex items-center gap-1">
+                            <Clock className="w-3 h-3 text-amber-400" />
+                            <span>Delivery Pending</span>
+                          </span>
+                        ) : (
+                          <span className="px-2.5 py-1 rounded-xl bg-red-950 text-red-300 border border-red-500/40 text-[10px] font-black">
+                            Forfeited
+                          </span>
+                        )}
+
+                        <span className={`font-black font-mono text-sm ${isDelivered ? 'text-yellow-300' : 'text-slate-400'}`}>
+                          +₹{inc.amount || 50}
                         </span>
                       </div>
-                      <p className="text-[10px] text-slate-400">
-                        {inc.customer_name ? `Customer: ${inc.customer_name}` : 'Telecalling Performance Bounty'} • {inc.date || 'August 2026'}
-                      </p>
                     </div>
-
-                    <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0">
-                      <span className="px-2.5 py-1 rounded-xl bg-emerald-950/80 text-emerald-300 border border-emerald-500/40 text-[10px] font-black flex items-center gap-1">
-                        <Check className="w-3 h-3 text-emerald-400" />
-                        <span>Approved & Added ✅</span>
-                      </span>
-                      <span className="font-black font-mono text-sm text-yellow-300">
-                        +₹{inc.amount || 50}
-                      </span>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
 
         </div>
+      )}
+
+      {/* 📄 Official Corporate Salary Slip & Appraisal PDF Modal */}
+      {showSlipModal && (
+        <SalarySlipPdfModal
+          isOpen={showSlipModal}
+          onClose={() => setShowSlipModal(false)}
+          user={currentUser}
+          salaryData={{
+            month: 'August 2026',
+            presentDays,
+            verifiedIncentives: liveEarnedIncentiveTotal,
+            growthBonus: safeRevenue.bonus_per_member || 3320,
+            spotPraises: 0
+          }}
+        />
       )}
 
     </div>
