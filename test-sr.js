@@ -18,16 +18,14 @@ async function test() {
         headers: { 'Authorization': `Bearer ${data.token}` }
       });
       const ordData = await ordRes.json();
-      console.log('ORDERS COUNT:', ordData?.data?.length);
-      if (ordData?.data?.[0]) {
-        console.log('SAMPLE ORDER:', {
-          id: ordData.data[0].id,
-          customer_name: ordData.data[0].customer_name,
-          phone: ordData.data[0].customer_phone || ordData.data[0].customer_mobile,
-          status: ordData.data[0].status,
-          awb: ordData.data[0].shipments?.[0]?.awb
-        });
-      }
+      console.log('ALL KEYS OF ORDER[0]:', Object.keys(ordData.data[0]));
+      console.log('ORDER[0] PHONE FIELDS:', {
+        customer_phone: ordData.data[0].customer_phone,
+        customer_mobile: ordData.data[0].customer_mobile,
+        billing_phone: ordData.data[0].billing_phone,
+        shipping_phone: ordData.data[0].shipping_phone,
+        others: ordData.data[0].others
+      });
     }
   } catch (err) {
     console.error('ERROR:', err);

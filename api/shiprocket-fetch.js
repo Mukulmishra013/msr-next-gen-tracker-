@@ -267,13 +267,45 @@ export default async function handler(req, res) {
     });
 
     if (activeLiveOrders.length > 0) {
-      await supabase.from('amparo_calls').upsert(activeLiveOrders, { onConflict: 'shopify_order_id' });
+      // Fetch existing orders from database to preserve real unmasked phone numbers & customer names
+      const { data: existingDbOrders } = await supabase
+        .from('amparo_calls')
+        .select('shopify_order_id, phone, customer_name');
+
+      const phoneMap = new Map();
+      if (existingDbOrders) {
+        existingDbOrders.forEach((item) => {
+          if (item.phone && item.phone !== '+91' && !item.phone.includes('xxx')) {
+            phoneMap.set(String(item.shopify_order_id), {
+              phone: item.phone,
+              customer_name: item.customer_name
+            });
+          }
+        });
+      }
+
+      const finalMergedOrders = activeLiveOrders.map((o) => {
+        const existing = phoneMap.get(String(o.shopify_order_id));
+        return {
+          ...o,
+          phone: (o.phone && o.phone !== '+91' && !o.phone.includes('xxx')) ? o.phone : (existing?.phone || o.phone),
+          customer_name: (o.customer_name && o.customer_name !== 'Not Authorized' && o.customer_name !== 'Verified Buyer') ? o.customer_name : (existing?.customer_name || o.customer_name)
+        };
+      });
+
+      await supabase.from('amparo_calls').upsert(finalMergedOrders, { onConflict: 'shopify_order_id' });
+
+      return res.status(200).json({
+        success: true,
+        count: finalMergedOrders.length,
+        orders: finalMergedOrders
+      });
     }
 
     return res.status(200).json({
       success: true,
-      count: activeLiveOrders.length,
-      orders: activeLiveOrders
+      count: 0,
+      orders: []
     });
   } catch (err) {
     return res.status(500).json({
