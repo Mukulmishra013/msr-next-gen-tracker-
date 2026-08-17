@@ -185,10 +185,44 @@ export function AppDataProvider({ children }) {
       syncBolnaExecutions();
     });
 
-    // ⚡ Periodic Auto-Sync Every 10 Seconds for Instant Live Call Visibility
-    const bolnaInterval = setInterval(() => {
+    // ⚡ Periodic Auto-Sync Every 10 Seconds for Instant Live Call Visibility & New Webhook Orders
+    const bolnaInterval = setInterval(async () => {
       syncBolnaExecutions();
-    }, 10000);
+      try {
+        const { data } = await supabase.from('amparo_calls').select('*').order('created_at', { ascending: false }).limit(100);
+        if (data && data.length > 0) {
+          setAmparoCalls((prev) => {
+            const map = new Map();
+            data.forEach((c) => {
+              let meta = {};
+              if (c.notes && c.notes.includes('[AI_LOG]')) {
+                try {
+                  const match = c.notes.match(/\[AI_LOG\](.*?)\[\/AI_LOG\]/s);
+                  if (match && match[1]) meta = JSON.parse(match[1]);
+                } catch (e) {}
+              }
+              const item = {
+                ...c,
+                recording_url: meta.recording_url || c.recording_url || null,
+                transcript: meta.transcript || c.transcript || null,
+                ai_summary: meta.ai_summary || c.ai_summary || null,
+                ai_decision: meta.ai_decision || c.ai_decision || null,
+                call_duration_seconds: meta.call_duration || c.call_duration_seconds || null,
+                call_source: meta.call_source || (meta.recording_url ? 'ai_agent' : c.call_source),
+                action_required: meta.action_required || c.action_required || null,
+                bolna_call_id: meta.bolna_call_id || c.bolna_call_id || null
+              };
+              map.set(String(c.shopify_order_id || c.id), item);
+            });
+            prev.forEach((c) => {
+              const k = String(c.shopify_order_id || c.id);
+              if (!map.has(k)) map.set(k, c);
+            });
+            return Array.from(map.values());
+          });
+        }
+      } catch (e) {}
+    }, 15000);
 
     // 2. Real-time Subscription to Live Database Changes
     if (isSupabaseConfigured()) {
