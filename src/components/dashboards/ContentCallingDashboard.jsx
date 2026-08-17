@@ -2074,7 +2074,7 @@ Dhanyawad!
                 return (
                   <div
                     key={call.id || call.shopify_order_id}
-                    className={`p-4 rounded-2xl border transition ${
+                    className={`p-3.5 sm:p-4 rounded-2xl border transition space-y-3 ${
                       call.status === 'calling_in_progress'
                         ? 'bg-purple-950/40 border-purple-500 shadow-lg shadow-purple-950/30'
                         : call.urgent_rto
@@ -2088,178 +2088,150 @@ Dhanyawad!
                         : 'bg-slate-950/60 border-slate-800'
                     } overflow-hidden w-full max-w-full`}
                   >
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 min-w-0 w-full">
-                      
-                      {/* Customer Info */}
-                      <div className="space-y-1.5 flex-1 min-w-0 w-full break-words">
-                        <div className="flex items-center gap-2 flex-wrap min-w-0">
-                          {/* Status Badges */}
-                          {call.status === 'calling_in_progress' && (
-                            <span className="bg-purple-600 text-white text-[10px] font-black px-2.5 py-0.5 rounded-md animate-pulse flex items-center gap-1">
-                              <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping"></span>
-                              MAYA AI CALLING...
-                            </span>
-                          )}
-                          {call.urgent_rto && (
-                            <span className="bg-red-600 text-white text-[10px] font-black px-2 py-0.5 rounded-md animate-pulse">
-                              URGENT RTO
-                            </span>
-                          )}
-                          {isOldCustomer && (
-                            <span className="bg-teal-600 text-white text-[10px] font-black px-2 py-0.5 rounded-md flex items-center gap-1">
-                              <Repeat className="w-3 h-3" />
-                              OLD CUSTOMER
-                            </span>
-                          )}
-                          {(call.status === 'confirmed' || call.status === 'rto_saved') && (
-                            <span className="bg-emerald-600 text-white text-[10px] font-black px-2 py-0.5 rounded-md flex items-center gap-1">
-                              <Truck className="w-3 h-3" />
-                              CONFIRMED (SHIP)
-                            </span>
-                          )}
-                          {(call.status === 'rto_lost' || call.ai_decision === 'fake_order') && (
-                            <span className="bg-red-600 text-white text-[10px] font-black px-2 py-0.5 rounded-md flex items-center gap-1">
-                              <Ban className="w-3 h-3" />
-                              CANCEL (DO NOT SHIP)
-                            </span>
-                          )}
+                    {/* 1. Header Badges & Customer Info */}
+                    <div className="space-y-1.5 w-full min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+                        {/* Status Badges */}
+                        {call.status === 'calling_in_progress' && (
+                          <span className="bg-purple-600 text-white text-[10px] font-black px-2 py-0.5 rounded-md animate-pulse flex items-center gap-1 shrink-0">
+                            <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping"></span>
+                            MAYA CALLING...
+                          </span>
+                        )}
+                        {call.urgent_rto && (
+                          <span className="bg-red-600 text-white text-[10px] font-black px-2 py-0.5 rounded-md animate-pulse shrink-0">
+                            URGENT RTO
+                          </span>
+                        )}
+                        {isOldCustomer && (
+                          <span className="bg-teal-600 text-white text-[10px] font-black px-2 py-0.5 rounded-md flex items-center gap-1 shrink-0">
+                            <Repeat className="w-3 h-3" />
+                            OLD CUSTOMER
+                          </span>
+                        )}
+                        {(call.status === 'confirmed' || call.status === 'rto_saved') && (
+                          <span className="bg-emerald-600 text-white text-[10px] font-black px-2 py-0.5 rounded-md flex items-center gap-1 shrink-0">
+                            <Truck className="w-3 h-3" />
+                            CONFIRMED
+                          </span>
+                        )}
+                        {(call.status === 'rto_lost' || call.ai_decision === 'fake_order') && (
+                          <span className="bg-red-600 text-white text-[10px] font-black px-2 py-0.5 rounded-md flex items-center gap-1 shrink-0">
+                            <Ban className="w-3 h-3" />
+                            CANCEL
+                          </span>
+                        )}
 
-                          <span className="font-extrabold text-sm text-white truncate max-w-[140px] sm:max-w-none">{call.customer_name}</span>
-                          <span className="text-xs font-mono text-emerald-400 font-bold shrink-0">₹{call.amount}</span>
-                          <span className="text-[10px] text-slate-400 font-mono shrink-0">({call.shopify_order_id})</span>
+                        <span className="font-extrabold text-sm text-white truncate max-w-[140px] sm:max-w-none">{call.customer_name}</span>
+                        <span className="text-xs font-mono text-emerald-400 font-bold shrink-0">₹{call.amount}</span>
+                        <span className="text-[10px] text-slate-400 font-mono shrink-0">({call.shopify_order_id})</span>
 
-                          {/* 🚚 AWB Tracking Badge */}
-                          {call.shiprocket_shipment_id && call.shiprocket_shipment_id !== 'N/A' && (
-                            <span className="bg-blue-950/80 text-blue-300 border border-blue-500/40 text-[10px] font-mono font-bold px-2 py-0.5 rounded-md flex items-center gap-1 shrink-0">
-                              <Truck className="w-3 h-3 text-blue-400" />
-                              AWB: {call.shiprocket_shipment_id}
-                            </span>
-                          )}
+                        {/* 🚚 AWB Tracking Badge */}
+                        {call.shiprocket_shipment_id && call.shiprocket_shipment_id !== 'N/A' && (
+                          <span className="bg-blue-950/80 text-blue-300 border border-blue-500/40 text-[10px] font-mono font-bold px-2 py-0.5 rounded-md flex items-center gap-1 shrink-0">
+                            <Truck className="w-3 h-3 text-blue-400" />
+                            AWB: {call.shiprocket_shipment_id}
+                          </span>
+                        )}
 
-                          {/* 📅 Created Order Date Badge */}
-                          {call.created_at && (
-                            <span className="bg-slate-900 text-slate-300 border border-slate-700/80 text-[10px] font-mono px-2 py-0.5 rounded-md flex items-center gap-1 shrink-0">
-                              <Calendar className="w-3 h-3 text-purple-400" />
-                              {new Date(call.created_at).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true })}
-                            </span>
-                          )}
+                        {/* 📅 Created Order Date Badge */}
+                        {call.created_at && (
+                          <span className="bg-slate-900 text-slate-300 border border-slate-700/80 text-[10px] font-mono px-2 py-0.5 rounded-md flex items-center gap-1 shrink-0">
+                            <Calendar className="w-3 h-3 text-purple-400" />
+                            {new Date(call.created_at).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true })}
+                          </span>
+                        )}
 
-                          {/* ⚠️ NDR Attempt Badge & Alert */}
-                          {(() => {
-                            const notesUpper = String(call.notes || '').toUpperCase();
-                            const statusUpper = String(call.status || '').toUpperCase();
-                            if (notesUpper.includes('3RD ATTEMPT') || statusUpper.includes('3RD') || notesUpper.includes('ATTEMPT 3')) {
-                              return <span className="bg-red-950 text-red-300 border border-red-500 font-extrabold text-[10px] px-2 py-0.5 rounded-md animate-pulse flex items-center gap-1 shrink-0 leading-tight">🚨 3RD ATTEMPT FAIL</span>;
-                            }
-                            if (notesUpper.includes('2ND ATTEMPT') || statusUpper.includes('2ND') || notesUpper.includes('UNDELIVERED-2ND') || notesUpper.includes('ATTEMPT 2')) {
-                              return <span className="bg-amber-950 text-amber-300 border border-amber-500 font-extrabold text-[10px] px-2 py-0.5 rounded-md flex items-center gap-1 shrink-0 leading-tight">⚠️ 2ND ATTEMPT FAIL</span>;
-                            }
-                            if (notesUpper.includes('1ST ATTEMPT') || statusUpper.includes('1ST') || notesUpper.includes('UNDELIVERED-1ST') || notesUpper.includes('ATTEMPT 1') || call.urgent_rto) {
-                              return <span className="bg-orange-950 text-orange-300 border border-orange-500/70 font-bold text-[10px] px-2 py-0.5 rounded-md flex items-center gap-1 shrink-0 leading-tight">⚠️ 1ST ATTEMPT (+₹50)</span>;
-                            }
-                            return null;
-                          })()}
+                        {/* ⚠️ NDR Attempt Badge & Alert */}
+                        {(() => {
+                          const notesUpper = String(call.notes || '').toUpperCase();
+                          const statusUpper = String(call.status || '').toUpperCase();
+                          if (notesUpper.includes('3RD ATTEMPT') || statusUpper.includes('3RD') || notesUpper.includes('ATTEMPT 3')) {
+                            return <span className="bg-red-950 text-red-300 border border-red-500 font-extrabold text-[10px] px-2 py-0.5 rounded-md animate-pulse flex items-center gap-1 shrink-0">🚨 3RD ATTEMPT FAIL</span>;
+                          }
+                          if (notesUpper.includes('2ND ATTEMPT') || statusUpper.includes('2ND') || notesUpper.includes('UNDELIVERED-2ND') || notesUpper.includes('ATTEMPT 2')) {
+                            return <span className="bg-amber-950 text-amber-300 border border-amber-500 font-extrabold text-[10px] px-2 py-0.5 rounded-md flex items-center gap-1 shrink-0">⚠️ 2ND ATTEMPT FAIL</span>;
+                          }
+                          if (notesUpper.includes('1ST ATTEMPT') || statusUpper.includes('1ST') || notesUpper.includes('UNDELIVERED-1ST') || notesUpper.includes('ATTEMPT 1') || call.urgent_rto) {
+                            return <span className="bg-orange-950 text-orange-300 border border-orange-500/70 font-bold text-[10px] px-2 py-0.5 rounded-md flex items-center gap-1 shrink-0">⚠️ 1ST ATTEMPT (+₹50)</span>;
+                          }
+                          return null;
+                        })()}
 
-                          {call.call_source === 'ai_agent' && (
-                            <span className="bg-purple-900/60 text-purple-300 border border-purple-500/40 text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0">
-                              🤖 AI Verified
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Phone & Product */}
-                        <div className="flex items-center gap-2 flex-wrap min-w-0">
-                          {editingPhoneId === call.id ? (
-                            <div className="flex items-center gap-1 shrink-0">
-                              <input
-                                type="tel"
-                                autoFocus
-                                value={editingPhoneVal}
-                                onChange={(e) => setEditingPhoneVal(e.target.value)}
-                                placeholder="Enter 10-digit number"
-                                className="bg-slate-900 border border-emerald-500 rounded-lg px-2 py-0.5 text-xs font-mono text-emerald-300 w-36 focus:outline-none"
-                              />
-                              <button
-                                onClick={() => handleSavePhoneInline(call.id)}
-                                className="p-1 rounded-md bg-emerald-600 text-white hover:bg-emerald-500"
-                              >
-                                <Save className="w-3 h-3" />
-                              </button>
-                            </div>
-                          ) : (
-                            <button
-                              onClick={() => {
-                                setEditingPhoneId(call.id);
-                                setEditingPhoneVal(isMasked ? '' : String(call.phone).replace(/\D/g, '').slice(-10));
-                              }}
-                              className={`text-xs font-bold font-mono px-2.5 py-0.5 rounded-lg flex items-center gap-1.5 transition shrink-0 ${
-                                isMasked
-                                  ? 'bg-amber-950/80 text-amber-300 border border-amber-500/50 hover:bg-amber-900'
-                                  : 'bg-emerald-950/60 text-emerald-300 border border-emerald-500/40'
-                              }`}
-                            >
-                              <Phone className="w-3 h-3 text-amber-400" />
-                              <span>{displayPhone}</span>
-                              <Edit3 className="w-2.5 h-2.5 opacity-60 ml-0.5" />
-                            </button>
-                          )}
-
-                          <p className="text-xs text-slate-300 font-medium truncate max-w-[180px] sm:max-w-xs">{call.product}</p>
-                        </div>
-
-                        {/* AI Conversation Snippet / Notes */}
-                        <div className="flex items-center gap-2 min-w-0">
-                          <p className="text-[11px] text-slate-400 truncate max-w-full">
-                            {call.ai_summary ? `🤖 Maya: "${call.ai_summary}"` : call.notes}
-                          </p>
-                        </div>
+                        {call.call_source === 'ai_agent' && (
+                          <span className="bg-purple-900/60 text-purple-300 border border-purple-500/40 text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0">
+                            🤖 AI Verified
+                          </span>
+                        )}
                       </div>
 
-                      {/* Action Buttons Matrix */}
-                      <div className="grid grid-cols-2 sm:flex sm:items-center gap-1.5 w-full sm:w-auto mt-2 sm:mt-0 shrink-0">
-                        
+                      {/* Phone & Product */}
+                      <div className="flex items-center gap-2 flex-wrap min-w-0 pt-0.5">
+                        {editingPhoneId === call.id ? (
+                          <div className="flex items-center gap-1 shrink-0">
+                            <input
+                              type="tel"
+                              autoFocus
+                              value={editingPhoneVal}
+                              onChange={(e) => setEditingPhoneVal(e.target.value)}
+                              placeholder="Enter 10-digit number"
+                              className="bg-slate-900 border border-emerald-500 rounded-lg px-2 py-0.5 text-xs font-mono text-emerald-300 w-36 focus:outline-none"
+                            />
+                            <button
+                              onClick={() => handleSavePhoneInline(call.id)}
+                              className="p-1 rounded-md bg-emerald-600 text-white hover:bg-emerald-500"
+                            >
+                              <Save className="w-3 h-3" />
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => {
+                              setEditingPhoneId(call.id);
+                              setEditingPhoneVal(isMasked ? '' : String(call.phone).replace(/\D/g, '').slice(-10));
+                            }}
+                            className={`text-xs font-bold font-mono px-2 py-0.5 rounded-lg flex items-center gap-1.5 transition shrink-0 ${
+                              isMasked
+                                ? 'bg-amber-950/80 text-amber-300 border border-amber-500/50 hover:bg-amber-900'
+                                : 'bg-emerald-950/60 text-emerald-300 border border-emerald-500/40'
+                            }`}
+                          >
+                            <Phone className="w-3 h-3 text-amber-400" />
+                            <span>{displayPhone}</span>
+                            <Edit3 className="w-2.5 h-2.5 opacity-60 ml-0.5" />
+                          </button>
+                        )}
+
+                        <p className="text-xs text-slate-300 font-medium truncate max-w-[200px] sm:max-w-md">{call.product}</p>
+                      </div>
+
+                      {/* AI Conversation Snippet / Notes */}
+                      <div className="flex items-center gap-2 min-w-0 pt-0.5">
+                        <p className="text-[11px] text-slate-400 truncate max-w-full">
+                          {call.ai_summary ? `🤖 Maya: "${call.ai_summary}"` : call.notes}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* 2. Structured Action Command Strip (100% Contained) */}
+                    <div className="pt-2 border-t border-slate-800/80 space-y-2 w-full">
+                      
+                      {/* Row 1: Calling & Outreach Tools */}
+                      <div className="flex items-center gap-1.5 flex-wrap">
                         {/* 🤖 Trigger Maya AI Call Button */}
                         <button
                           onClick={() => handleAiCallButtonClick(call, isOldCustomer ? 'OLD_CUSTOMER_FEEDBACK' : null)}
                           disabled={isCallingThis}
-                          className={`tap-target px-3 py-2 rounded-xl text-white font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-md transition active:scale-95 ${
+                          className={`tap-target px-3 py-1.5 rounded-xl text-white font-extrabold text-xs flex items-center gap-1 shadow-md transition active:scale-95 ${
                             isCallingThis
                               ? 'bg-purple-700 cursor-wait animate-pulse'
                               : isOldCustomer
-                              ? 'bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 shadow-teal-600/30'
-                              : 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 shadow-purple-600/30'
+                              ? 'bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500'
+                              : 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500'
                           }`}
                         >
                           <Bot className={`w-3.5 h-3.5 text-yellow-300 ${isCallingThis ? 'animate-spin' : ''}`} />
                           <span>{isCallingThis ? 'Calling...' : (isOldCustomer ? 'Re-Order Call' : 'Maya Call')}</span>
-                        </button>
-
-                        {/* 👁️ 360° AI Call Audit & Actions */}
-                        <button
-                          onClick={() => handleOpenCustomer360(call)}
-                          className="tap-target px-3 py-2 rounded-xl bg-purple-950/80 hover:bg-purple-900 border border-purple-500/50 text-purple-200 font-bold text-xs flex items-center justify-center gap-1 shadow-sm transition active:scale-95"
-                          title="View 360° AI Call Recording, Full Transcript, WhatsApp & Actions"
-                        >
-                          <Eye className="w-3.5 h-3.5 text-purple-300" />
-                          <span>360° Audit</span>
-                        </button>
-
-                        {/* Manual Phone Call Link */}
-                        <a
-                          href={`tel:${call.phone}`}
-                          className="tap-target px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs flex items-center justify-center gap-1 transition active:scale-95"
-                        >
-                          <PhoneCall className="w-3.5 h-3.5 text-slate-400" />
-                          <span>Manual</span>
-                        </a>
-
-                        {/* AI WhatsApp Trigger */}
-                        <button
-                          onClick={() => handleOpenWhatsappModal(call)}
-                          className="tap-target px-3 py-2 rounded-xl bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-500/50 text-emerald-300 font-bold text-xs flex items-center justify-center gap-1 shadow-sm transition active:scale-95"
-                        >
-                          <MessageSquare className="w-3.5 h-3.5 text-emerald-400" />
-                          <span>WhatsApp</span>
                         </button>
 
                         {/* 🔄 Courier NDR Re-Attempt / Reschedule Button */}
@@ -2270,48 +2242,76 @@ Dhanyawad!
                               setNdrAlternatePhone(String(call.phone || '').replace(/\D/g, '').slice(-10));
                               setNdrAddressUpdate('');
                             }}
-                            className="tap-target px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-black text-xs flex items-center gap-1.5 shadow-md shadow-amber-600/30 transition active:scale-95"
+                            className="tap-target px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-black text-xs flex items-center gap-1 shadow-md shadow-orange-600/30 transition active:scale-95"
                           >
                             <RotateCw className="w-3.5 h-3.5 animate-spin-slow" />
                             <span>🔄 Re-Attempt (+₹50)</span>
                           </button>
                         )}
 
+                        {/* 👁️ 360° AI Call Audit */}
+                        <button
+                          onClick={() => handleOpenCustomer360(call)}
+                          className="tap-target px-2.5 py-1.5 rounded-xl bg-purple-950/80 hover:bg-purple-900 border border-purple-500/50 text-purple-200 font-bold text-xs flex items-center gap-1 transition active:scale-95"
+                        >
+                          <Eye className="w-3.5 h-3.5 text-purple-300" />
+                          <span>360° Audit</span>
+                        </button>
+
+                        {/* Manual Phone Call Link */}
+                        <a
+                          href={`tel:${call.phone}`}
+                          className="tap-target px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs flex items-center gap-1 transition active:scale-95"
+                        >
+                          <PhoneCall className="w-3.5 h-3.5 text-slate-400" />
+                          <span>Manual</span>
+                        </a>
+
+                        {/* AI WhatsApp Trigger */}
+                        <button
+                          onClick={() => handleOpenWhatsappModal(call)}
+                          className="tap-target px-2.5 py-1.5 rounded-xl bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-500/50 text-emerald-300 font-bold text-xs flex items-center gap-1 transition active:scale-95"
+                        >
+                          <MessageSquare className="w-3.5 h-3.5 text-emerald-400" />
+                          <span>WhatsApp</span>
+                        </button>
+                      </div>
+
+                      {/* Row 2: Status Outcome & Incentive Claims */}
+                      <div className="flex items-center gap-1.5 flex-wrap pt-1 border-t border-slate-900">
                         <button
                           onClick={() => updateCallStatus(call.id, 'confirmed')}
-                          className="tap-target px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold flex items-center gap-1 transition active:scale-95"
+                          className="tap-target px-2.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 text-xs font-bold flex items-center gap-1 transition active:scale-95"
                         >
                           <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
                           <span>Confirm</span>
                         </button>
 
                         {isCallClaimed && isCallDelivered ? (
-                          <span className="px-3 py-2 rounded-xl bg-emerald-600 text-white text-xs font-black flex items-center gap-1 shadow-md shadow-emerald-600/30">
+                          <span className="px-2.5 py-1.5 rounded-xl bg-emerald-600 text-white text-xs font-black flex items-center gap-1 shadow-md">
                             <Check className="w-3.5 h-3.5" />
-                            <span>✅ Delivered (+₹{call.urgent_rto ? 50 : 30} Paid)</span>
+                            <span>Delivered (+₹{call.urgent_rto ? 50 : 30})</span>
                           </span>
                         ) : isCallClaimed ? (
-                          <button
-                            disabled
-                            className="px-3 py-2 rounded-xl bg-amber-950/80 border border-amber-500/50 text-amber-300 text-xs font-black flex items-center gap-1 cursor-not-allowed opacity-90 shadow-sm"
-                            title="Task Done! Customer delivery hone par incentive automatic add ho jayega."
+                          <span
+                            className="px-2.5 py-1.5 rounded-xl bg-amber-950/80 border border-amber-500/50 text-amber-300 text-xs font-black flex items-center gap-1 opacity-90"
                           >
                             <Clock className="w-3.5 h-3.5 text-amber-400" />
-                            <span>⏳ Done (Pending Delivery)</span>
-                          </button>
+                            <span>Delivery Pending</span>
+                          </span>
                         ) : (
                           <button
                             onClick={() => claimTelecallerTaskIncentive(call.id, call.urgent_rto ? 50 : (call.call_type === 'Old Customer Feedback' ? 30 : 20), call.urgent_rto ? '🚨 RTO Rescued' : 'Order Done', currentUser)}
-                            className="tap-target px-3 py-2 rounded-xl bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-500/40 text-emerald-300 text-xs font-bold flex items-center gap-1 transition active:scale-95"
+                            className="tap-target px-2.5 py-1.5 rounded-xl bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-500/40 text-emerald-300 text-xs font-bold flex items-center gap-1 transition active:scale-95"
                           >
                             <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                            <span>{call.urgent_rto ? 'Save RTO (+₹50)' : 'Done (Claim)'}</span>
+                            <span>{call.urgent_rto ? 'Save RTO (+₹50)' : 'Claim Done'}</span>
                           </button>
                         )}
 
                         <button
                           onClick={() => updateCallStatus(call.id, 'rto_lost')}
-                          className="tap-target px-3 py-2 rounded-xl bg-red-950/60 hover:bg-red-900 border border-red-500/40 text-red-300 text-xs font-bold flex items-center gap-1 transition active:scale-95"
+                          className="tap-target px-2.5 py-1.5 rounded-xl bg-red-950/60 hover:bg-red-900 border border-red-500/40 text-red-300 text-xs font-bold flex items-center gap-1 transition active:scale-95"
                         >
                           <XCircle className="w-3.5 h-3.5 text-red-400" />
                           <span>Cancel</span>
