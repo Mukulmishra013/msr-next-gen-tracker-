@@ -97,7 +97,7 @@ function ProductImageBadge({ productName, size = 'md' }) {
   );
 }
 
-export function ContentCallingDashboard({ onOpenChat }) {
+export function ContentCallingDashboard({ onOpenChat, initialSubTab }) {
   const { currentUser } = useAuth();
   const { 
     amparoCalls, 
@@ -115,7 +115,13 @@ export function ContentCallingDashboard({ onOpenChat }) {
     bolnaExecutions
   } = useAppData();
 
-  const [activeCallTab, setActiveCallTab] = useState('daily_duty'); // default to Maya AI Daily Duty!
+  const [activeCallTab, setActiveCallTab] = useState(initialSubTab || 'daily_duty');
+
+  useEffect(() => {
+    if (initialSubTab) {
+      setActiveCallTab(initialSubTab);
+    }
+  }, [initialSubTab]);
   const [searchQuery, setSearchQuery] = useState('');
   const [showSopModal, setShowSopModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);

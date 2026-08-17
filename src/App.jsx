@@ -52,7 +52,12 @@ function MainApp() {
   const renderDashboardView = () => {
     switch (safeUser.role) {
       case 'content_calling':
-        return <ContentCallingDashboard onOpenChat={() => setIsMayaChatOpen(true)} />;
+        return (
+          <ContentCallingDashboard 
+            onOpenChat={() => setIsMayaChatOpen(true)} 
+            initialSubTab={activeTab === 'work' ? 'all' : 'daily_duty'}
+          />
+        );
       case 'editor_leads':
         return <EditorLeadsDashboard onOpenChat={() => setIsMayaChatOpen(true)} />;
       case 'field_executive':
