@@ -96,7 +96,7 @@ function MainApp() {
             { id: 'dashboard', label: '📊 Command Dashboard' },
             { id: 'maya_agent_hub', label: '🧠 Maya A2A Graph Hub' },
             { id: 'attendance', label: '📍 GPS Haaziri & Geofence' },
-            { id: 'payroll', label: safeUser.role === 'owner' ? '💸 UPI Payroll & Growth Pool' : '💰 Incentives & Salary' }
+            { id: 'payroll', label: safeUser.role === 'owner' ? '💸 UPI Payroll & Growth Pool' : '💰 Meri Monthly Salary & Payout' }
           ].map((tab) => (
             <button
               key={tab.id}

@@ -2086,13 +2086,13 @@ Dhanyawad!
                         : call.status === 'rto_lost' || call.ai_decision === 'fake_order'
                         ? 'bg-red-950/20 border-red-900/60 opacity-80'
                         : 'bg-slate-950/60 border-slate-800'
-                    }`}
+                    } overflow-hidden w-full max-w-full`}
                   >
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 min-w-0 w-full">
                       
                       {/* Customer Info */}
-                      <div className="space-y-1.5 flex-1">
-                        <div className="flex items-center gap-2 flex-wrap">
+                      <div className="space-y-1.5 flex-1 min-w-0 w-full break-words">
+                        <div className="flex items-center gap-2 flex-wrap min-w-0">
                           {/* Status Badges */}
                           {call.status === 'calling_in_progress' && (
                             <span className="bg-purple-600 text-white text-[10px] font-black px-2.5 py-0.5 rounded-md animate-pulse flex items-center gap-1">

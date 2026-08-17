@@ -6,48 +6,49 @@ import {
   MapPin, 
   Bot, 
   Banknote,
-  Users
+  Calendar,
+  Sparkles
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 export function BottomNav({ activeTab, setActiveTab }) {
   const { currentUser } = useAuth();
-  const isOwner = currentUser.role === 'owner';
+  const isOwner = currentUser?.role === 'owner';
 
   const navItems = [
     {
       id: 'dashboard',
-      label: 'Dashboard',
+      label: 'Home',
       icon: LayoutDashboard
     },
     {
       id: 'work',
-      label: currentUser.role === 'content_calling' ? 'Calls' :
-             currentUser.role === 'editor_leads' ? 'Videos/Leads' :
-             currentUser.role === 'field_executive' ? 'Visits' : 'Operations',
+      label: currentUser?.role === 'content_calling' ? 'Calls Queue' :
+             currentUser?.role === 'editor_leads' ? 'Videos/Leads' :
+             currentUser?.role === 'field_executive' ? 'Visits' : 'Operations',
       icon: PhoneCall
     },
     {
       id: 'maya_agent_hub',
-      label: 'Maya A2A',
+      label: 'Maya AI',
       icon: Bot,
       highlight: true
     },
     {
       id: 'attendance',
       label: 'Attendance',
-      icon: MapPin
+      icon: Calendar
     },
     {
       id: 'payroll',
-      label: isOwner ? 'Payroll & UPI' : 'Incentives',
+      label: isOwner ? 'Payroll' : 'Meri Salary',
       icon: Banknote
     }
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 bg-slate-950/95 backdrop-blur-lg border-t border-slate-800/80 px-2 py-1.5 sm:hidden">
-      <div className="flex items-center justify-around">
+    <nav className="fixed bottom-0 left-0 right-0 z-40 bg-slate-950/95 backdrop-blur-lg border-t border-slate-800/80 px-1.5 py-1 sm:hidden">
+      <div className="flex items-center justify-around max-w-md mx-auto">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = activeTab === item.id;
@@ -66,7 +67,7 @@ export function BottomNav({ activeTab, setActiveTab }) {
                   <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-purple-500 animate-ping"></span>
                 )}
               </div>
-              <span className="text-[10px] mt-0.5 tracking-tight">{item.label}</span>
+              <span className="text-[10px] mt-0.5 tracking-tight font-medium">{item.label}</span>
             </button>
           );
         })}
