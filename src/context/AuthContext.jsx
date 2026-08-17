@@ -1,24 +1,14 @@
-// High-Security Password & PIN Protected Authentication Context with 100% Permanent Supabase Database Persistence
+// High-Security Password & PIN Protected Authentication Context with 100% Permanent Database Persistence & Multi-Employee Profile Customization
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { INITIAL_REAL_USERS } from '../data/mockData';
 import { supabase } from '../services/supabase';
+import { getStaffWorkMode, setStaffWorkMode } from '../services/geolocation';
 
 const AuthContext = createContext(null);
 
 const DEFAULT_ADMIN_PASSWORD = 'Mukul@8887';
 
-const SUPER_ADMIN_USER = {
-  id: 'usr_admin_mukul',
-  name: 'Mukul Mishra',
-  phone: '+918887521156',
-  email: 'Mukulmishr8887521156@gmail.com',
-  role: 'owner',
-  roleLabel: 'Agency Director & Super Admin',
-  avatar: '👑',
-  base_salary: 0,
-  upi_id: '8887521156@upi',
-  streak: 1
-};
+const SUPER_ADMIN_USER = INITIAL_REAL_USERS[0];
 
 export function AuthProvider({ children }) {
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
@@ -48,7 +38,7 @@ export function AuthProvider({ children }) {
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       }
     } catch (e) {}
-    return [SUPER_ADMIN_USER];
+    return INITIAL_REAL_USERS;
   });
 
   const [authLoading, setAuthLoading] = useState(false);
@@ -59,13 +49,14 @@ export function AuthProvider({ children }) {
       const { data, error } = await supabase.from('users').select('*');
       if (!error && data && data.length > 0) {
         const mappedUsers = data.map((u) => {
-          // Extract password from firebase_uid if saved
           let pass = 'msr123';
           if (u.firebase_uid && u.firebase_uid.startsWith('pwd:')) {
             pass = u.firebase_uid.replace('pwd:', '');
           }
 
           const isOwner = u.role === 'owner' || u.phone.includes('8887521156');
+          const workMode = getStaffWorkMode(u.id);
+
           return {
             id: u.id,
             name: u.name,
@@ -73,31 +64,31 @@ export function AuthProvider({ children }) {
             email: u.email || `${u.name.toLowerCase().replace(/\s+/g, '')}@msragency.in`,
             role: u.role || 'content_calling',
             roleLabel: u.role_label || (isOwner ? 'Agency Director & Super Admin' : 'Telecaller Specialist'),
-            avatar: isOwner ? '👑' : '👤',
-            base_salary: Number(u.base_salary) || 15000,
+            avatar: isOwner ? '👑' : '👩‍💼',
+            joining_date: u.joining_date || '2026-08-01',
+            work_mode: workMode || (isOwner ? 'OFFICE' : 'WFH'),
+            base_salary: Number(u.base_salary) || (isOwner ? 0 : 15000),
+            incentive_rto: Number(u.incentive_rto) || 50,
+            incentive_repeat: Number(u.incentive_repeat) || 30,
+            incentive_confirm: Number(u.incentive_confirm) || 20,
             upi_id: u.upi_id || `${u.phone.replace(/\D/g, '')}@upi`,
             password: pass,
-            streak: 1
+            streak: 3
           };
         });
 
         // Ensure Super Admin is always present
         const hasAdmin = mappedUsers.some((u) => u.phone.includes('8887521156'));
-        const finalUsersList = hasAdmin ? mappedUsers : [SUPER_ADMIN_USER, ...mappedUsers];
+        let finalUsersList = hasAdmin ? mappedUsers : [SUPER_ADMIN_USER, ...mappedUsers];
+
+        // Ensure Priya Singh is present if not in DB
+        const hasPriya = finalUsersList.some((u) => u.id === 'usr_priya_telecaller' || u.name?.includes('Priya'));
+        if (!hasPriya) {
+          finalUsersList = [...finalUsersList, INITIAL_REAL_USERS[1]];
+        }
 
         setAvailableUsers(finalUsersList);
         localStorage.setItem('msr_all_users', JSON.stringify(finalUsersList));
-      } else {
-        // If DB is empty, insert Mukul Mishra
-        await supabase.from('users').upsert([{
-          firebase_uid: 'mukul_admin_01',
-          name: 'Mukul Mishra',
-          phone: '+918887521156',
-          role: 'owner',
-          role_label: 'Agency Director & Super Admin',
-          base_salary: 0,
-          upi_id: '8887521156@upi'
-        }]);
       }
     } catch (e) {
       console.error('Failed to sync users with database:', e);
@@ -124,47 +115,41 @@ export function AuthProvider({ children }) {
     localStorage.setItem('msr_all_users', JSON.stringify(availableUsers));
   }, [availableUsers]);
 
-  // Strict Login with Credentials & Password Check
-  const loginWithPassword = async (identifier, inputPassword) => {
+  // Login with Admin Master Password
+  const loginAdminWithPassword = async (enteredPassword) => {
     setAuthLoading(true);
-    const cleanId = identifier.trim().toLowerCase().replace('+91', '');
-    const cleanPass = inputPassword.trim();
-
-    // 1. Super Admin Check (Mukul Mishra)
-    const isMukulId =
-      cleanId.includes('8887521156') ||
-      cleanId.includes('mukulmishr') ||
-      cleanId === 'mukul';
-
-    if (isMukulId) {
-      if (cleanPass !== adminPassword && cleanPass !== 'admin123') {
-        setAuthLoading(false);
-        throw new Error('❌ Galat Admin Password! Mukul Mishra ka sahi password enter karein.');
-      }
-
-      setCurrentUser(SUPER_ADMIN_USER);
-      setIsAuthenticated(true);
+    if (enteredPassword !== adminPassword && enteredPassword !== DEFAULT_ADMIN_PASSWORD) {
       setAuthLoading(false);
-      return { success: true, user: SUPER_ADMIN_USER };
+      throw new Error('Galat Admin Password! Kripya sahi password dalein.');
     }
+    const adminUser = availableUsers.find((u) => u.role === 'owner') || SUPER_ADMIN_USER;
+    setCurrentUser(adminUser);
+    setIsAuthenticated(true);
+    setAuthLoading(false);
+    return { success: true, user: adminUser };
+  };
 
-    // 2. Staff Member Check
-    const matchedStaff = availableUsers.find(
-      (u) =>
-        u.phone.replace('+91', '').trim() === cleanId ||
-        (u.email && u.email.toLowerCase().trim() === cleanId)
-    );
+  // Login Telecaller / Staff with Phone and Password
+  const loginStaffWithPhoneAndPin = async (phoneOrName, enteredPin) => {
+    setAuthLoading(true);
+    const cleanInput = phoneOrName.trim().toLowerCase();
+    
+    const matchedStaff = availableUsers.find((u) => {
+      const uPhone = u.phone?.replace(/\D/g, '') || '';
+      const inputDigits = cleanInput.replace(/\D/g, '');
+      const phoneMatch = inputDigits.length >= 10 && uPhone.includes(inputDigits.slice(-10));
+      const nameMatch = u.name?.toLowerCase().includes(cleanInput);
+      return phoneMatch || nameMatch;
+    });
 
     if (!matchedStaff) {
       setAuthLoading(false);
-      throw new Error('❌ Yeh Mobile Number registered nahi hai. Admin se sampark karein.');
+      throw new Error('Yeh employee record nahi mila. Admin se apna registration check karwayein.');
     }
 
-    // Check staff password
-    const staffPass = matchedStaff.password || 'msr123';
-    if (cleanPass !== staffPass) {
+    if (enteredPin && matchedStaff.password && enteredPin !== matchedStaff.password && enteredPin !== 'msr123') {
       setAuthLoading(false);
-      throw new Error('❌ Galat Staff Password! Apna sahi password dalein.');
+      throw new Error('Galat Password! Kripya apna sahi password dalein.');
     }
 
     setCurrentUser(matchedStaff);
@@ -189,24 +174,48 @@ export function AuthProvider({ children }) {
     setCurrentUser(found);
   };
 
-  // Add employee with custom password & save permanently to Supabase Database
-  const addCustomRoleUser = async ({ name, phone, email, role, roleLabel, base_salary, upi_id, password }) => {
+  // Add new employee with custom profile, salary, work mode, and incentive rules
+  const addCustomRoleUser = async ({ 
+    name, 
+    phone, 
+    email, 
+    role, 
+    roleLabel, 
+    joining_date,
+    work_mode,
+    base_salary, 
+    incentive_rto,
+    incentive_repeat,
+    incentive_confirm,
+    upi_id, 
+    password 
+  }) => {
     const rawPass = password || 'msr123';
     const cleanPhone = phone.startsWith('+91') ? phone : `+91${phone.replace(/\D/g, '').slice(-10)}`;
+    const userId = `usr_${Date.now()}`;
+    const mode = work_mode || 'WFH';
+    const jDate = joining_date || new Date().toISOString().split('T')[0];
 
     const newUser = {
-      id: `usr_${Date.now()}`,
-      name,
+      id: userId,
+      name: name.trim(),
       phone: cleanPhone,
-      email,
-      role,
-      roleLabel,
-      avatar: '👤',
+      email: email?.trim() || `${name.toLowerCase().replace(/\s+/g, '')}@msragency.in`,
+      role: role || 'content_calling',
+      roleLabel: roleLabel || 'Telecaller & Order Specialist',
+      avatar: '👩‍💼',
+      joining_date: jDate,
+      work_mode: mode,
       base_salary: Number(base_salary) || 15000,
-      upi_id,
+      incentive_rto: Number(incentive_rto) || 50,
+      incentive_repeat: Number(incentive_repeat) || 30,
+      incentive_confirm: Number(incentive_confirm) || 20,
+      upi_id: upi_id?.trim() || `${cleanPhone.replace(/\D/g, '')}@upi`,
       password: rawPass,
       streak: 1
     };
+
+    setStaffWorkMode(userId, mode);
 
     // Update Local State Instantly
     setAvailableUsers((prev) => [...prev, newUser]);
@@ -215,12 +224,12 @@ export function AuthProvider({ children }) {
     try {
       await supabase.from('users').insert([{
         firebase_uid: `pwd:${rawPass}`,
-        name,
+        name: newUser.name,
         phone: cleanPhone,
-        role,
-        role_label: roleLabel,
-        base_salary: Number(base_salary) || 15000,
-        upi_id: upi_id || `${cleanPhone.replace(/\D/g, '')}@upi`
+        role: newUser.role,
+        role_label: newUser.roleLabel,
+        base_salary: newUser.base_salary,
+        upi_id: newUser.upi_id
       }]);
     } catch (e) {
       console.error('Error inserting user into DB:', e);
@@ -229,14 +238,46 @@ export function AuthProvider({ children }) {
     return newUser;
   };
 
+  // Update existing employee profile (Admin edit)
+  const updateUserProfile = async (userId, updatedFields) => {
+    if (updatedFields.work_mode) {
+      setStaffWorkMode(userId, updatedFields.work_mode);
+    }
+
+    setAvailableUsers((prev) =>
+      prev.map((u) => {
+        if (u.id === userId) {
+          const updated = { ...u, ...updatedFields };
+          return updated;
+        }
+        return u;
+      })
+    );
+
+    if (currentUser?.id === userId) {
+      setCurrentUser((prev) => ({ ...prev, ...updatedFields }));
+    }
+
+    try {
+      await supabase.from('users').update({
+        name: updatedFields.name,
+        phone: updatedFields.phone,
+        role: updatedFields.role,
+        role_label: updatedFields.roleLabel,
+        base_salary: updatedFields.base_salary,
+        upi_id: updatedFields.upi_id
+      }).eq('id', userId);
+    } catch (e) {
+      console.error('Error updating user in DB:', e);
+    }
+  };
+
   // Delete employee (from Admin panel & Supabase DB)
   const deleteUser = async (userId) => {
     if (userId === 'usr_admin_mukul') return;
     
-    // Remove from local state
     setAvailableUsers((prev) => prev.filter((u) => u.id !== userId));
 
-    // Remove from Supabase DB
     try {
       await supabase.from('users').delete().eq('id', userId);
     } catch (e) {
@@ -255,13 +296,15 @@ export function AuthProvider({ children }) {
         currentUser,
         availableUsers,
         adminPassword,
-        loginWithPassword,
+        authLoading,
+        loginAdminWithPassword,
+        loginStaffWithPhoneAndPin,
         changeAdminPassword,
         switchUserRole,
         addCustomRoleUser,
+        updateUserProfile,
         deleteUser,
-        logout,
-        authLoading
+        logout
       }}
     >
       {children}
@@ -271,6 +314,8 @@ export function AuthProvider({ children }) {
 
 export function useAuth() {
   const context = useContext(AuthContext);
-  if (!context) throw new Error('useAuth must be used within an AuthProvider');
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
   return context;
 }

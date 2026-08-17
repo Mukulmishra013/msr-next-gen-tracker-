@@ -54,6 +54,7 @@ import {
   Star
 } from 'lucide-react';
 import { sounds } from '../../utils/soundEffects';
+import { StaffAttendanceCalendarModal } from '../attendance/StaffAttendanceCalendarModal';
 
 function ProductImageBadge({ productName, size = 'md' }) {
   const isShilajit = productName?.toLowerCase()?.includes('shilajit') || productName?.toLowerCase()?.includes('gummies');
@@ -165,6 +166,9 @@ export function ContentCallingDashboard({ onOpenChat }) {
       unsub();
     };
   }, [currentUser, amparoCalls, incentives]);
+
+  // Personal Attendance Sheet & Calendar Modal State
+  const [showMyCalendarModal, setShowMyCalendarModal] = useState(false);
 
   // Admin Assigned Extra Tasks & Missions
   const [adminAssignedTasks, setAdminAssignedTasks] = useState(() => {
@@ -1074,16 +1078,27 @@ Dhanyawad!
             </div>
           </div>
 
-          {/* 🏠 1-Click WFH Attendance Punch Button */}
-          {!attendance.some(a => (a.user_id === currentUser?.id || a.employee_name?.toLowerCase() === currentUser?.name?.toLowerCase()) && a.status === 'present') && (
+          <div className="flex items-center gap-2 flex-wrap self-start sm:self-auto">
+            {/* 📅 View My Attendance Sheet & Calendar Button */}
             <button
-              onClick={() => setIsGpsModalOpen(true)}
-              className="tap-target px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-black text-xs flex items-center gap-2 shadow-lg shadow-blue-600/40 transition active:scale-95 animate-bounce-subtle self-start sm:self-auto"
+              onClick={() => setShowMyCalendarModal(true)}
+              className="tap-target px-3.5 py-2 rounded-xl bg-purple-950/80 hover:bg-purple-900 border border-purple-500/50 text-purple-200 font-bold text-xs flex items-center gap-1.5 shadow-md transition active:scale-95"
             >
-              <Home className="w-4 h-4" />
-              <span>🏠 Punch WFH Attendance (Save Salary)</span>
+              <Calendar className="w-4 h-4 text-purple-400" />
+              <span>📅 Meri Attendance Sheet</span>
             </button>
-          )}
+
+            {/* 🏠 1-Click WFH Attendance Punch Button */}
+            {!attendance.some(a => (a.user_id === currentUser?.id || a.employee_name?.toLowerCase() === currentUser?.name?.toLowerCase()) && a.status === 'present') && (
+              <button
+                onClick={() => setIsGpsModalOpen(true)}
+                className="tap-target px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-black text-xs flex items-center gap-2 shadow-lg shadow-blue-600/40 transition active:scale-95 animate-bounce-subtle"
+              >
+                <Home className="w-4 h-4" />
+                <span>🏠 Punch WFH Attendance (Save Salary)</span>
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Smart Advice Feed */}
@@ -3235,6 +3250,15 @@ Dhanyawad!
 
           </div>
         </div>
+      )}
+
+      {/* 📅 Personal Attendance Sheet & Calendar Modal */}
+      {showMyCalendarModal && (
+        <StaffAttendanceCalendarModal
+          isOpen={showMyCalendarModal}
+          user={currentUser}
+          onClose={() => setShowMyCalendarModal(false)}
+        />
       )}
 
     </div>
