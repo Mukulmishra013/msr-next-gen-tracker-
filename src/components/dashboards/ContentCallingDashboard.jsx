@@ -51,7 +51,10 @@ import {
   Eye,
   Calendar,
   Trophy,
-  Star
+  Star,
+  Home,
+  Building2,
+  Compass
 } from 'lucide-react';
 import { sounds } from '../../utils/soundEffects';
 import { StaffAttendanceCalendarModal } from '../attendance/StaffAttendanceCalendarModal';

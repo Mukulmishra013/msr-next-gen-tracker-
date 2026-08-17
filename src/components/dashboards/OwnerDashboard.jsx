@@ -49,7 +49,10 @@ import {
   Smartphone,
   Eye,
   Lightbulb,
-  Calendar
+  Calendar,
+  Compass,
+  Home,
+  Building2
 } from 'lucide-react';
 
 export function OwnerDashboard({ onOpenUpiModal, onOpenChat }) {
