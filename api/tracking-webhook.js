@@ -1,6 +1,5 @@
-// Netlify Serverless Function: Tracking & Logistics Webhook Receiver
-// Endpoint: https://msrnext.netlify.app/api/tracking-webhook
-// Automatically syncs Shipment Tracking Status with Amparo Calls Queue
+// Real-Time Logistics & Tracking Webhook Receiver for Shiprocket Tracking Events
+// Endpoint: https://msr-next-gen-tracker.vercel.app/api/tracking-webhook
 
 import { createClient } from '@supabase/supabase-js';
 
@@ -9,31 +8,36 @@ const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-export default async (req) => {
-  // 1. Handle CORS Preflight & Health Checks (GET / OPTIONS / HEAD)
-  if (req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS') {
-    return new Response(
-      JSON.stringify({
-        status: 'active',
-        service: 'MSR Next Gen Tracking Webhook Listener',
-        timestamp: new Date().toISOString()
-      }),
-      {
-        status: 200,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-          'Access-Control-Allow-Headers': '*'
-        }
-      }
-    );
+export default async function handler(req, res) {
+  // CORS Headers
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, HEAD, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', '*');
+
+  if (req.method === 'OPTIONS' || req.method === 'HEAD') {
+    return res.status(200).end();
   }
 
-  // 2. Handle POST Tracking Webhook
+  if (req.method === 'GET') {
+    return res.status(200).json({
+      status: 'active',
+      service: 'MSR Next Gen Tracking Webhook Listener',
+      timestamp: new Date().toISOString()
+    });
+  }
+
   if (req.method === 'POST') {
     try {
-      const payload = await req.json();
+      let payload = req.body;
+      if (typeof payload === 'string') {
+        try {
+          payload = JSON.parse(payload);
+        } catch (e) {}
+      }
+
+      if (!payload) {
+        return res.status(200).json({ status: 'ok', message: 'Empty payload received' });
+      }
 
       // Extract tracking details
       const awb = payload.awb ? String(payload.awb) : null;
@@ -82,42 +86,30 @@ export default async (req) => {
       if (awb) conditions.push(`shiprocket_shipment_id.eq.${awb}`);
 
       if (conditions.length > 0) {
-        const { data, error } = await supabase
+        await supabase
           .from('amparo_calls')
           .update(updateFields)
           .or(conditions.join(','));
-
-        if (error) {
-          console.error('Supabase update error:', error);
-        }
       }
 
-      return new Response(
-        JSON.stringify({
-          success: true,
-          message: 'Tracking status received and processed by MSR Next Gen.',
-          parsed: {
-            awb,
-            currentStatus,
-            isUrgentRto,
-            isDelivered
-          }
-        }),
-        {
-          status: 200,
-          headers: {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*'
-          }
+      return res.status(200).json({
+        success: true,
+        message: 'Tracking status received and processed by MSR Next Gen.',
+        parsed: {
+          awb,
+          orderId,
+          channelOrderId,
+          status: currentStatus,
+          isUrgentRto
         }
-      );
+      });
     } catch (err) {
-      return new Response(JSON.stringify({ error: err.message }), {
-        status: 200, // Return 200 so validator passes
-        headers: { 'Content-Type': 'application/json' }
+      return res.status(500).json({
+        success: false,
+        error: err.message
       });
     }
   }
 
-  return new Response(JSON.stringify({ status: 'ok' }), { status: 200 });
-};
+  return res.status(405).json({ message: 'Method Not Allowed' });
+}
