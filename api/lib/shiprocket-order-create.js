@@ -1,8 +1,8 @@
 // Shiprocket Adhoc Order Creation Service: Auto-Create Fulfillment Order on Maya AI Confirmation
 // Endpoint: https://msrnext.netlify.app/api/shiprocket-order-create
 
-const SHIPROCKET_EMAIL = process.env.SHIPROCKET_EMAIL || process.env.VITE_SHIPROCKET_EMAIL || 'amparohealthcare013@gmail.com';
-const SHIPROCKET_PASSWORD = process.env.SHIPROCKET_PASSWORD || process.env.VITE_SHIPROCKET_PASSWORD || '^zCGyq0I%uoef9Syy98qdZm*Z4h4ntQC';
+const SHIPROCKET_EMAIL = process.env.SHIPROCKET_EMAIL || process.env.VITE_SHIPROCKET_EMAIL || 'atulmishra9506348351@gmail.com';
+const SHIPROCKET_PASSWORD = process.env.SHIPROCKET_PASSWORD || process.env.VITE_SHIPROCKET_PASSWORD || 'k87oHWzmv6^9u8yxZsur8sw@G$DI0Od0';
 
 let cachedToken = null;
 let tokenExpiry = 0;

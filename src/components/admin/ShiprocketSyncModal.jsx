@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 
 const DEFAULT_EMAIL = 'atulmishra9506348351@gmail.com';
-const DEFAULT_PASS = '^zCGyq0I%uoef9Syy98qdZm*Z4h4ntQC';
+const DEFAULT_PASS = 'k87oHWzmv6^9u8yxZsur8sw@G$DI0Od0';
 
 export function ShiprocketSyncModal({ isOpen, onClose }) {
   const { setAmparoCalls } = useAppData();
