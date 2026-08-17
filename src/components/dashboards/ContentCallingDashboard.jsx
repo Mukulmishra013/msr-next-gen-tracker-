@@ -1118,30 +1118,50 @@ Dhanyawad!
             </button>
 
             {/* 🏠 1-Click WFH Attendance Punch Button */}
-            {!attendance.some(a => (a.user_id === currentUser?.id || a.employee_name?.toLowerCase() === currentUser?.name?.toLowerCase()) && a.status === 'present') ? (
-              <div className="flex items-center gap-1.5">
-                <button
-                  onClick={handleDirectWfhPunch}
-                  disabled={punchingAttendance}
-                  className="tap-target px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-black text-xs flex items-center gap-2 shadow-lg shadow-blue-600/40 transition active:scale-95 animate-bounce-subtle disabled:opacity-50"
-                >
-                  <Home className="w-4 h-4" />
-                  <span>{punchingAttendance ? 'Punching...' : '🏠 1-Click WFH Attendance'}</span>
-                </button>
-                <button
-                  onClick={() => setIsGpsModalOpen(true)}
-                  className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold"
-                  title="Open Full GPS Options"
-                >
-                  <Compass className="w-4 h-4 text-emerald-400" />
-                </button>
-              </div>
-            ) : (
-              <span className="px-3 py-1.5 rounded-xl bg-emerald-950/80 border border-emerald-500/40 text-emerald-300 text-xs font-black flex items-center gap-1">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                <span>Haaziri: PRESENT ✅</span>
-              </span>
-            )}
+            {(() => {
+              const todayStr = new Date().toISOString().split('T')[0];
+              const todayRecord = attendance.find(
+                a => (a.user_id === currentUser?.id || a.employee_name?.toLowerCase() === currentUser?.name?.toLowerCase()) &&
+                     (a.date === todayStr || a.status === 'present')
+              );
+              const isPresent = Boolean(todayRecord && todayRecord.status === 'present');
+
+              return !isPresent ? (
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={handleDirectWfhPunch}
+                    disabled={punchingAttendance}
+                    className="tap-target px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-black text-xs flex items-center gap-2 shadow-lg shadow-blue-600/40 transition active:scale-95 animate-bounce-subtle disabled:opacity-50"
+                  >
+                    <Home className="w-4 h-4" />
+                    <span>{punchingAttendance ? 'Punching...' : '🏠 1-Click WFH Attendance'}</span>
+                  </button>
+                  <button
+                    onClick={() => setIsGpsModalOpen(true)}
+                    className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold"
+                    title="Open Full GPS Options"
+                  >
+                    <Compass className="w-4 h-4 text-emerald-400" />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 bg-emerald-950/90 border border-emerald-500/60 rounded-2xl px-3.5 py-1.5 shadow-lg shadow-emerald-950/40">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <div className="text-left">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs font-black text-emerald-300">PRESENT ✅</span>
+                      <span className="text-[10px] font-mono font-bold text-emerald-200 bg-emerald-900/60 px-1.5 py-0.2 rounded border border-emerald-500/40 flex items-center gap-0.5">
+                        <Clock className="w-3 h-3 text-emerald-400 inline" />
+                        <span>{todayRecord?.check_in_time || new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</span>
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-emerald-400/80 font-semibold">
+                      🏠 Work From Home Shift Active
+                    </p>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </div>
 
