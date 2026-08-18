@@ -1,7 +1,7 @@
 // Training Masterclass Cloud Service - Live Supabase Cloud Sync & Realtime Broadcast
 import { supabase, isSupabaseConfigured } from './supabase';
 
-const TRAINING_STORAGE_KEY = 'msr_training_videos_v8';
+const TRAINING_STORAGE_KEY = 'msr_training_videos_v9';
 
 // 🌟 20-25 Top-Level Real-World Scenario Question Banks
 const TELECALLER_20_QUESTIONS = [
@@ -65,37 +65,37 @@ export const INITIAL_TRAINING_VIDEOS = [
     quiz_questions: TELECALLER_20_QUESTIONS
   },
   {
-    id: 'vid-04-cold-calling',
-    title: 'Module #4: Cold Calling Masterclass — A to Z of Cold Calling & Customer Pitch (TS Madaan)',
-    description: 'Cold call me fear aur hesitation dur karna, initial rejection ko interest me badalna aur call closing rate 3X boost karna.',
-    youtube_url: 'https://www.youtube.com/watch?v=k5Sg84v2f0s',
-    embed_id: 'k5Sg84v2f0s',
-    category: 'Cold Calling & Lead Conversion',
+    id: 'vid-04-sales-closing',
+    title: 'Module #4: Sales Closing Masterclass — Use Paise Dene Hi Honge (Harshvardhan Jain)',
+    description: 'Customer ko final payment / COD confirm karne ka psychology method, urgency create karna aur deals lock karna.',
+    youtube_url: 'https://www.youtube.com/watch?v=pjGjSpUIBnM',
+    embed_id: 'pjGjSpUIBnM',
+    category: 'Closing Mastery',
     duration_minutes: 11,
     assigned_to: 'ALL',
     completed_by: [],
     quiz_questions: TELECALLER_20_QUESTIONS
   },
   {
-    id: 'vid-05-rto-reduction',
-    title: 'Module #5: E-Commerce RTO Control & NDR Delivery Rescue Strategy (+₹50 Bounty)',
-    description: 'Delivery attempt fail hone par courier supervisor se coordination, customer address correction aur RTO 0% karne ki live telecalling.',
-    youtube_url: 'https://www.youtube.com/watch?v=7uVmsE3n8g4',
-    embed_id: '7uVmsE3n8g4',
-    category: 'NDR Rescue (+₹50 Bounty)',
-    duration_minutes: 9,
+    id: 'vid-05-selling-process',
+    title: 'Module #5: Selling Process — Bechte Waqt Customer Ko Samjhane Ka Tareeqa (Harshvardhan Jain)',
+    description: 'Customer handling step-by-step process, delivery trust build karna aur high conversion ensure karna.',
+    youtube_url: 'https://www.youtube.com/watch?v=fGK-FzN8Ai0',
+    embed_id: 'fGK-FzN8Ai0',
+    category: 'Selling Process',
+    duration_minutes: 13,
     assigned_to: 'ALL',
     completed_by: [],
     quiz_questions: TELECALLER_20_QUESTIONS
   },
   {
-    id: 'vid-06-cod-verification',
-    title: 'Module #6: COD Order Confirmation, Address Verification & 0% RTO Masterclass',
-    description: 'Pin-code aur landmark match karna, WhatsApp confirmation drop karna aur high delivery rate achieve karna.',
-    youtube_url: 'https://www.youtube.com/watch?v=3g_l_YxY-B0',
-    embed_id: '3g_l_YxY-B0',
-    category: 'COD Verification & Trust',
-    duration_minutes: 9,
+    id: 'vid-06-customer-followup',
+    title: 'Module #6: Customer Follow-up & Retention Masterclass (Harshvardhan Jain)',
+    description: 'Pending leads ko re-call karna, warm customer relationship maintain karna aur repeat orders generate karna.',
+    youtube_url: 'https://www.youtube.com/watch?v=eAAqAsWTEys',
+    embed_id: 'eAAqAsWTEys',
+    category: 'Follow-up & Retention',
+    duration_minutes: 14,
     assigned_to: 'ALL',
     completed_by: [],
     quiz_questions: TELECALLER_20_QUESTIONS
@@ -140,7 +140,7 @@ class TrainingService {
       const saved = localStorage.getItem(TRAINING_STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length >= 6 && parsed.some((p) => p.id === 'vid-04-cold-calling')) {
+        if (Array.isArray(parsed) && parsed.length >= 6 && parsed.some((p) => p.id === 'vid-04-sales-closing')) {
           return parsed;
         }
       }
@@ -192,7 +192,7 @@ class TrainingService {
     }
 
     const currentLocal = this.getVideos();
-    const baseList = cloudList && cloudList.length >= 6 && cloudList.some((p) => p.id === 'vid-04-cold-calling') ? cloudList : currentLocal;
+    const baseList = cloudList && cloudList.length >= 6 && cloudList.some((p) => p.id === 'vid-04-sales-closing') ? cloudList : currentLocal;
 
     // Merge with defaults to ensure all 6 distinct modules are present in order
     const merged = [...baseList];
