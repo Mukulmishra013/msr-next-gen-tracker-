@@ -83,6 +83,8 @@ function MainApp() {
         onOpenGps={() => setIsGpsOpen(true)}
         onOpenMaya={() => setIsMayaChatOpen(true)}
         onOpenRoleModal={() => setIsRoleModalOpen(true)}
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
       />
 
       {/* Main Container */}
