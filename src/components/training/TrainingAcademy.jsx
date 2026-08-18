@@ -71,7 +71,7 @@ export function TrainingAcademy() {
       });
     });
 
-    // Cloud fetch on mount
+    // Cloud fetch on mount + 4s Auto Polling
     trainingService.fetchCloudVideos().then((data) => {
       if (data && data.length > 0) {
         setVideos(data);
@@ -79,7 +79,14 @@ export function TrainingAcademy() {
       }
     });
 
-    return () => unsubscribe();
+    const pollInterval = setInterval(() => {
+      trainingService.fetchCloudVideos();
+    }, 4000);
+
+    return () => {
+      unsubscribe();
+      clearInterval(pollInterval);
+    };
   }, []);
 
   // Timer effect for watching video

@@ -2,6 +2,7 @@
 import { supabase, isSupabaseConfigured } from './supabase';
 
 const TRAINING_STORAGE_KEY = 'msr_training_videos';
+const CLOUD_CATALOG_KEY = 'SYSTEM_TRAINING_CATALOG';
 
 // 🌟 20-25 Top-Level Real-World Scenario Question Banks
 const NDR_20_QUESTIONS = [
@@ -29,6 +30,18 @@ const NDR_20_QUESTIONS = [
 
 export const INITIAL_TRAINING_VIDEOS = [
   {
+    id: 'vid-bindra-01',
+    title: 'Sales दुनिया का सबसे आसान काम है | 4 Sales Secrets | Hindi Video | Dr Vivek Bindra',
+    description: 'Dr Vivek Bindra 4 Golden Sales Secrets, Customer Psychology & Closing Strategies.',
+    youtube_url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+    embed_id: 'dQw4w9WgXcQ',
+    category: 'Sales Psychology',
+    duration_minutes: 8,
+    assigned_to: 'ALL',
+    completed_by: [],
+    quiz_questions: NDR_20_QUESTIONS
+  },
+  {
     id: 'vid-01',
     title: 'NDR Rescue & RTO Conversion Masterclass',
     description: 'Customer ko 1st/2nd Delivery Attempt fail hone par kaise convince karein aur delivery confirm karwayein.',
@@ -48,18 +61,6 @@ export const INITIAL_TRAINING_VIDEOS = [
     embed_id: 'dQw4w9WgXcQ',
     category: 'Product Mastery',
     duration_minutes: 6,
-    assigned_to: 'ALL',
-    completed_by: [],
-    quiz_questions: NDR_20_QUESTIONS
-  },
-  {
-    id: 'vid-03',
-    title: 'Telecalling Tone, Etiquette & 30-Second Hook',
-    description: 'Pehle 10 second me customer ka trust kaise jeetein aur call cut hone se kaise bachayein.',
-    youtube_url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
-    embed_id: 'dQw4w9WgXcQ',
-    category: 'Sales Psychology',
-    duration_minutes: 5,
     assigned_to: 'ALL',
     completed_by: [],
     quiz_questions: NDR_20_QUESTIONS
@@ -110,54 +111,59 @@ class TrainingService {
     return INITIAL_TRAINING_VIDEOS;
   }
 
-  async fetchCloudVideos() {
-    if (!isSupabaseConfigured()) return this.getVideos();
+  async syncCloudStorage(videosList) {
+    if (!isSupabaseConfigured()) return;
     try {
-      // 1. Try fetching from Supabase 'videos' table where client_name is 'TRAINING_MASTERCLASS'
-      const { data, error } = await supabase
-        .from('videos')
-        .select('*')
-        .eq('client_name', 'TRAINING_MASTERCLASS')
-        .order('created_at', { ascending: false });
-
-      if (!error && data && data.length > 0) {
-        const mapped = data.map((row) => {
-          let meta = {};
-          try {
-            meta = JSON.parse(row.type || '{}');
-          } catch (e) {}
-
-          return {
-            id: meta.id || row.id || `vid-${Date.now()}`,
-            title: meta.title || row.title || 'Masterclass Video',
-            description: meta.description || '',
-            youtube_url: row.link || meta.youtube_url || 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
-            embed_id: meta.embed_id || 'dQw4w9WgXcQ',
-            category: meta.category || 'General Training',
-            duration_minutes: Number(meta.duration_minutes) || 5,
-            assigned_to: meta.assigned_to || 'ALL',
-            completed_by: Array.isArray(meta.completed_by) ? meta.completed_by : [],
-            quiz_questions: Array.isArray(meta.quiz_questions) && meta.quiz_questions.length > 0 ? meta.quiz_questions : NDR_20_QUESTIONS,
-            supabase_row_id: row.id
-          };
-        });
-
-        // Merge with initial defaults if not already present
-        const combined = [...mapped];
-        INITIAL_TRAINING_VIDEOS.forEach((def) => {
-          if (!combined.some((c) => c.id === def.id || c.title === def.title)) {
-            combined.push(def);
-          }
-        });
-
-        localStorage.setItem(TRAINING_STORAGE_KEY, JSON.stringify(combined));
-        this.notify();
-        return combined;
-      }
+      await supabase.from('amparo_calls').upsert({
+        shopify_order_id: CLOUD_CATALOG_KEY,
+        customer_name: 'MSR Training Academy Catalog',
+        phone: '+918887521156',
+        product: 'Training Masterclass Catalog',
+        status: 'system_active',
+        amount: 0,
+        notes: JSON.stringify(videosList)
+      }, { onConflict: 'shopify_order_id' });
     } catch (e) {
-      console.warn('Supabase training cloud fetch fallback to local:', e);
+      console.warn('Supabase cloud catalog sync fallback:', e);
     }
-    return this.getVideos();
+  }
+
+  async fetchCloudVideos() {
+    let cloudList = null;
+
+    if (isSupabaseConfigured()) {
+      try {
+        const { data, error } = await supabase
+          .from('amparo_calls')
+          .select('notes')
+          .eq('shopify_order_id', CLOUD_CATALOG_KEY)
+          .limit(1);
+
+        if (!error && data && data.length > 0 && data[0].notes) {
+          const parsed = JSON.parse(data[0].notes);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            cloudList = parsed;
+          }
+        }
+      } catch (e) {
+        console.warn('Supabase training cloud fetch fallback to local:', e);
+      }
+    }
+
+    const currentLocal = this.getVideos();
+    const baseList = cloudList && cloudList.length > 0 ? cloudList : currentLocal;
+
+    // Merge with defaults to ensure Dr Vivek Bindra & NDR masterclasses always exist
+    const merged = [...baseList];
+    INITIAL_TRAINING_VIDEOS.forEach((def) => {
+      if (!merged.some((m) => m.id === def.id || m.title === def.title)) {
+        merged.push(def);
+      }
+    });
+
+    localStorage.setItem(TRAINING_STORAGE_KEY, JSON.stringify(merged));
+    this.notify();
+    return merged;
   }
 
   async addVideo(videoData) {
@@ -169,33 +175,11 @@ class TrainingService {
       quiz_questions: videoData.quiz_questions || NDR_20_QUESTIONS
     };
 
-    const updated = [newEntry, ...current];
+    // Place new video at the very top of the list
+    const updated = [newEntry, ...current.filter((v) => v.title !== newEntry.title)];
     localStorage.setItem(TRAINING_STORAGE_KEY, JSON.stringify(updated));
     this.notify();
-
-    if (isSupabaseConfigured()) {
-      try {
-        await supabase.from('videos').insert({
-          client_name: 'TRAINING_MASTERCLASS',
-          type: JSON.stringify({
-            id: newEntry.id,
-            title: newEntry.title,
-            description: newEntry.description,
-            embed_id: newEntry.embed_id,
-            category: newEntry.category,
-            duration_minutes: newEntry.duration_minutes,
-            assigned_to: newEntry.assigned_to,
-            completed_by: newEntry.completed_by,
-            quiz_questions: newEntry.quiz_questions
-          }),
-          link: newEntry.youtube_url,
-          status: 'active'
-        });
-      } catch (e) {
-        console.warn('Supabase training video upload fallback:', e);
-      }
-    }
-
+    await this.syncCloudStorage(updated);
     return updated;
   }
 
@@ -214,35 +198,7 @@ class TrainingService {
 
     localStorage.setItem(TRAINING_STORAGE_KEY, JSON.stringify(updated));
     this.notify();
-
-    if (isSupabaseConfigured()) {
-      try {
-        const found = updated.find((v) => v.id === id);
-        if (found) {
-          // Delete old and re-insert or update
-          await supabase.from('videos').delete().eq('client_name', 'TRAINING_MASTERCLASS').like('type', `%"id":"${id}"%`);
-          await supabase.from('videos').insert({
-            client_name: 'TRAINING_MASTERCLASS',
-            type: JSON.stringify({
-              id: found.id,
-              title: found.title,
-              description: found.description,
-              embed_id: found.embed_id,
-              category: found.category,
-              duration_minutes: found.duration_minutes,
-              assigned_to: found.assigned_to,
-              completed_by: found.completed_by,
-              quiz_questions: found.quiz_questions
-            }),
-            link: found.youtube_url,
-            status: 'active'
-          });
-        }
-      } catch (e) {
-        console.warn('Supabase update video error:', e);
-      }
-    }
-
+    await this.syncCloudStorage(updated);
     return updated;
   }
 
@@ -251,15 +207,7 @@ class TrainingService {
     const updated = current.filter((v) => v.id !== id);
     localStorage.setItem(TRAINING_STORAGE_KEY, JSON.stringify(updated));
     this.notify();
-
-    if (isSupabaseConfigured()) {
-      try {
-        await supabase.from('videos').delete().eq('client_name', 'TRAINING_MASTERCLASS').like('type', `%"id":"${id}"%`);
-      } catch (e) {
-        console.warn('Supabase training video delete error:', e);
-      }
-    }
-
+    await this.syncCloudStorage(updated);
     return updated;
   }
 
@@ -278,6 +226,7 @@ class TrainingService {
 
     localStorage.setItem(TRAINING_STORAGE_KEY, JSON.stringify(updated));
     this.notify();
+    await this.syncCloudStorage(updated);
 
     // Store local verified certificate record
     const certRecord = {
