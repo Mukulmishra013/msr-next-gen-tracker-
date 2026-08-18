@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAppData } from '../../context/AppDataContext';
 import { useAgents } from '../../context/AgentContext';
+import { useAuth } from '../../context/AuthContext';
 import { SalaryBreakdownCard } from '../payroll/SalaryBreakdownCard';
 import { EmployeeManagement } from '../admin/EmployeeManagement';
 import { ShiprocketSyncModal } from '../admin/ShiprocketSyncModal';
@@ -78,6 +79,8 @@ export function OwnerDashboard({ onOpenUpiModal, onOpenChat }) {
   } = useAppData();
 
   const { sendMessageToAgent } = useAgents();
+  const { availableUsers } = useAuth();
+  const staffList = (availableUsers || []).filter((u) => u.role !== 'owner');
   const [aiSummaryLoading, setAiSummaryLoading] = useState(false);
   const [aiSummaryText, setAiSummaryText] = useState('');
   const [activeOwnerTab, setActiveOwnerTab] = useState('overview'); // 'overview' | 'ai_calling' | 'orders' | 'employees' | 'payroll'
