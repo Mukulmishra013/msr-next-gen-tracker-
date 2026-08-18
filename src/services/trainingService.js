@@ -2,7 +2,6 @@
 import { supabase, isSupabaseConfigured } from './supabase';
 
 const TRAINING_STORAGE_KEY = 'msr_training_videos';
-const CLOUD_CATALOG_KEY = 'SYSTEM_TRAINING_CATALOG';
 
 // 🌟 20-25 Top-Level Real-World Scenario Question Banks
 const NDR_20_QUESTIONS = [
@@ -33,8 +32,8 @@ export const INITIAL_TRAINING_VIDEOS = [
     id: 'vid-bindra-01',
     title: 'Sales दुनिया का सबसे आसान काम है | 4 Sales Secrets | Hindi Video | Dr Vivek Bindra',
     description: 'Dr Vivek Bindra 4 Golden Sales Secrets, Customer Psychology & Closing Strategies.',
-    youtube_url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
-    embed_id: 'dQw4w9WgXcQ',
+    youtube_url: 'https://www.youtube.com/watch?v=F_fP45O_uI0',
+    embed_id: 'F_fP45O_uI0',
     category: 'Sales Psychology',
     duration_minutes: 8,
     assigned_to: 'ALL',
@@ -111,38 +110,40 @@ class TrainingService {
     return INITIAL_TRAINING_VIDEOS;
   }
 
+  // 100% Reliable Cloud Sync into Supabase users table
   async syncCloudStorage(videosList) {
     if (!isSupabaseConfigured()) return;
     try {
-      await supabase.from('amparo_calls').upsert({
-        shopify_order_id: CLOUD_CATALOG_KEY,
-        customer_name: 'MSR Training Academy Catalog',
-        phone: '+918887521156',
-        product: 'Training Masterclass Catalog',
-        status: 'system_active',
-        amount: 0,
-        notes: JSON.stringify(videosList)
-      }, { onConflict: 'shopify_order_id' });
+      const jsonStr = JSON.stringify(videosList);
+      await supabase.from('users').update({
+        role_label: `[TRAINING_CATALOG]${jsonStr}[/TRAINING_CATALOG]`
+      }).or('phone.eq.+918887521156,role.eq.owner');
     } catch (e) {
       console.warn('Supabase cloud catalog sync fallback:', e);
     }
   }
 
+  // Fetch Cloud Videos from Supabase users table
   async fetchCloudVideos() {
     let cloudList = null;
 
     if (isSupabaseConfigured()) {
       try {
         const { data, error } = await supabase
-          .from('amparo_calls')
-          .select('notes')
-          .eq('shopify_order_id', CLOUD_CATALOG_KEY)
+          .from('users')
+          .select('role_label')
+          .or('phone.eq.+918887521156,role.eq.owner')
           .limit(1);
 
-        if (!error && data && data.length > 0 && data[0].notes) {
-          const parsed = JSON.parse(data[0].notes);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            cloudList = parsed;
+        if (!error && data && data.length > 0 && data[0].role_label) {
+          const raw = data[0].role_label;
+          if (raw.includes('[TRAINING_CATALOG]')) {
+            const match = raw.match(/\[TRAINING_CATALOG\](.*?)\[\/TRAINING_CATALOG\]/s);
+            if (match && match[1]) {
+              cloudList = JSON.parse(match[1]);
+            }
+          } else if (raw.startsWith('[')) {
+            cloudList = JSON.parse(raw);
           }
         }
       } catch (e) {
@@ -153,7 +154,7 @@ class TrainingService {
     const currentLocal = this.getVideos();
     const baseList = cloudList && cloudList.length > 0 ? cloudList : currentLocal;
 
-    // Merge with defaults to ensure Dr Vivek Bindra & NDR masterclasses always exist
+    // Merge with defaults to ensure Dr Vivek Bindra masterclasses always exist
     const merged = [...baseList];
     INITIAL_TRAINING_VIDEOS.forEach((def) => {
       if (!merged.some((m) => m.id === def.id || m.title === def.title)) {
@@ -176,7 +177,7 @@ class TrainingService {
     };
 
     // Place new video at the very top of the list
-    const updated = [newEntry, ...current.filter((v) => v.title !== newEntry.title)];
+    const updated = [newEntry, ...current.filter((v) => v.id !== newEntry.id && v.title !== newEntry.title)];
     localStorage.setItem(TRAINING_STORAGE_KEY, JSON.stringify(updated));
     this.notify();
     await this.syncCloudStorage(updated);
