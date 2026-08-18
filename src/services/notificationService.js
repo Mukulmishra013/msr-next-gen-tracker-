@@ -287,7 +287,7 @@ class NotificationService {
     } catch (e) {}
   }
 
-  // 8. Deliver Incoming Broadcast with Sound Only (NO Voice)
+  // 8. Deliver Incoming Broadcast with Sound Only (NO Voice, Silent on Admin)
   handleIncomingBroadcast(payload, source = 'UNKNOWN') {
     try {
       const lastSeenId = localStorage.getItem(LAST_SEEN_BROADCAST_KEY);
@@ -295,6 +295,13 @@ class NotificationService {
 
       const userStr = localStorage.getItem('msr_active_user') || localStorage.getItem('msr_current_user');
       const currentUser = userStr ? JSON.parse(userStr) : null;
+
+      // 👑 If currently viewing as Owner / Admin, NEVER play sound or open popup on Admin device!
+      const isOwner = currentUser && (currentUser.role === 'owner' || currentUser.phone?.includes('8887521156') || currentUser.name?.toLowerCase().includes('mukul'));
+      if (isOwner) {
+        localStorage.setItem(LAST_SEEN_BROADCAST_KEY, payload.id);
+        return;
+      }
 
       // Check audience targeting (ALL or specific employee)
       const isForMe = !payload.targetUserId || payload.targetUserId === 'ALL' || (currentUser && currentUser.id === payload.targetUserId);
