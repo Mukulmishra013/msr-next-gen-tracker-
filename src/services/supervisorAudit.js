@@ -503,3 +503,4 @@ class SupervisorAuditService {
 }
 
 export const supervisorAudit = new SupervisorAuditService();
+export const supervisorAuditService = supervisorAudit;
