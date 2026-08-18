@@ -455,28 +455,47 @@ class NotificationService {
     return { status: 'TRANSMITTED_WORLDWIDE', payload };
   }
 
-  sendLocalNotification({ title, body }) {
+  sendLocalNotification({ title, body, url = '/' }) {
     if (typeof window === 'undefined') return;
 
     if (this.swRegistration && this.swRegistration.showNotification) {
       this.swRegistration.showNotification(title, {
         body,
-        icon: '/favicon.svg',
-        badge: '/favicon.svg',
+        icon: '/assets/maya_avatar.jpg',
+        badge: '/assets/maya_avatar.jpg',
+        image: '/assets/sales_trophy.jpg',
         vibrate: [300, 100, 400, 100, 300],
         requireInteraction: true,
-        tag: 'msr-admin-alert'
+        tag: 'msr-admin-alert',
+        renotify: true,
+        data: { url }
       }).catch(() => {
-        new Notification(title, { body, icon: '/favicon.svg', badge: '/favicon.svg' });
+        try {
+          const n = new Notification(title, { 
+            body, 
+            icon: '/assets/maya_avatar.jpg', 
+            badge: '/assets/maya_avatar.jpg',
+            requireInteraction: true
+          });
+          n.onclick = () => {
+            window.focus();
+            n.close();
+          };
+        } catch (err) {}
       });
     } else if ('Notification' in window && Notification.permission === 'granted') {
       try {
-        new Notification(title, {
+        const n = new Notification(title, {
           body,
-          icon: '/favicon.svg',
-          badge: '/favicon.svg',
-          vibrate: [300, 100, 400]
+          icon: '/assets/maya_avatar.jpg',
+          badge: '/assets/maya_avatar.jpg',
+          vibrate: [300, 100, 400],
+          requireInteraction: true
         });
+        n.onclick = () => {
+          window.focus();
+          n.close();
+        };
       } catch (e) {}
     }
   }
