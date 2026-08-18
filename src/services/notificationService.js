@@ -1,12 +1,23 @@
-// Enterprise Push Notification, Loud Audio Synthesizer, Hindi Voice & 100% Cross-Device Realtime Sync
+// Enterprise Web Push Subscription, VAPID Push Dispatcher, Loud Audio & Cross-Device Sync
 import { supabase, isSupabaseConfigured } from './supabase';
 
-const OFFLINE_QUEUE_KEY = 'msr_offline_notification_queue_v4';
-const NOTIFICATION_HISTORY_KEY = 'msr_notification_history_v4';
-const BROADCAST_STORAGE_KEY = 'msr_admin_broadcast_channel_v4';
-const LAST_SEEN_BROADCAST_KEY = 'msr_last_seen_broadcast_id_v4';
+const OFFLINE_QUEUE_KEY = 'msr_offline_notification_queue_v5';
+const NOTIFICATION_HISTORY_KEY = 'msr_notification_history_v5';
+const BROADCAST_STORAGE_KEY = 'msr_admin_broadcast_channel_v5';
+const LAST_SEEN_BROADCAST_KEY = 'msr_last_seen_broadcast_id_v5';
 
-const APP_BOOT_TIME = Date.now() - 3000;
+const VAPID_PUBLIC_KEY = 'BENbeoBz5MJIMzlqyUeTyOMEuHZLnXlkdMfF8X_kbSmGZvjaWJAd0jDed5_6cGZdkUsKF_vXpM_uTiVDslhVboI';
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
 
 class NotificationService {
   constructor() {
@@ -15,7 +26,7 @@ class NotificationService {
     this.listeners = [];
     this.realtimeChannel = null;
     this.pollInterval = null;
-    this.audioUnlocked = false;
+    this.swRegistration = null;
 
     if (typeof window !== 'undefined') {
       this.initUserInteractionAudioUnlock();
@@ -23,7 +34,7 @@ class NotificationService {
       this.initCrossDeviceRealtime();
       this.initCloudPolling();
       this.initNetworkListener();
-      setTimeout(() => this.initServiceWorker(), 1000);
+      setTimeout(() => this.initServiceWorker(), 500);
     }
   }
 
@@ -32,7 +43,6 @@ class NotificationService {
     if (typeof window === 'undefined') return;
 
     const unlock = () => {
-      this.audioUnlocked = true;
       const ctx = this.getAudioContext();
       if (ctx && ctx.state === 'suspended') {
         ctx.resume();
@@ -47,23 +57,24 @@ class NotificationService {
     window.addEventListener('keydown', unlock, { passive: true });
   }
 
-  // 2. Initialize Service Worker for PWA Background Push Notifications
+  // 2. Initialize Service Worker & Auto-Register Push Subscription
   async initServiceWorker() {
     if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return;
 
     try {
-      const reg = await navigator.serviceWorker.register('/sw.js');
-      console.log('MSR ServiceWorker active:', reg.scope);
-    } catch (e) {
-      console.warn('ServiceWorker fallback:', e);
-    }
+      this.swRegistration = await navigator.serviceWorker.register('/sw.js');
+      console.log('MSR ServiceWorker registered:', this.swRegistration.scope);
 
-    if ('Notification' in window) {
-      this.permissionGranted = Notification.permission === 'granted';
+      if ('Notification' in window && Notification.permission === 'granted') {
+        this.permissionGranted = true;
+        this.subscribeToPushNotifications(this.swRegistration);
+      }
+    } catch (e) {
+      console.warn('ServiceWorker registration error:', e);
     }
   }
 
-  // 3. Request Push Notification Permission
+  // 3. Request Push Notification Permission & Subscribe with VAPID Key
   async requestPermission() {
     if (typeof window === 'undefined' || !('Notification' in window)) return false;
 
@@ -71,11 +82,18 @@ class NotificationService {
       const perm = await Notification.requestPermission();
       this.permissionGranted = perm === 'granted';
       if (this.permissionGranted) {
+        if (!this.swRegistration && navigator.serviceWorker) {
+          this.swRegistration = await navigator.serviceWorker.ready;
+        }
+        if (this.swRegistration) {
+          await this.subscribeToPushNotifications(this.swRegistration);
+        }
+
         this.playSuccessChime();
         this.speakHindiVoice('Notification aur voice alerts successfully activate ho gaye hain.');
         this.sendLocalNotification({
           title: '🔔 Alerts Activated',
-          body: 'Admin & Maya AI broadcast alerts ab aapke phone par loud sound aur voice ke sath aayenge!'
+          body: 'Admin & Maya AI broadcast alerts ab aapke phone par background me bhi aayenge!'
         });
       }
       return this.permissionGranted;
@@ -84,7 +102,40 @@ class NotificationService {
     }
   }
 
-  // 4. Web Audio Synthesizer: Loud & Instant Alert Sounds
+  // 4. Subscribe Device to OS-Level Push via Google FCM / Mozilla / Apple
+  async subscribeToPushNotifications(reg) {
+    if (!reg || !('pushManager' in reg)) return null;
+
+    try {
+      let sub = await reg.pushManager.getSubscription();
+      if (!sub) {
+        const convertedKey = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
+        sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: convertedKey
+        });
+      }
+
+      // Save push subscription to Supabase Cloud Database for current user
+      if (sub && isSupabaseConfigured()) {
+        const userStr = localStorage.getItem('msr_active_user') || localStorage.getItem('msr_current_user');
+        const currentUser = userStr ? JSON.parse(userStr) : null;
+        if (currentUser && currentUser.id) {
+          const subJson = JSON.stringify(sub);
+          await supabase.from('users').update({
+            notes: `[PUSH_SUB]${subJson}[/PUSH_SUB]`
+          }).eq('id', currentUser.id);
+        }
+      }
+
+      return sub;
+    } catch (err) {
+      console.warn('Push subscription failed:', err);
+      return null;
+    }
+  }
+
+  // 5. Web Audio Synthesizer: Loud & Instant Alert Sounds
   getAudioContext() {
     if (!this.audioCtx && typeof window !== 'undefined') {
       try {
@@ -203,7 +254,7 @@ class NotificationService {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
 
     try {
-      window.speechSynthesis.cancel(); // Stop any pending speech
+      window.speechSynthesis.cancel();
       const cleanText = String(text || '').replace(/[^\w\s\u0900-\u097F.,!?]/gi, ' ').trim();
       if (!cleanText) return;
 
@@ -221,12 +272,11 @@ class NotificationService {
     }
   }
 
-  // 5. Cross-Device Realtime Subscriptions (WebSockets + Postgres Changes)
+  // 6. Cross-Device Realtime Subscriptions (WebSockets + Postgres Changes)
   initCrossDeviceRealtime() {
     if (!isSupabaseConfigured()) return;
 
     try {
-      // Channel 1: Supabase Realtime Broadcast
       this.realtimeChannel = supabase.channel('msr_global_broadcast_hub', {
         config: { broadcast: { self: true } }
       });
@@ -240,15 +290,13 @@ class NotificationService {
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'users' }, () => {
           this.checkCloudBroadcasts();
         })
-        .subscribe((status) => {
-          console.log('Supabase Realtime Hub Status:', status);
-        });
+        .subscribe();
     } catch (e) {
       console.warn('Realtime subscription fallback:', e);
     }
   }
 
-  // 6. Multi-Tab Local Storage Sync (For instant tab-to-tab testing)
+  // 7. Multi-Tab Local Storage Sync
   initStorageListener() {
     if (typeof window === 'undefined') return;
 
@@ -262,7 +310,7 @@ class NotificationService {
     });
   }
 
-  // 7. Cloud Polling & App Resume Listener (Active every 2.5 seconds)
+  // 8. Cloud Polling & App Resume Listener (Active every 2.5 seconds)
   initCloudPolling() {
     if (typeof window === 'undefined') return;
 
@@ -300,7 +348,6 @@ class NotificationService {
             const broadcastPayload = JSON.parse(match[1]);
             const lastSeenId = localStorage.getItem(LAST_SEEN_BROADCAST_KEY);
 
-            // If broadcast was created after app boot or in last 30 minutes, and not seen yet
             const isRecent = Date.now() - Number(broadcastPayload.timestamp || 0) < 30 * 60 * 1000;
             if (broadcastPayload.id && broadcastPayload.id !== lastSeenId && isRecent) {
               this.handleIncomingBroadcast(broadcastPayload, 'CLOUD_SYNC');
@@ -311,20 +358,18 @@ class NotificationService {
     } catch (e) {}
   }
 
-  // 8. Deliver Incoming Broadcast to Employee Device
+  // 9. Deliver Incoming Broadcast to Employee Device
   handleIncomingBroadcast(payload, source = 'UNKNOWN') {
     try {
       const lastSeenId = localStorage.getItem(LAST_SEEN_BROADCAST_KEY);
-      if (lastSeenId === payload.id) return; // Prevent duplicate triggers
+      if (lastSeenId === payload.id) return;
 
       const userStr = localStorage.getItem('msr_active_user') || localStorage.getItem('msr_current_user');
       const currentUser = userStr ? JSON.parse(userStr) : null;
 
-      // Check audience targeting (ALL or specific user)
       const isForMe = !payload.targetUserId || payload.targetUserId === 'ALL' || (currentUser && currentUser.id === payload.targetUserId);
       if (!isForMe) return;
 
-      // Mark as received immediately
       localStorage.setItem(LAST_SEEN_BROADCAST_KEY, payload.id);
 
       // 🔊 1. Play Loud Attention Chime Siren
@@ -332,13 +377,13 @@ class NotificationService {
 
       // 🗣️ 2. Announce Spoken Hindi Voice on Employee Phone
       setTimeout(() => {
-        const spokenDirective = payload.voiceText || `Mukul Mishra ji ka message: ${payload.body}`;
+        const spokenDirective = payload.voiceText || `Mukul Mishra ji ka sandesh: ${payload.body}`;
         this.speakHindiVoice(spokenDirective);
       }, 500);
 
-      // 📱 3. Show System Web Notification
+      // 📱 3. Show Native System Web Notification (Banner on phone screen)
       this.sendLocalNotification({
-        title: payload.title || '👑 Admin Important Directive',
+        title: payload.title || '👑 Mukul Mishra (Admin Directive)',
         body: payload.body
       });
 
@@ -350,7 +395,7 @@ class NotificationService {
     }
   }
 
-  // 9. Admin Send Live Broadcast (Pushes worldwide via WebSockets, DB & Storage)
+  // 10. Admin Send Live Broadcast (Pushes worldwide via WebSockets, DB & Serverless OS WebPush)
   async sendAdminBroadcast({ title, body, targetUserId = 'ALL', adminName = 'Mukul Mishra' }) {
     const payload = {
       id: `broadcast_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
@@ -363,7 +408,7 @@ class NotificationService {
       voiceText: `Mukul Mishra ji ka sandesh: ${body}`
     };
 
-    // Save to Local Storage (Fires Tab Sync on same machine)
+    // Save to Local Storage (Fires Tab Sync)
     try {
       localStorage.setItem(BROADCAST_STORAGE_KEY, JSON.stringify(payload));
     } catch (e) {}
@@ -379,7 +424,7 @@ class NotificationService {
       } catch (err) {}
     }
 
-    // B. Save to Supabase Cloud DB for polling / sleeping devices
+    // B. Save to Supabase Cloud DB
     if (isSupabaseConfigured()) {
       try {
         await supabase.from('users').update({
@@ -388,7 +433,21 @@ class NotificationService {
       } catch (err) {}
     }
 
-    // C. Play confirmation on Admin device
+    // C. Trigger Serverless OS-Level Web Push API (Hits closed phones & lock screens via Google FCM)
+    try {
+      fetch('/api/send-push', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: payload.title,
+          body: payload.body,
+          targetUserId: payload.targetUserId,
+          url: '/'
+        })
+      }).catch(() => {});
+    } catch (e) {}
+
+    // D. Confirmation
     this.playSuccessChime();
     this.recordNotificationHistory(payload);
     this.notifySubscribers({ type: 'ADMIN_BROADCAST_SENT', payload });
@@ -396,59 +455,27 @@ class NotificationService {
     return { status: 'TRANSMITTED_WORLDWIDE', payload };
   }
 
-  // 10. General Unified Push & Audio Notification
-  async notify({
-    title,
-    body,
-    sound = 'alert',
-    speakVoice = false,
-    voiceText = '',
-    priority = 'normal',
-    targetUserId = 'ALL'
-  }) {
-    const payload = {
-      id: `notif_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
-      timestamp: Date.now(),
-      title,
-      body,
-      sound,
-      speakVoice,
-      voiceText: voiceText || body,
-      priority,
-      targetUserId
-    };
-
-    if (typeof navigator !== 'undefined' && !navigator.onLine) {
-      this.enqueueOfflineNotification(payload);
-      return { status: 'QUEUED_OFFLINE', payload };
-    }
-
-    if (sound === 'alert') this.playSupervisorAlertSound();
-    else if (sound === 'broadcast') this.playBroadcastChime();
-    else if (sound === 'coin') this.playCoinDrop();
-    else if (sound === 'success') this.playSuccessChime();
-
-    if (speakVoice) {
-      this.speakHindiVoice(voiceText || body);
-    }
-
-    this.sendLocalNotification(payload);
-    this.recordNotificationHistory(payload);
-    this.notifySubscribers({ type: 'NEW_NOTIFICATION', payload });
-
-    return { status: 'DELIVERED', payload };
-  }
-
   sendLocalNotification({ title, body }) {
     if (typeof window === 'undefined') return;
 
-    if ('Notification' in window && Notification.permission === 'granted') {
+    if (this.swRegistration && this.swRegistration.showNotification) {
+      this.swRegistration.showNotification(title, {
+        body,
+        icon: '/favicon.svg',
+        badge: '/favicon.svg',
+        vibrate: [300, 100, 400, 100, 300],
+        requireInteraction: true,
+        tag: 'msr-admin-alert'
+      }).catch(() => {
+        new Notification(title, { body, icon: '/favicon.svg', badge: '/favicon.svg' });
+      });
+    } else if ('Notification' in window && Notification.permission === 'granted') {
       try {
         new Notification(title, {
           body,
           icon: '/favicon.svg',
           badge: '/favicon.svg',
-          vibrate: [200, 100, 200, 100, 300]
+          vibrate: [300, 100, 400]
         });
       } catch (e) {}
     }

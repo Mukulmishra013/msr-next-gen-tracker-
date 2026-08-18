@@ -1,5 +1,5 @@
-// MSR Next-Gen Enterprise PWA Service Worker & Push Notification Hub
-const CACHE_NAME = 'msr-pwa-v1';
+// MSR Next-Gen Enterprise PWA Service Worker & Native Web Push Hub
+const CACHE_NAME = 'msr-pwa-v2';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
@@ -9,27 +9,30 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(self.clients.claim());
 });
 
-// 🔔 Handle Incoming Push Notifications from Server / Maya AI / Admin
+// 🔔 Handle Incoming Native OS Push Notifications (Fires even when app is closed or screen is off)
 self.addEventListener('push', (event) => {
   let data = {};
   try {
     data = event.data ? event.data.json() : {};
   } catch (e) {
-    data = { title: 'MSR System Alert', body: event.data ? event.data.text() : 'New update from MSR Next-Gen' };
+    data = { title: '👑 MSR Admin Alert', body: event.data ? event.data.text() : 'New notification received' };
   }
 
-  const title = data.title || '🚨 MSR Supervisor Alert';
+  const title = data.title || '🚨 MSR Supervisor & Admin Alert';
   const options = {
-    body: data.body || 'Maya AI HR ne new instructions update kiye hain.',
+    body: data.body || 'MSR Agency Tracker ne urgent update send kiya hai.',
     icon: '/favicon.svg',
     badge: '/favicon.svg',
-    vibrate: [200, 100, 200, 100, 300],
+    vibrate: [300, 100, 400, 100, 300],
+    requireInteraction: true,
+    tag: 'msr-broadcast-alert',
+    renotify: true,
     data: {
       url: data.url || '/',
       timestamp: Date.now()
     },
     actions: [
-      { action: 'open_app', title: '📱 Open App' },
+      { action: 'open_app', title: '📱 Open Portal' },
       { action: 'dismiss', title: 'Dismiss' }
     ]
   };
