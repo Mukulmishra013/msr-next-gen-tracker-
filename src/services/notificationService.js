@@ -54,13 +54,14 @@ class NotificationService {
 
       if ('Notification' in window && Notification.permission === 'granted') {
         this.permissionGranted = true;
+        this.subscribeToPushNotifications(this.swRegistration);
       }
     } catch (e) {
       console.warn('ServiceWorker fallback:', e);
     }
   }
 
-  // 3. Request Push Notification Permission
+  // 3. Request Push Notification Permission & Subscribe with VAPID Key
   async requestPermission() {
     if (typeof window === 'undefined' || !('Notification' in window)) return false;
 
@@ -68,6 +69,13 @@ class NotificationService {
       const perm = await Notification.requestPermission();
       this.permissionGranted = perm === 'granted';
       if (this.permissionGranted) {
+        if (!this.swRegistration && navigator.serviceWorker) {
+          this.swRegistration = await navigator.serviceWorker.ready;
+        }
+        if (this.swRegistration) {
+          await this.subscribeToPushNotifications(this.swRegistration);
+        }
+
         this.playSuccessChime();
         await this.sendLocalNotification({
           title: '🔔 Alerts Activated',
@@ -80,7 +88,47 @@ class NotificationService {
     }
   }
 
-  // 4. Web Audio Synthesizer: 100% Reliable, Loud & Instant Alert Sounds
+  // 4. Register Device Push Subscription in Cloud Database for closed-app Google FCM delivery
+  async subscribeToPushNotifications(reg) {
+    if (!reg || !('pushManager' in reg)) return null;
+
+    try {
+      const padding = '='.repeat((4 - ('BENbeoBz5MJIMzlqyUeTyOMEuHZLnXlkdMfF8X_kbSmGZvjaWJAd0jDed5_6cGZdkUsKF_vXpM_uTiVDslhVboI'.length % 4)) % 4);
+      const base64 = ('BENbeoBz5MJIMzlqyUeTyOMEuHZLnXlkdMfF8X_kbSmGZvjaWJAd0jDed5_6cGZdkUsKF_vXpM_uTiVDslhVboI' + padding).replace(/-/g, '+').replace(/_/g, '/');
+      const rawData = window.atob(base64);
+      const applicationServerKey = new Uint8Array(rawData.length);
+      for (let i = 0; i < rawData.length; ++i) {
+        applicationServerKey[i] = rawData.charCodeAt(i);
+      }
+
+      let sub = await reg.pushManager.getSubscription();
+      if (!sub) {
+        sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey
+        });
+      }
+
+      if (sub && isSupabaseConfigured()) {
+        const userStr = localStorage.getItem('msr_active_user') || localStorage.getItem('msr_current_user');
+        const currentUser = userStr ? JSON.parse(userStr) : null;
+        if (currentUser && currentUser.id) {
+          const { data: userRecord } = await supabase.from('users').select('role_label').eq('id', currentUser.id).single();
+          const baseLabel = (userRecord?.role_label || '').replace(/\[PUSH_SUB\].*?\[\/PUSH_SUB\]/gs, '').trim();
+          await supabase.from('users').update({
+            role_label: `${baseLabel} [PUSH_SUB]${JSON.stringify(sub)}[/PUSH_SUB]`
+          }).eq('id', currentUser.id);
+        }
+      }
+
+      return sub;
+    } catch (err) {
+      console.warn('Push subscription registration error:', err);
+      return null;
+    }
+  }
+
+  // 5. Web Audio Synthesizer: 100% Reliable, Loud & Instant Alert Sounds
   getAudioContext() {
     if (!this.audioCtx && typeof window !== 'undefined') {
       try {
@@ -362,7 +410,21 @@ class NotificationService {
       } catch (err) {}
     }
 
-    // C. Play pleasant success chime on Admin device (Sound Only - NO Voice)
+    // C. Trigger Serverless Push Relay to Google FCM (Wakes up closed phones & lock screens)
+    try {
+      fetch('/api/send-push', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: payload.title,
+          body: payload.body,
+          targetUserId: payload.targetUserId,
+          url: '/'
+        })
+      }).catch(() => {});
+    } catch (e) {}
+
+    // D. Play pleasant success chime on Admin device (Sound Only - NO Voice)
     this.playSuccessChime();
     this.recordNotificationHistory(payload);
     this.notifySubscribers({ type: 'ADMIN_BROADCAST_SENT', payload });
