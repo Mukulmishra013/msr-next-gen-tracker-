@@ -12,13 +12,16 @@ class NotificationService {
     this.permissionGranted = false;
     this.listeners = [];
     this.realtimeChannel = null;
-    this.activeBroadcastModalData = null;
     this.pollInterval = null;
 
-    this.initServiceWorker();
-    this.initNetworkListener();
-    this.initCrossDeviceRealtime();
-    this.initCloudPolling();
+    if (typeof window !== 'undefined') {
+      setTimeout(() => {
+        this.initServiceWorker();
+        this.initNetworkListener();
+        this.initCrossDeviceRealtime();
+        this.initCloudPolling();
+      }, 500);
+    }
   }
 
   // 1. Initialize Service Worker for PWA Background Push Notifications
@@ -61,13 +64,15 @@ class NotificationService {
   // 3. Web Audio Synthesizer: 100% Reliable, Loud & Instant Alert Sounds
   getAudioContext() {
     if (!this.audioCtx && typeof window !== 'undefined') {
-      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-      if (AudioContextClass) {
-        this.audioCtx = new AudioContextClass();
-      }
+      try {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (AudioContextClass) {
+          this.audioCtx = new AudioContextClass();
+        }
+      } catch (e) {}
     }
     if (this.audioCtx && this.audioCtx.state === 'suspended') {
-      this.audioCtx.resume();
+      try { this.audioCtx.resume(); } catch (e) {}
     }
     return this.audioCtx;
   }
@@ -175,15 +180,14 @@ class NotificationService {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
 
     try {
-      window.speechSynthesis.cancel(); // Cancel any ongoing speech
+      window.speechSynthesis.cancel();
       const cleanText = String(text || '').replace(/[^\w\s\u0900-\u097F.,!?]/gi, ' ').trim();
       if (!cleanText) return;
 
       const utterance = new SpeechSynthesisUtterance(cleanText);
-      utterance.rate = 0.95; // Clear natural pacing
-      utterance.pitch = 1.05; // Friendly authoritative tone
+      utterance.rate = 0.95;
+      utterance.pitch = 1.05;
 
-      // Auto-Select Hindi or Indian English voice if present
       const voices = window.speechSynthesis.getVoices();
       const hindiVoice = voices.find((v) => v.lang.includes('hi') || v.lang.includes('IN') || v.name.includes('Hindi') || v.name.includes('India'));
       if (hindiVoice) utterance.voice = hindiVoice;
@@ -194,13 +198,13 @@ class NotificationService {
     }
   }
 
-  // 4. Cross-Device Realtime WebSocket Channel (Instant transmission across laptops & phones)
+  // 4. Cross-Device Realtime WebSocket Channel
   initCrossDeviceRealtime() {
     if (!isSupabaseConfigured()) return;
 
     try {
       this.realtimeChannel = supabase.channel('msr_global_broadcast_hub', {
-        config: { broadcast: { self: false } } // Don't loopback on the sender
+        config: { broadcast: { self: false } }
       });
 
       this.realtimeChannel
@@ -213,15 +217,14 @@ class NotificationService {
           console.log('Supabase Realtime Broadcast Status:', status);
         });
     } catch (e) {
-      console.warn('Realtime broadcast init error:', e);
+      console.warn('Realtime broadcast init fallback:', e);
     }
   }
 
-  // 5. Cloud Database Polling & App-Resume Listener (Handles phones returning from sleep/offline)
+  // 5. Cloud Database Polling & App-Resume Listener
   initCloudPolling() {
     if (typeof window === 'undefined') return;
 
-    // Check on window focus / tab active / coming back online
     window.addEventListener('focus', () => this.checkCloudBroadcasts());
     window.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') this.checkCloudBroadcasts();
@@ -231,11 +234,10 @@ class NotificationService {
       this.flushOfflineQueue();
     });
 
-    // Check cloud every 6 seconds
     if (!this.pollInterval) {
       this.pollInterval = setInterval(() => {
         this.checkCloudBroadcasts();
-      }, 6000);
+      }, 7000);
     }
   }
 
@@ -257,7 +259,12 @@ class NotificationService {
             const broadcastPayload = JSON.parse(match[1]);
             const lastSeenId = localStorage.getItem(LAST_SEEN_BROADCAST_KEY);
 
-            // If broadcast is fresh (less than 1 hour old) and not yet seen by this device
+            if (!lastSeenId) {
+              // Mark current cloud broadcast as seen on initial load so it doesn't pop up old alerts on first load
+              localStorage.setItem(LAST_SEEN_BROADCAST_KEY, broadcastPayload.id);
+              return;
+            }
+
             const isFresh = Date.now() - Number(broadcastPayload.timestamp || 0) < 60 * 60 * 1000;
             if (broadcastPayload.id && broadcastPayload.id !== lastSeenId && isFresh) {
               this.handleIncomingBroadcast(broadcastPayload);
@@ -265,43 +272,39 @@ class NotificationService {
           }
         }
       }
-    } catch (e) {
-      // Cloud check fallback
-    }
+    } catch (e) {}
   }
 
   // 6. Handle Incoming Broadcast on Employee Device
   handleIncomingBroadcast(payload) {
-    const currentUserStr = localStorage.getItem('msr_current_user');
-    const currentUser = currentUserStr ? JSON.parse(currentUserStr) : null;
+    try {
+      const userStr = localStorage.getItem('msr_active_user') || localStorage.getItem('msr_current_user');
+      const currentUser = userStr ? JSON.parse(userStr) : null;
 
-    // Check if target is ALL or matching current employee
-    const isForMe = !payload.targetUserId || payload.targetUserId === 'ALL' || (currentUser && currentUser.id === payload.targetUserId);
-    if (!isForMe) return;
+      const isForMe = !payload.targetUserId || payload.targetUserId === 'ALL' || (currentUser && currentUser.id === payload.targetUserId);
+      if (!isForMe) return;
 
-    // Mark as seen on this device
-    localStorage.setItem(LAST_SEEN_BROADCAST_KEY, payload.id);
+      localStorage.setItem(LAST_SEEN_BROADCAST_KEY, payload.id);
 
-    // 🔊 1. Play Loud Chime Siren
-    this.playBroadcastChime();
+      this.playBroadcastChime();
 
-    // 🗣️ 2. Announce Voice in Hindi after small 400ms delay so chime is heard first
-    setTimeout(() => {
-      this.speakHindiVoice(payload.voiceText || payload.body);
-    }, 450);
+      setTimeout(() => {
+        this.speakHindiVoice(payload.voiceText || payload.body);
+      }, 450);
 
-    // 📱 3. Show System Notification
-    this.sendLocalNotification({
-      title: payload.title || '👑 Admin Important Directive',
-      body: payload.body
-    });
+      this.sendLocalNotification({
+        title: payload.title || '👑 Admin Important Directive',
+        body: payload.body
+      });
 
-    // 🌟 4. Save to History & Notify UI Subscribers (Pop up visual modal on employee screen)
-    this.recordNotificationHistory(payload);
-    this.notifySubscribers({ type: 'INCOMING_BROADCAST', payload });
+      this.recordNotificationHistory(payload);
+      this.notifySubscribers({ type: 'INCOMING_BROADCAST', payload });
+    } catch (e) {
+      console.warn('handleIncomingBroadcast error:', e);
+    }
   }
 
-  // 7. Admin Send Instant Broadcast (Pushes across WebSockets + Cloud DB)
+  // 7. Admin Send Instant Broadcast
   async sendAdminBroadcast({ title, body, targetUserId = 'ALL', adminName = 'Mukul Mishra' }) {
     const payload = {
       id: `broadcast_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
@@ -314,13 +317,11 @@ class NotificationService {
       voiceText: body
     };
 
-    // Save locally
     try {
       localStorage.setItem(BROADCAST_STORAGE_KEY, JSON.stringify(payload));
       localStorage.setItem(LAST_SEEN_BROADCAST_KEY, payload.id);
     } catch (e) {}
 
-    // A. Push via Realtime WebSocket Channel
     if (this.realtimeChannel) {
       try {
         await this.realtimeChannel.send({
@@ -328,23 +329,17 @@ class NotificationService {
           event: 'ADMIN_BROADCAST',
           payload
         });
-      } catch (err) {
-        console.warn('Realtime channel send fallback:', err);
-      }
+      } catch (err) {}
     }
 
-    // B. Save to Supabase Cloud DB for offline/sleeping devices
     if (isSupabaseConfigured()) {
       try {
         await supabase.from('users').update({
           role_label: `[ADMIN_BROADCAST]${JSON.stringify(payload)}[/ADMIN_BROADCAST]`
         }).or('phone.eq.+918887521156,role.eq.owner');
-      } catch (err) {
-        console.warn('Supabase DB broadcast update fallback:', err);
-      }
+      } catch (err) {}
     }
 
-    // C. Play and speak on Admin's own device too
     this.playBroadcastChime();
     setTimeout(() => {
       this.speakHindiVoice(payload.body);
