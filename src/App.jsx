@@ -23,6 +23,7 @@ import { FieldExecutiveDashboard } from './components/dashboards/FieldExecutiveD
 import { OwnerDashboard } from './components/dashboards/OwnerDashboard';
 import { CustomRoleDashboard } from './components/dashboards/CustomRoleDashboard';
 import { TrainingAcademy } from './components/training/TrainingAcademy';
+import { IncomingBroadcastAlertModal } from './components/common/IncomingBroadcastAlertModal';
 import { mayaSupervisorAgent } from './services/mayaSupervisorAgent';
 import { notificationService } from './services/notificationService';
 import { useEffect } from 'react';
@@ -163,6 +164,7 @@ function MainApp() {
         onClose={() => setSelectedPayrollItem(null)}
         payrollItem={selectedPayrollItem}
       />
+      <IncomingBroadcastAlertModal />
 
     </div>
   );
