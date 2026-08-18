@@ -1,4 +1,4 @@
-// Full-Screen Emergency Incoming Admin Broadcast Popup with Audio Wave & Voice Replay
+// Full-Screen Emergency Incoming Admin Broadcast Popup with Audio Chime & Instant Acknowledge
 import React, { useState, useEffect } from 'react';
 import { notificationService } from '../../services/notificationService';
 import { 
@@ -27,11 +27,8 @@ export function IncomingBroadcastAlertModal() {
 
   if (!activeBroadcast) return null;
 
-  const handleReplayVoice = () => {
+  const handleReplayChime = () => {
     notificationService.playBroadcastChime();
-    setTimeout(() => {
-      notificationService.speakHindiVoice(activeBroadcast.voiceText || activeBroadcast.body);
-    }, 400);
   };
 
   const handleAcknowledge = () => {
@@ -81,7 +78,7 @@ export function IncomingBroadcastAlertModal() {
           </div>
           <div>
             <p className="text-xs font-black text-white">Mukul Mishra (Director & Super Admin)</p>
-            <p className="text-[10px] text-purple-300">Live Audio & Push Broadcast</p>
+            <p className="text-[10px] text-purple-300">Live Team Alert</p>
           </div>
         </div>
 
@@ -95,11 +92,11 @@ export function IncomingBroadcastAlertModal() {
         {/* Action Buttons */}
         <div className="flex flex-col sm:flex-row items-center gap-2 pt-2">
           <button
-            onClick={handleReplayVoice}
+            onClick={handleReplayChime}
             className="tap-target w-full sm:flex-1 py-3 rounded-2xl bg-purple-950 hover:bg-purple-900 border border-purple-500/60 text-purple-200 font-bold text-xs flex items-center justify-center gap-2 shadow-md transition active:scale-95"
           >
-            <Volume2 className="w-4 h-4 text-purple-300 animate-pulse" />
-            <span>🔊 Replay Voice Message</span>
+            <Volume2 className="w-4 h-4 text-purple-300" />
+            <span>🔊 Replay Alert Sound</span>
           </button>
 
           <button

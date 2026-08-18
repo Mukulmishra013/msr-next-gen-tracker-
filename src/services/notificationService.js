@@ -1,10 +1,10 @@
-// Enterprise Realtime Broadcast, Loud Audio Synthesizer, Hindi Voice & Service Worker Alerts
+// Enterprise Realtime Broadcast, Loud Audio Chime Synthesizer & Service Worker Alerts (100% Voice Speech Disabled - Sound Only)
 import { supabase, isSupabaseConfigured } from './supabase';
 
-const OFFLINE_QUEUE_KEY = 'msr_offline_notification_queue_v8';
-const NOTIFICATION_HISTORY_KEY = 'msr_notification_history_v8';
-const BROADCAST_STORAGE_KEY = 'msr_admin_broadcast_channel_v8';
-const LAST_SEEN_BROADCAST_KEY = 'msr_last_seen_broadcast_id_v8';
+const OFFLINE_QUEUE_KEY = 'msr_offline_notification_queue_v9';
+const NOTIFICATION_HISTORY_KEY = 'msr_notification_history_v9';
+const BROADCAST_STORAGE_KEY = 'msr_admin_broadcast_channel_v9';
+const LAST_SEEN_BROADCAST_KEY = 'msr_last_seen_broadcast_id_v9';
 
 class NotificationService {
   constructor() {
@@ -14,7 +14,6 @@ class NotificationService {
     this.realtimeChannel = null;
     this.pollInterval = null;
     this.swRegistration = null;
-    this.sentBroadcastIds = new Set();
 
     if (typeof window !== 'undefined') {
       this.initUserInteractionAudioUnlock();
@@ -70,10 +69,9 @@ class NotificationService {
       this.permissionGranted = perm === 'granted';
       if (this.permissionGranted) {
         this.playSuccessChime();
-        this.speakHindiVoice('Notification aur voice alerts successfully activate ho gaye hain.');
         await this.sendLocalNotification({
           title: '🔔 Alerts Activated',
-          body: 'Admin & Maya AI broadcast alerts ab aapke phone par sound aur voice ke sath milenge!'
+          body: 'Admin & Maya AI broadcast alerts ab aapke phone par sound ke sath milenge!'
         });
       }
       return this.permissionGranted;
@@ -82,7 +80,7 @@ class NotificationService {
     }
   }
 
-  // 4. Web Audio Synthesizer: Loud & Instant Alert Sounds
+  // 4. Web Audio Synthesizer: 100% Reliable, Loud & Instant Alert Sounds
   getAudioContext() {
     if (!this.audioCtx && typeof window !== 'undefined') {
       try {
@@ -124,7 +122,7 @@ class NotificationService {
     } catch (e) {}
   }
 
-  // 📢 Loud Admin Broadcast Chime (Four-tone bright chime)
+  // 📢 Loud Attention Broadcast Chime (Four-tone bright chime)
   playBroadcastChime() {
     try {
       const ctx = this.getAudioContext();
@@ -196,26 +194,10 @@ class NotificationService {
     } catch (e) {}
   }
 
-  // 🗣️ Hindi Spoken Voice Synthesis Engine
-  speakHindiVoice(text) {
-    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
-
-    try {
-      window.speechSynthesis.cancel();
-      const cleanText = String(text || '').replace(/[^\w\s\u0900-\u097F.,!?]/gi, ' ').trim();
-      if (!cleanText) return;
-
-      const utterance = new SpeechSynthesisUtterance(cleanText);
-      utterance.rate = 0.95;
-      utterance.pitch = 1.05;
-
-      const voices = window.speechSynthesis.getVoices();
-      const hindiVoice = voices.find((v) => v.lang.includes('hi') || v.lang.includes('IN') || v.name.includes('Hindi') || v.name.includes('India'));
-      if (hindiVoice) utterance.voice = hindiVoice;
-
-      window.speechSynthesis.speak(utterance);
-    } catch (e) {
-      console.warn('Speech synthesis fallback:', e);
+  // 🗣️ Voice Speech Completely Disabled (No Talking - Only Sound)
+  speakHindiVoice() {
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      try { window.speechSynthesis.cancel(); } catch (e) {}
     }
   }
 
@@ -224,7 +206,6 @@ class NotificationService {
     if (!isSupabaseConfigured()) return;
 
     try {
-      // broadcast: self: false so sender never gets its own broadcast
       this.realtimeChannel = supabase.channel('msr_global_broadcast_hub', {
         config: { broadcast: { self: false } }
       });
@@ -306,27 +287,14 @@ class NotificationService {
     } catch (e) {}
   }
 
-  // 8. Deliver Incoming Broadcast ONLY to Target Employees (100% Silent on Admin device)
+  // 8. Deliver Incoming Broadcast with Sound Only (NO Voice)
   handleIncomingBroadcast(payload, source = 'UNKNOWN') {
     try {
       const lastSeenId = localStorage.getItem(LAST_SEEN_BROADCAST_KEY);
       if (lastSeenId === payload.id) return;
 
-      // If this device itself sent this broadcast, ignore it
-      if (this.sentBroadcastIds.has(payload.id)) {
-        localStorage.setItem(LAST_SEEN_BROADCAST_KEY, payload.id);
-        return;
-      }
-
       const userStr = localStorage.getItem('msr_active_user') || localStorage.getItem('msr_current_user');
       const currentUser = userStr ? JSON.parse(userStr) : null;
-
-      // 👑 If currently viewing as Owner / Admin, DO NOT play siren or speak on Admin's device!
-      const isOwner = currentUser && (currentUser.role === 'owner' || currentUser.phone?.includes('8887521156') || currentUser.name?.includes('Mukul'));
-      if (isOwner) {
-        localStorage.setItem(LAST_SEEN_BROADCAST_KEY, payload.id);
-        return;
-      }
 
       // Check audience targeting (ALL or specific employee)
       const isForMe = !payload.targetUserId || payload.targetUserId === 'ALL' || (currentUser && currentUser.id === payload.targetUserId);
@@ -334,22 +302,16 @@ class NotificationService {
 
       localStorage.setItem(LAST_SEEN_BROADCAST_KEY, payload.id);
 
-      // 🔊 1. Play Loud Attention Siren on Employee Device
+      // 🔊 1. Play Loud Attention Chime Sound Only
       this.playBroadcastChime();
 
-      // 🗣️ 2. Announce Voice in Hindi on Employee Phone
-      setTimeout(() => {
-        const spokenDirective = payload.voiceText || `Mukul Mishra ji ka sandesh: ${payload.body}`;
-        this.speakHindiVoice(spokenDirective);
-      }, 450);
-
-      // 📱 3. Show System Notification in phone notification bar
+      // 📱 2. Show System Notification in phone notification bar
       this.sendLocalNotification({
         title: payload.title || '👑 Mukul Mishra (Admin Directive)',
         body: payload.body
       });
 
-      // 🌟 4. Pop-up Interactive Screen Alert Modal on Employee Screen
+      // 🌟 3. Pop-up Interactive Screen Alert Modal on Screen
       this.recordNotificationHistory(payload);
       this.notifySubscribers({ type: 'INCOMING_BROADCAST', payload });
     } catch (e) {
@@ -357,7 +319,7 @@ class NotificationService {
     }
   }
 
-  // 9. Admin Send Live Broadcast
+  // 9. Admin Send Live Broadcast (Plays Pleasant Chime Sound on Admin & Sends to Team)
   async sendAdminBroadcast({ title, body, targetUserId = 'ALL', adminName = 'Mukul Mishra' }) {
     const payload = {
       id: `broadcast_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
@@ -365,13 +327,8 @@ class NotificationService {
       body,
       adminName,
       targetUserId,
-      timestamp: Date.now(),
-      speakVoice: true,
-      voiceText: `Mukul Mishra ji ka sandesh: ${body}`
+      timestamp: Date.now()
     };
-
-    // Track as sent on this device so this device NEVER speaks
-    this.sentBroadcastIds.add(payload.id);
 
     try {
       localStorage.setItem(BROADCAST_STORAGE_KEY, JSON.stringify(payload));
@@ -398,7 +355,8 @@ class NotificationService {
       } catch (err) {}
     }
 
-    // C. Silent confirmation on Admin device (NO voice, NO sound on Admin)
+    // C. Play pleasant success chime on Admin device (Sound Only - NO Voice)
+    this.playSuccessChime();
     this.recordNotificationHistory(payload);
     this.notifySubscribers({ type: 'ADMIN_BROADCAST_SENT', payload });
 

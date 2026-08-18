@@ -341,7 +341,6 @@ export function ContentCallingDashboard({ onOpenChat, initialSubTab }) {
     setNotifPermission(granted);
     if (granted) {
       notificationService.playBroadcastChime();
-      notificationService.speakHindiVoice('Notification aur voice alerts successfully activate ho gaye hain!');
     }
   };
 
@@ -1317,22 +1316,25 @@ Dhanyawad!
                 className="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-purple-600 via-pink-600 to-amber-600 hover:from-purple-500 hover:to-amber-500 text-white font-black text-xs flex items-center justify-center gap-2 shadow-lg shadow-purple-600/30 transition active:scale-95 animate-bounce-subtle"
               >
                 <Volume2 className="w-3.5 h-3.5" />
-                <span>🔔 Enable Loud Voice & Push Alerts</span>
+                <span>🔔 Enable Loud Sound & Push Alerts</span>
               </button>
             ) : (
               <div className="flex items-center justify-between bg-emerald-950/60 border border-emerald-500/40 px-3 py-1.5 rounded-xl text-[11px] text-emerald-300 font-bold">
                 <span className="flex items-center gap-1.5">
                   <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Loud Sound & Hindi Voice Alerts Active</span>
+                  <span>Loud Audio Chime Alerts Active</span>
                 </span>
                 <button
                   onClick={() => {
-                    notificationService.playSupervisorAlertSound();
-                    notificationService.speakHindiVoice('Test alert successful hai!');
+                    notificationService.playBroadcastChime();
+                    notificationService.sendLocalNotification({
+                      title: '🔔 Test Notification',
+                      body: 'MSR Tracker sound alert perfectly working!'
+                    });
                   }}
-                  className="text-[10px] bg-emerald-900/80 px-2 py-0.5 rounded text-emerald-200 hover:bg-emerald-800 transition font-mono"
+                  className="text-[10px] bg-emerald-900/80 px-2.5 py-1 rounded-lg text-emerald-200 hover:bg-emerald-800 transition font-mono shadow"
                 >
-                  🔊 Test Sound
+                  🔊 Test Sound Chime
                 </button>
               </div>
             )}
