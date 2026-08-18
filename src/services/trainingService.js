@@ -1,22 +1,22 @@
 // Training Masterclass Cloud Service - Live Supabase Cloud Sync & Realtime Broadcast
 import { supabase, isSupabaseConfigured } from './supabase';
 
-const TRAINING_STORAGE_KEY = 'msr_training_videos_v5';
+const TRAINING_STORAGE_KEY = 'msr_training_videos_v6';
 
 // 🌟 20-25 Top-Level Real-World Scenario Question Banks
-const NDR_20_QUESTIONS = [
-  { q: "NDR call connect hote hi customer ko pehla sentence kya bolna chahiye?", options: ["A. Namaste Sir, main Amparo Store se bol rahi hoon, aapka parcel aane wala tha.", "B. Aapne parcel kyu nahi liya?", "C. Delivery boy ko paise nahi diye aapne."], correct: 0 },
+const TELECALLER_20_QUESTIONS = [
+  { q: "Telecaller call connect hote hi customer ko pehla sentence kya bolna chahiye?", options: ["A. Namaste Sir, main Amparo Store se bol rahi hoon, aapka parcel / order ke regarding call hai.", "B. Aapne order kyu kiya?", "C. Delivery boy ko paise nahi diye aapne."], correct: 0 },
   { q: "Customer bole 'Delivery boy ka call nahi aaya', toh best solution kya hai?", options: ["A. Main courier supervisor ko priority instruction daal rahi hoon, kal dopahar tak parcel mil jayega.", "B. Delivery boy ki galti hai, complaint karein.", "C. Order cancel kar dijiye."], correct: 0 },
-  { q: "Customer bole 'Mujhe product ki ab zaroorat nahi hai', toh kya offer dekar order save kar sakte hain?", options: ["A. ₹50 instant discount coupon + fresh batch guarantee.", "B. Theek hai cancel kar dete hain.", "C. Police complaint ki baat karein."], correct: 0 },
+  { q: "Customer bole 'Mujhe product ki ab zaroorat nahi hai', toh kya offer dekar order save kar sakte hain?", options: ["A. ₹50 instant discount coupon + fresh batch guarantee.", "B. Theek hai cancel kar dete hain.", "C. Phone cut kar dein."], correct: 0 },
   { q: "Shiprocket NDR me 'Customer Not Available' reason par call ka main objective kya hai?", options: ["A. Re-attempt date aur convenient delivery time fix karna.", "B. Customer ko daantna.", "C. Sirf feedback lena."], correct: 0 },
   { q: "Agar customer bole 'Cash nahi hai mere paas kal aana', toh telecaller kya karegi?", options: ["A. Courier boy ko online UPI QR code scan karne ka option batayein ya kal ka re-attempt daalein.", "B. Order cancel mark kar dein.", "C. Delivery boy ko gaali dein."], correct: 0 },
   { q: "NDR order save karne par telecaller ko kitna verified cash incentive milta hai?", options: ["A. ₹50 per delivered parcel", "B. ₹10", "C. ₹0"], correct: 0 },
   { q: "Customer bole 'Address galat hai', toh telecaller ko kya karna chahiye?", options: ["A. Correct landmark aur house number lekar Shiprocket portal par address update karna.", "B. Customer ko bole khud courier office jaye.", "C. Cancel kar dein."], correct: 0 },
   { q: "Agar delivery boy 'Fake Attempt / Customer Refused' mark kare, toh telecaller kya karegi?", options: ["A. Customer se confirm karke Courier Escalation raise karegi aur kal re-attempt schedule karegi.", "B. Chup chap cancel maan legi.", "C. Customer ko block karegi."], correct: 0 },
-  { q: "Repeat customer calling me sabse pehla focus kya hona chahiye?", options: ["A. Previous experience kaisa raha aur stock khatam hone se pehle special discount offer karna.", "B. Sirf rate batana.", "C. Bina baat kiye cut karna."], correct: 0 },
-  { q: "Customer ko delivery ke din kitne time pehle alert message bhejna chahiye?", options: ["A. Subah 09:00 AM WhatsApp notification with amount & OTP.", "B. Shaam ko.", "C. Kabhi nahi."], correct: 0 },
+  { q: "Customer bole 'Soch kar bataunga', toh telecaller ka best closing hook kya hona chahiye?", options: ["A. Sir limited stock batch discount chal raha hai, main abhi hold kar deti hoon kal delivery nikal jayegi.", "B. Theek hai mat lijiye.", "C. Baad me dekhna."], correct: 0 },
+  { q: "Customer ko delivery ke din kitne time pehle alert message bhejna chahiye?", options: ["A. Subah 09:00 AM WhatsApp notification with amount & tracking details.", "B. Shaam ko.", "C. Kabhi nahi."], correct: 0 },
   { q: "Amparo Shilajit Gummies kitne din me visible energy aur stamina result deti hain?", options: ["A. 2 se 3 hafte regular use karne par.", "B. 1 minute me.", "C. Kabhi nahi."], correct: 0 },
-  { q: "Shilajit Gummies ka dose kya hai?", options: ["A. 1 ya 2 gummies daily khana khane ke baad doodh ya paani ke sath.", "B. Poora box 1 din me.", "C. Khaali pet 10 gummies."], correct: 0 },
+  { q: "Shilajit Gummies ka daily recommended dosage kya hai?", options: ["A. 1 ya 2 gummies daily khana khane ke baad doodh ya paani ke sath.", "B. Poora box 1 din me.", "C. Khaali pet 10 gummies."], correct: 0 },
   { q: "COD customer ko phone par order confirm karte waqt kya confirm karna zaroori hai?", options: ["A. Exact Pin Code, Full Landmark, COD Amount aur delivery date.", "B. Sirf naam.", "C. Bank password."], correct: 0 },
   { q: "Telecaller ko call par voice pitch aur tone kaisi rakhni chahiye?", options: ["A. Calm, Confident, Polite aur Energetic.", "B. Bahut slow aur sleepy.", "C. Tez aur aggressive."], correct: 0 },
   { q: "Agar customer call pick na kare toh pehla action kya hona chahiye?", options: ["A. Official WhatsApp template drop karna with tracking details.", "B. Number delete karna.", "C. 50 baar lagatar dial karna."], correct: 0 },
@@ -29,40 +29,76 @@ const NDR_20_QUESTIONS = [
 
 export const INITIAL_TRAINING_VIDEOS = [
   {
-    id: 'vid-bindra-01',
-    title: 'Sales दुनिया का सबसे आसान काम है | 4 Sales Secrets | Hindi Video | Dr Vivek Bindra',
-    description: 'Dr Vivek Bindra 4 Golden Sales Secrets, Customer Psychology, Objection Handling & Closing Strategies.',
+    id: 'vid-01-bindra',
+    title: 'Module #1: Sales दुनिया का सबसे आसान काम है | 4 Sales Secrets (Dr Vivek Bindra)',
+    description: 'Dr Vivek Bindra 4 Golden Sales Secrets, Customer Psychology, Probing Skills & High-Conversion Sales Mindset.',
     youtube_url: 'https://www.youtube.com/watch?v=kZMrd0m9eBY',
     embed_id: 'kZMrd0m9eBY',
-    category: 'Sales Psychology',
+    category: 'Sales Psychology & Core Secrets',
     duration_minutes: 8,
     assigned_to: 'ALL',
     completed_by: [],
-    quiz_questions: NDR_20_QUESTIONS
+    quiz_questions: TELECALLER_20_QUESTIONS
   },
   {
-    id: 'vid-01',
-    title: 'NDR Rescue & RTO Conversion Masterclass',
-    description: 'Customer ko 1st/2nd Delivery Attempt fail hone par kaise convince karein aur delivery confirm karwayein.',
-    youtube_url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
-    embed_id: 'dQw4w9WgXcQ',
+    id: 'vid-02-telecalling-script',
+    title: 'Module #2: Telecalling Mastery — 30-Second Hook, Pitch Script & Rapport Building',
+    description: 'Customer se pehle 30 second me connect banane ka formula, pitch opening, trust building aur voice modulation.',
+    youtube_url: 'https://youtu.be/q_DakTijNNw',
+    embed_id: 'q_DakTijNNw',
+    category: 'Telecalling Script & Hook',
+    duration_minutes: 10,
+    assigned_to: 'ALL',
+    completed_by: [],
+    quiz_questions: TELECALLER_20_QUESTIONS
+  },
+  {
+    id: 'vid-03-objection-handling',
+    title: "Module #3: Objection Handling — 'Soch Kar Bataunga / Mehenga Hai' Ko Close Karein",
+    description: "Price objections, 'ghar par puch kar bataunga', delivery delay aur customer doubts ko confidentally solve karke order close karne ka live method.",
+    youtube_url: 'https://youtu.be/6vxmYw90yN4',
+    embed_id: '6vxmYw90yN4',
+    category: 'Objection Handling & Closing',
+    duration_minutes: 12,
+    assigned_to: 'ALL',
+    completed_by: [],
+    quiz_questions: TELECALLER_20_QUESTIONS
+  },
+  {
+    id: 'vid-04-ndr-rescue',
+    title: 'Module #4: NDR & RTO Delivery Rescue Strategy (+₹50 Verified Bounty Per Order)',
+    description: 'Delivery attempt fail hone par courier escalation, customer coordination aur ₹50 extra cash incentive earn karne ki master strategy.',
+    youtube_url: 'https://youtu.be/q_DakTijNNw',
+    embed_id: 'q_DakTijNNw',
     category: 'NDR Rescue (+₹50 Bounty)',
     duration_minutes: 8,
     assigned_to: 'ALL',
     completed_by: [],
-    quiz_questions: NDR_20_QUESTIONS
+    quiz_questions: TELECALLER_20_QUESTIONS
   },
   {
-    id: 'vid-02',
-    title: 'Amparo Pure Shilajit Gummies — Product USP & Pitch',
-    description: 'Shilajit ke benefits, stamina booster pitch, dosage aur COD customer ke objection handle karne ka tareeqa.',
-    youtube_url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
-    embed_id: 'dQw4w9WgXcQ',
-    category: 'Product Mastery',
-    duration_minutes: 6,
+    id: 'vid-05-product-mastery',
+    title: 'Module #5: Amparo Pure Himalayan Shilajit Gummies — USP, Benefits & Dosage Guide',
+    description: 'Shilajit ke laboratory tested benefits, energy & stamina pitch, exact dosage aur customer consultation guide.',
+    youtube_url: 'https://www.youtube.com/watch?v=kZMrd0m9eBY',
+    embed_id: 'kZMrd0m9eBY',
+    category: 'Product Mastery (Amparo Shilajit)',
+    duration_minutes: 7,
     assigned_to: 'ALL',
     completed_by: [],
-    quiz_questions: NDR_20_QUESTIONS
+    quiz_questions: TELECALLER_20_QUESTIONS
+  },
+  {
+    id: 'vid-06-cod-verification',
+    title: 'Module #6: COD Order Confirmation & Fake Order Detection Masterclass',
+    description: 'Fake address identify karna, exact landmark lena, pin-code match karna aur RTO 0% karne ki verification calling.',
+    youtube_url: 'https://youtu.be/6vxmYw90yN4',
+    embed_id: '6vxmYw90yN4',
+    category: 'COD Verification & Trust',
+    duration_minutes: 9,
+    assigned_to: 'ALL',
+    completed_by: [],
+    quiz_questions: TELECALLER_20_QUESTIONS
   }
 ];
 
@@ -104,7 +140,7 @@ class TrainingService {
       const saved = localStorage.getItem(TRAINING_STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0 && parsed.some((p) => p.title?.includes('Vivek Bindra') || p.title?.includes('Sales'))) {
+        if (Array.isArray(parsed) && parsed.length >= 3) {
           return parsed;
         }
       }
@@ -158,11 +194,11 @@ class TrainingService {
     const currentLocal = this.getVideos();
     const baseList = cloudList && cloudList.length > 0 ? cloudList : currentLocal;
 
-    // Merge with defaults to ensure Dr Vivek Bindra masterclasses always exist
+    // Merge with defaults to ensure all 6 modules are present in order
     const merged = [...baseList];
     INITIAL_TRAINING_VIDEOS.forEach((def) => {
       if (!merged.some((m) => m.id === def.id || m.title === def.title)) {
-        merged.unshift(def);
+        merged.push(def);
       }
     });
 
@@ -177,7 +213,7 @@ class TrainingService {
       ...videoData,
       id: videoData.id || `vid-${Date.now()}`,
       completed_by: videoData.completed_by || [],
-      quiz_questions: videoData.quiz_questions || NDR_20_QUESTIONS
+      quiz_questions: videoData.quiz_questions || TELECALLER_20_QUESTIONS
     };
 
     // Place new video at the very top of the list
@@ -195,7 +231,7 @@ class TrainingService {
         return {
           ...v,
           ...updatedFields,
-          quiz_questions: updatedFields.quiz_questions || v.quiz_questions || NDR_20_QUESTIONS
+          quiz_questions: updatedFields.quiz_questions || v.quiz_questions || TELECALLER_20_QUESTIONS
         };
       }
       return v;
