@@ -347,12 +347,51 @@ export function ContentCallingDashboard({ onOpenChat, initialSubTab }) {
 
   const totalApprovedIncentive = approvedIncentives.reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const totalPendingIncentive = pendingIncentives.reduce((sum, item) => sum + Number(item.amount || 0), 0);
-  const totalIncentive = totalApprovedIncentive + totalPendingIncentive;
+  // 📦 Anti-Confusion Logistics Classifier: Separate Actionable NDR vs Warehouse Office Return
+  const isOfficeReturningRto = (c) => {
+    if (!c) return false;
+    const statusLower = String(c.status || '').toLowerCase();
+    const notesLower = String(c.notes || '').toLowerCase();
+    return (
+      statusLower === 'rto_lost' ||
+      statusLower.includes('rto in transit') ||
+      statusLower.includes('rto delivered') ||
+      statusLower.includes('rto_initiated') ||
+      statusLower.includes('returned') ||
+      notesLower.includes('rto in transit') ||
+      notesLower.includes('rto delivered') ||
+      notesLower.includes('returning to origin') ||
+      notesLower.includes('3rd attempt') ||
+      notesLower.includes('rto initiated') ||
+      notesLower.includes('fkl_lko_bts') ||
+      notesLower.includes('rto ndr')
+    );
+  };
+
+  const isActionableNdr = (c) => {
+    if (!c) return false;
+    if (isOfficeReturningRto(c)) return false;
+    if (c.status === 'delivered' || c.status === 'confirmed' || c.status === 'rto_saved') return false;
+    const statusLower = String(c.status || '').toLowerCase();
+    const notesLower = String(c.notes || '').toLowerCase();
+    return (
+      c.urgent_rto === true ||
+      c.call_type === 'RTO Rescue' ||
+      statusLower === 'rto_attempted' ||
+      statusLower.includes('ndr') ||
+      statusLower.includes('undelivered') ||
+      notesLower.includes('ndr') ||
+      notesLower.includes('1st attempt') ||
+      notesLower.includes('2nd attempt') ||
+      notesLower.includes('customer not available')
+    );
+  };
 
   const confirmedCalls = amparoCalls.filter((c) => c.status === 'confirmed' || c.status === 'rto_saved').length;
-  const urgentCount = amparoCalls.filter((c) => (c.urgent_rto || c.call_type === 'RTO Rescue') && c.status !== 'rto_saved' && c.status !== 'rto_lost').length;
-  const pendingCount = amparoCalls.filter((c) => c.status === 'pending_confirmation' && !c.urgent_rto && c.call_type !== 'RTO Rescue' && c.call_type !== 'Old Customer Feedback').length;
-  const oldCustomersCount = amparoCalls.filter((c) => (c.call_type === 'Old Customer Feedback' || c.status === 'delivered') && !c.urgent_rto).length;
+  const urgentCount = amparoCalls.filter(isActionableNdr).length;
+  const officeRtoCount = amparoCalls.filter(isOfficeReturningRto).length;
+  const pendingCount = amparoCalls.filter((c) => c.status === 'pending_confirmation' && !isActionableNdr(c) && !isOfficeReturningRto(c) && c.call_type !== 'Old Customer Feedback').length;
+  const oldCustomersCount = amparoCalls.filter((c) => (c.call_type === 'Old Customer Feedback' || c.status === 'delivered') && !isActionableNdr(c) && !isOfficeReturningRto(c)).length;
   const fakeCancelledCount = amparoCalls.filter((c) => c.status === 'rto_lost' || c.ai_decision === 'fake_order' || c.ai_decision === 'cancelled').length;
   const aiCallsCount = amparoCalls.filter((c) => c.call_source === 'ai_agent' || c.recording_url || c.transcript || (c.notes && c.notes.includes('[AI_LOG]'))).length;
 
@@ -360,9 +399,9 @@ export function ContentCallingDashboard({ onOpenChat, initialSubTab }) {
 
   // 🎯 Maya AI HR: Dynamic Generation of 10 Daily Duty Targets (Batch Controlled)
   const daily10Tasks = useMemo(() => {
-    const rtoList = amparoCalls.filter((c) => (c.urgent_rto || c.call_type === 'RTO Rescue'));
-    const oldList = amparoCalls.filter((c) => (c.call_type === 'Old Customer Feedback' || c.status === 'delivered') && !c.urgent_rto);
-    const pendingList = amparoCalls.filter((c) => c.status === 'pending_confirmation' && !c.urgent_rto && c.call_type !== 'RTO Rescue' && c.call_type !== 'Old Customer Feedback');
+    const rtoList = amparoCalls.filter(isActionableNdr);
+    const oldList = amparoCalls.filter((c) => (c.call_type === 'Old Customer Feedback' || c.status === 'delivered') && !isActionableNdr(c) && !isOfficeReturningRto(c));
+    const pendingList = amparoCalls.filter((c) => c.status === 'pending_confirmation' && !isActionableNdr(c) && !isOfficeReturningRto(c) && c.call_type !== 'Old Customer Feedback');
 
     const rtoSlice = rtoList.slice(dutyBatch * 4, dutyBatch * 4 + 4).map((c) => ({
       ...c,
@@ -458,19 +497,22 @@ export function ContentCallingDashboard({ onOpenChat, initialSubTab }) {
 
     if (activeCallTab === 'daily_duty') return true;
     if (activeCallTab === 'urgent_rto') {
-      return (c.urgent_rto || c.call_type === 'RTO Rescue') && c.status !== 'rto_saved' && c.status !== 'rto_lost';
+      return isActionableNdr(c);
+    }
+    if (activeCallTab === 'office_rto') {
+      return isOfficeReturningRto(c);
     }
     if (activeCallTab === 'pending') {
-      return c.status === 'pending_confirmation' && !c.urgent_rto && c.call_type !== 'RTO Rescue' && c.call_type !== 'Old Customer Feedback';
+      return c.status === 'pending_confirmation' && !isActionableNdr(c) && !isOfficeReturningRto(c) && c.call_type !== 'Old Customer Feedback';
     }
     if (activeCallTab === 'old_customers') {
-      return (c.call_type === 'Old Customer Feedback' || c.status === 'delivered') && !c.urgent_rto;
+      return (c.call_type === 'Old Customer Feedback' || c.status === 'delivered') && !isActionableNdr(c) && !isOfficeReturningRto(c);
     }
     if (activeCallTab === 'ai_confirmed') {
       return c.status === 'confirmed' || c.status === 'rto_saved';
     }
     if (activeCallTab === 'ai_fake_cancelled') {
-      return c.status === 'rto_lost' || c.ai_decision === 'fake_order' || c.ai_decision === 'cancelled';
+      return c.status === 'rto_lost' || c.ai_decision === 'fake_order' || c.ai_decision === 'cancelled' || isOfficeReturningRto(c);
     }
     if (activeCallTab === 'ai_history') {
       return Boolean(c.recording_url || c.transcript || c.call_source === 'ai_agent' || (c.notes && c.notes.includes('[AI_LOG]')));
@@ -2039,7 +2081,8 @@ Dhanyawad!
           <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1 pt-1 border-t border-slate-800/60">
             {[
               { id: 'all', label: `All Orders (${amparoCalls.length})` },
-              { id: 'urgent_rto', label: `🚨 Urgent NDR/RTO (${urgentCount})`, highlight: true },
+              { id: 'urgent_rto', label: `🚨 Actionable NDR (${urgentCount})`, highlight: true },
+              { id: 'office_rto', label: `🏢 Office Return (Gorakhpur Inbound) (${officeRtoCount})`, special: true },
               { id: 'pending', label: `⏳ Pending (${pendingCount})` },
               { id: 'old_customers', label: `🌿 Old Customers (${oldCustomersCount})` },
               { id: 'ai_history', label: `🎧 AI Logs & Audio (${aiCallsCount})` },
@@ -2112,9 +2155,16 @@ Dhanyawad!
                             MAYA CALLING...
                           </span>
                         )}
-                        {call.urgent_rto && (
-                          <span className="bg-red-600 text-white text-[10px] font-black px-2 py-0.5 rounded-md animate-pulse shrink-0">
-                            URGENT RTO
+                        {isOfficeReturningRto(call) && (
+                          <span className="bg-amber-950 text-amber-300 border border-amber-500/60 text-[10px] font-black px-2 py-0.5 rounded-md flex items-center gap-1 shrink-0">
+                            <Building2 className="w-3 h-3 text-amber-400" />
+                            🏢 IN-TRANSIT TO GORAKHPUR OFFICE
+                          </span>
+                        )}
+                        {!isOfficeReturningRto(call) && isActionableNdr(call) && (
+                          <span className="bg-red-600 text-white text-[10px] font-black px-2 py-0.5 rounded-md animate-pulse flex items-center gap-1 shrink-0">
+                            <RotateCw className="w-3 h-3" />
+                            🚨 ACTIONABLE NDR (+₹50 BOUNTY)
                           </span>
                         )}
                         {isOldCustomer && (
@@ -2129,7 +2179,7 @@ Dhanyawad!
                             CONFIRMED
                           </span>
                         )}
-                        {(call.status === 'rto_lost' || call.ai_decision === 'fake_order') && (
+                        {(call.status === 'rto_lost' || call.ai_decision === 'fake_order') && !isOfficeReturningRto(call) && (
                           <span className="bg-red-600 text-white text-[10px] font-black px-2 py-0.5 rounded-md flex items-center gap-1 shrink-0">
                             <Ban className="w-3 h-3" />
                             CANCEL
@@ -2156,22 +2206,6 @@ Dhanyawad!
                           </span>
                         )}
 
-                        {/* ⚠️ NDR Attempt Badge & Alert */}
-                        {(() => {
-                          const notesUpper = String(call.notes || '').toUpperCase();
-                          const statusUpper = String(call.status || '').toUpperCase();
-                          if (notesUpper.includes('3RD ATTEMPT') || statusUpper.includes('3RD') || notesUpper.includes('ATTEMPT 3')) {
-                            return <span className="bg-red-950 text-red-300 border border-red-500 font-extrabold text-[10px] px-2 py-0.5 rounded-md animate-pulse flex items-center gap-1 shrink-0">🚨 3RD ATTEMPT FAIL</span>;
-                          }
-                          if (notesUpper.includes('2ND ATTEMPT') || statusUpper.includes('2ND') || notesUpper.includes('UNDELIVERED-2ND') || notesUpper.includes('ATTEMPT 2')) {
-                            return <span className="bg-amber-950 text-amber-300 border border-amber-500 font-extrabold text-[10px] px-2 py-0.5 rounded-md flex items-center gap-1 shrink-0">⚠️ 2ND ATTEMPT FAIL</span>;
-                          }
-                          if (notesUpper.includes('1ST ATTEMPT') || statusUpper.includes('1ST') || notesUpper.includes('UNDELIVERED-1ST') || notesUpper.includes('ATTEMPT 1') || call.urgent_rto) {
-                            return <span className="bg-orange-950 text-orange-300 border border-orange-500/70 font-bold text-[10px] px-2 py-0.5 rounded-md flex items-center gap-1 shrink-0">⚠️ 1ST ATTEMPT (+₹50)</span>;
-                          }
-                          return null;
-                        })()}
-
                         {call.call_source === 'ai_agent' && (
                           <span className="bg-purple-900/60 text-purple-300 border border-purple-500/40 text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0">
                             🤖 AI Verified
@@ -2179,23 +2213,32 @@ Dhanyawad!
                         )}
                       </div>
 
-                      {/* Phone & Product */}
+                      {/* Phone & Product Row */}
                       <div className="flex items-center gap-2 flex-wrap min-w-0 pt-0.5">
                         {editingPhoneId === call.id ? (
-                          <div className="flex items-center gap-1 shrink-0">
+                          <div className="flex items-center gap-1 bg-slate-900 border border-purple-500 rounded-lg p-0.5" onClick={(e) => e.stopPropagation()}>
                             <input
                               type="tel"
-                              autoFocus
                               value={editingPhoneVal}
                               onChange={(e) => setEditingPhoneVal(e.target.value)}
-                              placeholder="Enter 10-digit number"
-                              className="bg-slate-900 border border-emerald-500 rounded-lg px-2 py-0.5 text-xs font-mono text-emerald-300 w-36 focus:outline-none"
+                              placeholder="10-digit number"
+                              maxLength={10}
+                              className="bg-transparent text-white font-mono text-xs px-1.5 py-0.5 focus:outline-none w-28"
+                              autoFocus
                             />
                             <button
-                              onClick={() => handleSavePhoneInline(call.id)}
-                              className="p-1 rounded-md bg-emerald-600 text-white hover:bg-emerald-500"
+                              onClick={() => handleSaveEditedPhone(call.id)}
+                              className="bg-emerald-600 text-white p-1 rounded hover:bg-emerald-500"
+                              title="Save"
                             >
-                              <Save className="w-3 h-3" />
+                              <Check className="w-3 h-3" />
+                            </button>
+                            <button
+                              onClick={() => setEditingPhoneId(null)}
+                              className="bg-slate-700 text-slate-300 p-1 rounded hover:bg-slate-600"
+                              title="Cancel"
+                            >
+                              <X className="w-3 h-3" />
                             </button>
                           </div>
                         ) : (
@@ -2249,7 +2292,15 @@ Dhanyawad!
                         </button>
 
                         {/* 🔄 Courier NDR Re-Attempt OR 360° Audit */}
-                        {(call.urgent_rto || call.call_type === 'RTO Rescue' || (call.notes && call.notes.includes('NDR'))) ? (
+                        {isOfficeReturningRto(call) ? (
+                          <button
+                            onClick={() => handleOpenCustomer360(call)}
+                            className="tap-target w-full px-2 py-1.5 rounded-xl bg-amber-950/80 hover:bg-amber-900 border border-amber-500/50 text-amber-200 font-bold text-[11px] flex items-center justify-center gap-1 transition active:scale-95"
+                          >
+                            <Building2 className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                            <span className="truncate">Office Return</span>
+                          </button>
+                        ) : isActionableNdr(call) ? (
                           <button
                             onClick={() => {
                               setNdrModalOrder(call);
