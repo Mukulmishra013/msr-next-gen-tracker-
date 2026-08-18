@@ -1,6 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { useAppData } from '../../context/AppDataContext';
 import { 
   GraduationCap, 
   Play, 
@@ -12,104 +11,28 @@ import {
   Clock, 
   BookOpen, 
   Video, 
-  ExternalLink,
-  ShieldCheck,
-  User,
-  Users,
-  Printer,
-  ChevronRight,
-  Lightbulb,
-  Check
+  ShieldCheck, 
+  User, 
+  Users, 
+  Printer, 
+  Lightbulb, 
+  Check, 
+  RefreshCw 
 } from 'lucide-react';
 import { TrainingCertificateModal } from './TrainingCertificateModal';
-
-// Default Masterclass Video Curriculum
-const DEFAULT_VIDEOS = [
-  {
-    id: 'vid-01',
-    title: 'NDR Rescue & RTO Conversion Masterclass',
-    description: 'Customer ko 1st/2nd Delivery Attempt fail hone par kaise convince karein aur delivery confirm karwayein.',
-    youtube_url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
-    embed_id: 'dQw4w9WgXcQ',
-    category: 'NDR Rescue (+₹50 Bounty)',
-    duration_minutes: 8,
-    assigned_to: 'ALL', // 'ALL' | 'Priya Singh'
-    completed_by: ['Priya Singh'],
-    quiz_questions: [
-      {
-        q: 'Jab customer bole "Delivery boy ka call nahi aaya", toh best response kya hai?',
-        options: [
-          'A. Maine courier supervisor ko priority instruction daal di hai, kal 12 baje parcel deliver ho jayega.',
-          'B. Delivery boy ki galti hai, aap courier office jaakar parcel le lijiye.',
-          'C. Theek hai order cancel kar dete hain.'
-        ],
-        correct: 0
-      }
-    ]
-  },
-  {
-    id: 'vid-02',
-    title: 'Amparo Pure Shilajit Gummies — Product USP & Pitch',
-    description: 'Shilajit ke benefits, stamina booster pitch, dosage aur COD customer ke objection handle karne ka tareeqa.',
-    youtube_url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
-    embed_id: 'dQw4w9WgXcQ',
-    category: 'Product Mastery',
-    duration_minutes: 6,
-    assigned_to: 'Priya Singh',
-    completed_by: [],
-    quiz_questions: [
-      {
-        q: 'Amparo Shilajit Gummies ka sabse bada USP customer ko kya batana hai?',
-        options: [
-          'A. 100% Shuddh Himalayan Shilajit, Tasty Gummy Format me bina kisi kadwe swad ke.',
-          'B. Normal toffee jaisa hai kabhi bhi khao.',
-          'C. Isme koi shilajit nahi hai.'
-        ],
-        correct: 0
-      }
-    ]
-  },
-  {
-    id: 'vid-03',
-    title: 'Telecalling Tone, Etiquette & 30-Second Hook',
-    description: 'Pehle 10 second me customer ka trust kaise jeetein aur call cut hone se kaise bachayein.',
-    youtube_url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
-    embed_id: 'dQw4w9WgXcQ',
-    category: 'Sales Psychology',
-    duration_minutes: 5,
-    assigned_to: 'ALL',
-    completed_by: [],
-    quiz_questions: [
-      {
-        q: 'Call start karte hi telecaller ki tone kaisi honi chahiye?',
-        options: [
-          'A. Confident, Energetic, Respectful aur Hindi/Hinglish me natural.',
-          'B. Bahut tez chillakar bolna.',
-          'C. Robot ki tarah jaldi-jaldi script padhna.'
-        ],
-        correct: 0
-      }
-    ]
-  }
-];
+import { trainingService } from '../../services/trainingService';
 
 export function TrainingAcademy() {
-  const { currentUser } = useAuth();
+  const { currentUser, availableUsers } = useAuth();
   const isOwner = currentUser?.role === 'owner';
 
-  const [videos, setVideos] = useState(() => {
-    try {
-      const saved = localStorage.getItem('msr_training_videos');
-      if (saved) return JSON.parse(saved);
-    } catch (e) {}
-    return DEFAULT_VIDEOS;
-  });
-
+  const [videos, setVideos] = useState(() => trainingService.getVideos());
   const [activeTab, setActiveTab] = useState('courses'); // 'courses' | 'certificates'
-  const [selectedVideo, setSelectedVideo] = useState(videos[0]);
+  const [selectedVideo, setSelectedVideo] = useState(() => trainingService.getVideos()[0] || null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showCertModal, setShowCertModal] = useState(false);
   const [certData, setCertData] = useState(null);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   // New Video Form (Admin)
   const [newTitle, setNewTitle] = useState('');
@@ -122,14 +45,42 @@ export function TrainingAcademy() {
   // Quiz State
   const [selectedAnswers, setSelectedAnswers] = useState({});
 
+  // Subscribe to Training Video Changes
+  useEffect(() => {
+    const unsubscribe = trainingService.subscribe((updated) => {
+      setVideos(updated);
+      setSelectedVideo((prev) => {
+        if (!prev) return updated[0] || null;
+        return updated.find((v) => v.id === prev.id) || updated[0] || null;
+      });
+    });
+
+    // Cloud fetch on mount
+    trainingService.fetchCloudVideos().then((data) => {
+      if (data && data.length > 0) {
+        setVideos(data);
+        setSelectedVideo((prev) => prev || data[0]);
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  const handleRefresh = async () => {
+    setIsSyncing(true);
+    const data = await trainingService.fetchCloudVideos();
+    if (data) setVideos(data);
+    setIsSyncing(false);
+  };
+
   // Helper to extract YouTube ID
   const getYoutubeEmbedId = (url) => {
     const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
     const match = url.match(regExp);
-    return (match && match[2].length === 11) ? match[2] : 'dQw4w9WgXcQ';
+    return match && match[2].length === 11 ? match[2] : 'dQw4w9WgXcQ';
   };
 
-  const handleAddVideo = (e) => {
+  const handleAddVideo = async (e) => {
     e.preventDefault();
     if (!newTitle || !newUrl) return;
 
@@ -143,41 +94,35 @@ export function TrainingAcademy() {
       category: newCategory,
       duration_minutes: Number(newDuration) || 5,
       assigned_to: newAssignedTo,
-      completed_by: []
+      completed_by: [],
+      quiz_questions: [
+        {
+          q: `Is "${newTitle}" masterclass ka main key takeaway kya hai?`,
+          options: [
+            'A. Customer ke objection ko sunna, politely solution dena aur delivery confirm karwana.',
+            'B. Call ko jaldi cut karna.',
+            'C. Customer se argue karna.'
+          ],
+          correct: 0
+        }
+      ]
     };
 
-    const updated = [newEntry, ...videos];
-    setVideos(updated);
-    localStorage.setItem('msr_training_videos', JSON.stringify(updated));
+    await trainingService.addVideo(newEntry);
     setShowAddModal(false);
     setNewTitle('');
     setNewDesc('');
     setNewUrl('');
-    alert('✅ Training Masterclass Video published successfully!');
+    alert('✅ Training Masterclass Video successfully published for employees!');
   };
 
-  const handleDeleteVideo = (id) => {
+  const handleDeleteVideo = async (id) => {
     if (!confirm('Kya aap is training video ko delete karna chahte hain?')) return;
-    const updated = videos.filter(v => v.id !== id);
-    setVideos(updated);
-    localStorage.setItem('msr_training_videos', JSON.stringify(updated));
-    if (selectedVideo?.id === id) setSelectedVideo(updated[0] || null);
+    await trainingService.deleteVideo(id);
   };
 
-  const handleCompleteTraining = (video) => {
-    const updated = videos.map(v => {
-      if (v.id === video.id) {
-        const completed = v.completed_by || [];
-        if (!completed.includes(currentUser.name)) {
-          completed.push(currentUser.name);
-        }
-        return { ...v, completed_by: completed };
-      }
-      return v;
-    });
-
-    setVideos(updated);
-    localStorage.setItem('msr_training_videos', JSON.stringify(updated));
+  const handleCompleteTraining = async (video) => {
+    await trainingService.markCompleted(video.id, currentUser.name);
 
     // Open Official Certificate
     setCertData({
@@ -190,10 +135,14 @@ export function TrainingAcademy() {
     setShowCertModal(true);
   };
 
-  // Filter videos visible to this employee
-  const visibleVideos = videos.filter(v => {
+  // Filter videos visible to this employee (Owner sees all; Staff sees ALL + specifically assigned)
+  const visibleVideos = videos.filter((v) => {
     if (isOwner) return true;
-    return v.assigned_to === 'ALL' || v.assigned_to?.toLowerCase() === currentUser.name?.toLowerCase();
+    if (!v.assigned_to || v.assigned_to === 'ALL' || v.assigned_to.toLowerCase() === 'all') return true;
+    const target = v.assigned_to.toLowerCase();
+    const uName = (currentUser?.name || '').toLowerCase();
+    const uId = (currentUser?.id || '').toLowerCase();
+    return target.includes(uName) || uName.includes(target) || target.includes(uId) || uId.includes(target);
   });
 
   return (
@@ -214,6 +163,14 @@ export function TrainingAcademy() {
                 <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-purple-900 border border-purple-500/50 text-purple-200">
                   Live Masterclasses
                 </span>
+                <button
+                  onClick={handleRefresh}
+                  disabled={isSyncing}
+                  className="p-1 rounded-lg bg-slate-800 text-slate-300 hover:text-white"
+                  title="Sync Videos"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-purple-400' : ''}`} />
+                </button>
               </div>
               <p className="text-xs text-purple-200/80 mt-0.5">
                 Watch Expert YouTube Training • Pass Maya AI Quiz • Earn Official MSR Next Gen Certificates
@@ -262,170 +219,178 @@ export function TrainingAcademy() {
       </div>
 
       {/* 🎬 Tab 1: Video Masterclass Player & Curriculum */}
-      {activeTab === 'courses' && selectedVideo && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-          
-          {/* Left 2 Cols: In-App YouTube Player & Assessment */}
-          <div className="lg:col-span-2 space-y-4">
+      {activeTab === 'courses' && (
+        visibleVideos.length === 0 ? (
+          <div className="p-8 text-center bg-slate-900/60 border border-slate-800 rounded-3xl space-y-2">
+            <BookOpen className="w-10 h-10 text-purple-400 mx-auto" />
+            <h3 className="font-extrabold text-sm text-white">No Training Videos Assigned Yet</h3>
+            <p className="text-xs text-slate-400">Admin jald hi nayi masterclass videos add karenge!</p>
+          </div>
+        ) : selectedVideo && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
             
-            {/* In-App Responsive YouTube Video Embed */}
-            <div className="glass-card rounded-3xl border border-purple-500/40 overflow-hidden shadow-2xl bg-black">
-              <div className="relative aspect-video w-full bg-slate-950">
-                <iframe
-                  className="w-full h-full"
-                  src={`https://www.youtube.com/embed/${selectedVideo.embed_id}?autoplay=0&rel=0&modestbranding=1`}
-                  title={selectedVideo.title}
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                ></iframe>
-              </div>
-
-              {/* Video Info Bar */}
-              <div className="p-4 sm:p-5 space-y-3 bg-slate-900/90">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-3">
-                  <div>
-                    <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-purple-950 text-purple-300 border border-purple-500/40 uppercase">
-                      {selectedVideo.category}
-                    </span>
-                    <h3 className="font-extrabold text-base sm:text-lg text-white mt-1">
-                      {selectedVideo.title}
-                    </h3>
-                  </div>
-
-                  <div className="flex items-center gap-2 text-xs font-mono text-slate-300 shrink-0">
-                    <Clock className="w-3.5 h-3.5 text-yellow-300" />
-                    <span>{selectedVideo.duration_minutes} Mins Watch</span>
-                  </div>
+            {/* Left 2 Cols: In-App YouTube Player & Assessment */}
+            <div className="lg:col-span-2 space-y-4">
+              
+              {/* In-App Responsive YouTube Video Embed */}
+              <div className="glass-card rounded-3xl border border-purple-500/40 overflow-hidden shadow-2xl bg-black">
+                <div className="relative aspect-video w-full bg-slate-950">
+                  <iframe
+                    className="w-full h-full"
+                    src={`https://www.youtube.com/embed/${selectedVideo.embed_id}?autoplay=0&rel=0&modestbranding=1`}
+                    title={selectedVideo.title}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  ></iframe>
                 </div>
 
-                <p className="text-xs text-slate-300 leading-relaxed">
-                  {selectedVideo.description}
-                </p>
-
-                {/* 🤖 Maya AI Smart Calling Tip */}
-                <div className="p-3 rounded-2xl bg-purple-950/60 border border-purple-500/30 flex items-start gap-2 text-xs text-purple-200">
-                  <Lightbulb className="w-4 h-4 text-yellow-300 shrink-0 mt-0.5" />
-                  <div>
-                    <strong>Maya AI Pro-Tip:</strong> Is video ko poora dekhne ke baad niche diye gaye Maya AI Quiz me 100% score karein aur apna verified certificate unlock karein!
-                  </div>
-                </div>
-
-                {/* Video Complete & Claim Certificate Action */}
-                <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div className="flex items-center gap-2">
-                    <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                    <span className="text-xs text-slate-300">
-                      Assigned to: <strong className="text-white">{selectedVideo.assigned_to === 'ALL' ? '🌐 All Team Members' : `👤 ${selectedVideo.assigned_to}`}</strong>
-                    </span>
-                  </div>
-
-                  <button
-                    onClick={() => handleCompleteTraining(selectedVideo)}
-                    className="tap-target px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/30 transition active:scale-95"
-                  >
-                    <Award className="w-4 h-4 text-yellow-300" />
-                    <span>Complete & Unlock Certificate ➔</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* 🤖 Maya AI Interactive Quiz for Selected Video */}
-            {selectedVideo.quiz_questions && selectedVideo.quiz_questions.length > 0 && (
-              <div className="glass-card rounded-3xl border border-slate-800 p-4 sm:p-5 space-y-3">
-                <h4 className="font-extrabold text-sm text-white flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-yellow-300" />
-                  <span>Maya AI Quick Knowledge Check (1-Min Assessment)</span>
-                </h4>
-
-                {selectedVideo.quiz_questions.map((quiz, qIdx) => (
-                  <div key={qIdx} className="space-y-2 text-xs">
-                    <p className="font-bold text-slate-200">❓ {quiz.q}</p>
-                    <div className="space-y-1.5">
-                      {quiz.options.map((opt, optIdx) => (
-                        <button
-                          key={optIdx}
-                          onClick={() => setSelectedAnswers(prev => ({ ...prev, [qIdx]: optIdx }))}
-                          className={`w-full text-left p-2.5 rounded-xl border text-xs font-medium transition ${
-                            selectedAnswers[qIdx] === optIdx
-                              ? 'bg-purple-950 border-purple-500 text-purple-200 font-bold'
-                              : 'bg-slate-950 border-slate-800 text-slate-300 hover:bg-slate-900'
-                          }`}
-                        >
-                          {opt}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-          </div>
-
-          {/* Right 1 Col: Video Playlist Curriculum */}
-          <div className="space-y-3">
-            <h4 className="font-extrabold text-sm text-white flex items-center gap-2">
-              <BookOpen className="w-4 h-4 text-purple-400" />
-              <span>Training Curriculum ({visibleVideos.length} Modules)</span>
-            </h4>
-
-            <div className="space-y-2.5">
-              {visibleVideos.map((vid, idx) => {
-                const isSelected = selectedVideo?.id === vid.id;
-                const isCompleted = vid.completed_by?.includes(currentUser.name);
-
-                return (
-                  <div
-                    key={vid.id}
-                    onClick={() => setSelectedVideo(vid)}
-                    className={`p-3.5 rounded-2xl border transition cursor-pointer space-y-2 ${
-                      isSelected
-                        ? 'bg-purple-950/60 border-purple-500 shadow-lg'
-                        : 'bg-slate-900/80 border-slate-800 hover:border-slate-700'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-[9px] font-black px-2 py-0.5 rounded bg-slate-950 text-slate-400 uppercase font-mono">
-                        Module #{idx + 1}
+                {/* Video Info Bar */}
+                <div className="p-4 sm:p-5 space-y-3 bg-slate-900/90">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-3">
+                    <div>
+                      <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-purple-950 text-purple-300 border border-purple-500/40 uppercase">
+                        {selectedVideo.category}
                       </span>
-                      {isCompleted ? (
-                        <span className="text-[10px] font-bold text-emerald-400 flex items-center gap-1">
-                          <CheckCircle2 className="w-3 h-3" /> Completed
-                        </span>
-                      ) : (
-                        <span className="text-[10px] font-bold text-amber-400 flex items-center gap-1">
-                          <Clock className="w-3 h-3" /> Pending
-                        </span>
-                      )}
+                      <h3 className="font-extrabold text-base sm:text-lg text-white mt-1">
+                        {selectedVideo.title}
+                      </h3>
                     </div>
 
-                    <h5 className="font-bold text-xs text-white leading-snug">
-                      {vid.title}
-                    </h5>
-
-                    <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1 border-t border-slate-800/60">
-                      <span>{vid.duration_minutes} Mins</span>
-                      <span className="text-purple-300">{vid.category}</span>
-                      {isOwner && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteVideo(vid.id);
-                          }}
-                          className="text-red-400 hover:text-red-300 p-1"
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </button>
-                      )}
+                    <div className="flex items-center gap-2 text-xs font-mono text-slate-300 shrink-0">
+                      <Clock className="w-3.5 h-3.5 text-yellow-300" />
+                      <span>{selectedVideo.duration_minutes} Mins Watch</span>
                     </div>
                   </div>
-                );
-              })}
-            </div>
-          </div>
 
-        </div>
+                  <p className="text-xs text-slate-300 leading-relaxed">
+                    {selectedVideo.description || 'Master this topic to increase your order conversions and daily bonuses.'}
+                  </p>
+
+                  {/* 🤖 Maya AI Smart Calling Tip */}
+                  <div className="p-3 rounded-2xl bg-purple-950/60 border border-purple-500/30 flex items-start gap-2 text-xs text-purple-200">
+                    <Lightbulb className="w-4 h-4 text-yellow-300 shrink-0 mt-0.5" />
+                    <div>
+                      <strong>Maya AI Pro-Tip:</strong> Is video ko poora dekhne ke baad niche diye gaye Maya AI Quiz me 100% score karein aur apna verified certificate unlock karein!
+                    </div>
+                  </div>
+
+                  {/* Video Complete & Claim Certificate Action */}
+                  <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                      <span className="text-xs text-slate-300">
+                        Assigned to: <strong className="text-white">{selectedVideo.assigned_to === 'ALL' ? '🌐 All Team Members' : `👤 ${selectedVideo.assigned_to}`}</strong>
+                      </span>
+                    </div>
+
+                    <button
+                      onClick={() => handleCompleteTraining(selectedVideo)}
+                      className="tap-target px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/30 transition active:scale-95"
+                    >
+                      <Award className="w-4 h-4 text-yellow-300" />
+                      <span>Complete & Unlock Certificate ➔</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* 🤖 Maya AI Interactive Quiz for Selected Video */}
+              {selectedVideo.quiz_questions && selectedVideo.quiz_questions.length > 0 && (
+                <div className="glass-card rounded-3xl border border-slate-800 p-4 sm:p-5 space-y-3">
+                  <h4 className="font-extrabold text-sm text-white flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-yellow-300" />
+                    <span>Maya AI Quick Knowledge Check (1-Min Assessment)</span>
+                  </h4>
+
+                  {selectedVideo.quiz_questions.map((quiz, qIdx) => (
+                    <div key={qIdx} className="space-y-2 text-xs">
+                      <p className="font-bold text-slate-200">❓ {quiz.q}</p>
+                      <div className="space-y-1.5">
+                        {quiz.options.map((opt, optIdx) => (
+                          <button
+                            key={optIdx}
+                            onClick={() => setSelectedAnswers((prev) => ({ ...prev, [qIdx]: optIdx }))}
+                            className={`w-full text-left p-2.5 rounded-xl border text-xs font-medium transition ${
+                              selectedAnswers[qIdx] === optIdx
+                                ? 'bg-purple-950 border-purple-500 text-purple-200 font-bold'
+                                : 'bg-slate-950 border-slate-800 text-slate-300 hover:bg-slate-900'
+                            }`}
+                          >
+                            {opt}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+            </div>
+
+            {/* Right 1 Col: Video Playlist Curriculum */}
+            <div className="space-y-3">
+              <h4 className="font-extrabold text-sm text-white flex items-center gap-2">
+                <BookOpen className="w-4 h-4 text-purple-400" />
+                <span>Training Curriculum ({visibleVideos.length} Modules)</span>
+              </h4>
+
+              <div className="space-y-2.5">
+                {visibleVideos.map((vid, idx) => {
+                  const isSelected = selectedVideo?.id === vid.id;
+                  const isCompleted = vid.completed_by?.includes(currentUser.name);
+
+                  return (
+                    <div
+                      key={vid.id}
+                      onClick={() => setSelectedVideo(vid)}
+                      className={`p-3.5 rounded-2xl border transition cursor-pointer space-y-2 ${
+                        isSelected
+                          ? 'bg-purple-950/60 border-purple-500 shadow-lg'
+                          : 'bg-slate-900/80 border-slate-800 hover:border-slate-700'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[9px] font-black px-2 py-0.5 rounded bg-slate-950 text-slate-400 uppercase font-mono">
+                          Module #{idx + 1}
+                        </span>
+                        {isCompleted ? (
+                          <span className="text-[10px] font-bold text-emerald-400 flex items-center gap-1">
+                            <CheckCircle2 className="w-3 h-3" /> Completed
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-bold text-amber-400 flex items-center gap-1">
+                            <Clock className="w-3 h-3" /> Pending
+                          </span>
+                        )}
+                      </div>
+
+                      <h5 className="font-bold text-xs text-white leading-snug">
+                        {vid.title}
+                      </h5>
+
+                      <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1 border-t border-slate-800/60">
+                        <span>{vid.duration_minutes} Mins</span>
+                        <span className="text-purple-300">{vid.category}</span>
+                        {isOwner && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteVideo(vid.id);
+                            }}
+                            className="text-red-400 hover:text-red-300 p-1"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+          </div>
+        )
       )}
 
       {/* 📜 Tab 2: Employee Certificates Register */}
@@ -437,7 +402,7 @@ export function TrainingAcademy() {
           </h3>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {videos.filter(v => v.completed_by?.includes(currentUser.name)).map(v => (
+            {videos.filter((v) => v.completed_by?.includes(currentUser.name)).map((v) => (
               <div
                 key={v.id}
                 className="p-4 rounded-2xl bg-gradient-to-br from-slate-900 to-purple-950/40 border border-purple-500/40 space-y-3"
@@ -541,10 +506,14 @@ export function TrainingAcademy() {
                 <select
                   value={newAssignedTo}
                   onChange={(e) => setNewAssignedTo(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none"
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none font-bold text-emerald-400"
                 >
-                  <option value="ALL">🌐 All Team Members</option>
-                  <option value="Priya Singh">👤 Priya Singh</option>
+                  <option value="ALL">🌐 All Team Members (Sabhi ke liye)</option>
+                  {availableUsers && availableUsers.filter((u) => u.role !== 'owner').map((u) => (
+                    <option key={u.id} value={u.name}>
+                      👤 {u.name} ({u.roleLabel || u.role})
+                    </option>
+                  ))}
                 </select>
               </div>
 
