@@ -1,7 +1,7 @@
 // Training Masterclass Cloud Service - Live Supabase Cloud Sync & Realtime Broadcast
 import { supabase, isSupabaseConfigured } from './supabase';
 
-const TRAINING_STORAGE_KEY = 'msr_training_videos_v4';
+const TRAINING_STORAGE_KEY = 'msr_training_videos_v5';
 
 // 🌟 20-25 Top-Level Real-World Scenario Question Banks
 const NDR_20_QUESTIONS = [
@@ -32,8 +32,8 @@ export const INITIAL_TRAINING_VIDEOS = [
     id: 'vid-bindra-01',
     title: 'Sales दुनिया का सबसे आसान काम है | 4 Sales Secrets | Hindi Video | Dr Vivek Bindra',
     description: 'Dr Vivek Bindra 4 Golden Sales Secrets, Customer Psychology, Objection Handling & Closing Strategies.',
-    youtube_url: 'https://www.youtube.com/watch?v=F_fP45O_uI0',
-    embed_id: 'F_fP45O_uI0',
+    youtube_url: 'https://www.youtube.com/watch?v=kZMrd0m9eBY',
+    embed_id: 'kZMrd0m9eBY',
     category: 'Sales Psychology',
     duration_minutes: 8,
     assigned_to: 'ALL',
