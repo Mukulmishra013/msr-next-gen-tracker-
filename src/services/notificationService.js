@@ -1,10 +1,12 @@
-// Enterprise Push Notification, Loud Audio Synthesizer, Hindi Voice & Cross-Device Realtime Sync
+// Enterprise Push Notification, Loud Audio Synthesizer, Hindi Voice & 100% Cross-Device Realtime Sync
 import { supabase, isSupabaseConfigured } from './supabase';
 
-const OFFLINE_QUEUE_KEY = 'msr_offline_notification_queue_v3';
-const NOTIFICATION_HISTORY_KEY = 'msr_notification_history_v3';
-const BROADCAST_STORAGE_KEY = 'msr_admin_broadcast_channel_v3';
-const LAST_SEEN_BROADCAST_KEY = 'msr_last_seen_broadcast_id';
+const OFFLINE_QUEUE_KEY = 'msr_offline_notification_queue_v4';
+const NOTIFICATION_HISTORY_KEY = 'msr_notification_history_v4';
+const BROADCAST_STORAGE_KEY = 'msr_admin_broadcast_channel_v4';
+const LAST_SEEN_BROADCAST_KEY = 'msr_last_seen_broadcast_id_v4';
+
+const APP_BOOT_TIME = Date.now() - 3000;
 
 class NotificationService {
   constructor() {
@@ -13,26 +15,47 @@ class NotificationService {
     this.listeners = [];
     this.realtimeChannel = null;
     this.pollInterval = null;
+    this.audioUnlocked = false;
 
     if (typeof window !== 'undefined') {
-      setTimeout(() => {
-        this.initServiceWorker();
-        this.initNetworkListener();
-        this.initCrossDeviceRealtime();
-        this.initCloudPolling();
-      }, 500);
+      this.initUserInteractionAudioUnlock();
+      this.initStorageListener();
+      this.initCrossDeviceRealtime();
+      this.initCloudPolling();
+      this.initNetworkListener();
+      setTimeout(() => this.initServiceWorker(), 1000);
     }
   }
 
-  // 1. Initialize Service Worker for PWA Background Push Notifications
+  // 1. Unlock Audio Context on first interaction on mobile/desktop browsers
+  initUserInteractionAudioUnlock() {
+    if (typeof window === 'undefined') return;
+
+    const unlock = () => {
+      this.audioUnlocked = true;
+      const ctx = this.getAudioContext();
+      if (ctx && ctx.state === 'suspended') {
+        ctx.resume();
+      }
+      window.removeEventListener('click', unlock);
+      window.removeEventListener('touchstart', unlock);
+      window.removeEventListener('keydown', unlock);
+    };
+
+    window.addEventListener('click', unlock, { passive: true });
+    window.addEventListener('touchstart', unlock, { passive: true });
+    window.addEventListener('keydown', unlock, { passive: true });
+  }
+
+  // 2. Initialize Service Worker for PWA Background Push Notifications
   async initServiceWorker() {
     if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return;
 
     try {
       const reg = await navigator.serviceWorker.register('/sw.js');
-      console.log('MSR ServiceWorker registered:', reg.scope);
+      console.log('MSR ServiceWorker active:', reg.scope);
     } catch (e) {
-      console.warn('ServiceWorker registration fallback:', e);
+      console.warn('ServiceWorker fallback:', e);
     }
 
     if ('Notification' in window) {
@@ -40,7 +63,7 @@ class NotificationService {
     }
   }
 
-  // 2. Request Push Notification Permission
+  // 3. Request Push Notification Permission
   async requestPermission() {
     if (typeof window === 'undefined' || !('Notification' in window)) return false;
 
@@ -49,10 +72,10 @@ class NotificationService {
       this.permissionGranted = perm === 'granted';
       if (this.permissionGranted) {
         this.playSuccessChime();
-        this.speakHindiVoice('Notification aur voice alerts active ho gaye hain.');
+        this.speakHindiVoice('Notification aur voice alerts successfully activate ho gaye hain.');
         this.sendLocalNotification({
           title: '🔔 Alerts Activated',
-          body: 'Admin & Maya AI broadcast alerts ab aapko loud sound aur Hindi voice ke sath milenge!'
+          body: 'Admin & Maya AI broadcast alerts ab aapke phone par loud sound aur voice ke sath aayenge!'
         });
       }
       return this.permissionGranted;
@@ -61,7 +84,7 @@ class NotificationService {
     }
   }
 
-  // 3. Web Audio Synthesizer: 100% Reliable, Loud & Instant Alert Sounds
+  // 4. Web Audio Synthesizer: Loud & Instant Alert Sounds
   getAudioContext() {
     if (!this.audioCtx && typeof window !== 'undefined') {
       try {
@@ -77,7 +100,7 @@ class NotificationService {
     return this.audioCtx;
   }
 
-  // 🚨 Loud Urgent Siren (Two-tone attention getter)
+  // 🚨 Loud Supervisor Siren (Two-tone attention getter)
   playSupervisorAlertSound() {
     try {
       const ctx = this.getAudioContext();
@@ -93,7 +116,7 @@ class NotificationService {
       osc.frequency.setValueAtTime(880, now + 0.30);
       osc.frequency.setValueAtTime(440, now + 0.45);
 
-      gain.gain.setValueAtTime(0.4, now);
+      gain.gain.setValueAtTime(0.45, now);
       gain.gain.exponentialRampToValueAtTime(0.01, now + 0.65);
 
       osc.connect(gain);
@@ -116,7 +139,7 @@ class NotificationService {
         osc.type = 'triangle';
         osc.frequency.setValueAtTime(freq, now + i * 0.12);
 
-        gain.gain.setValueAtTime(0.45, now + i * 0.12);
+        gain.gain.setValueAtTime(0.5, now + i * 0.12);
         gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.12 + 0.4);
 
         osc.connect(gain);
@@ -180,7 +203,7 @@ class NotificationService {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
 
     try {
-      window.speechSynthesis.cancel();
+      window.speechSynthesis.cancel(); // Stop any pending speech
       const cleanText = String(text || '').replace(/[^\w\s\u0900-\u097F.,!?]/gi, ' ').trim();
       if (!cleanText) return;
 
@@ -194,34 +217,52 @@ class NotificationService {
 
       window.speechSynthesis.speak(utterance);
     } catch (e) {
-      console.warn('Speech synthesis error:', e);
+      console.warn('Speech synthesis fallback:', e);
     }
   }
 
-  // 4. Cross-Device Realtime WebSocket Channel
+  // 5. Cross-Device Realtime Subscriptions (WebSockets + Postgres Changes)
   initCrossDeviceRealtime() {
     if (!isSupabaseConfigured()) return;
 
     try {
+      // Channel 1: Supabase Realtime Broadcast
       this.realtimeChannel = supabase.channel('msr_global_broadcast_hub', {
-        config: { broadcast: { self: false } }
+        config: { broadcast: { self: true } }
       });
 
       this.realtimeChannel
         .on('broadcast', { event: 'ADMIN_BROADCAST' }, (payload) => {
           if (payload && payload.payload) {
-            this.handleIncomingBroadcast(payload.payload);
+            this.handleIncomingBroadcast(payload.payload, 'REALTIME_WEBSOCKET');
           }
         })
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'users' }, () => {
+          this.checkCloudBroadcasts();
+        })
         .subscribe((status) => {
-          console.log('Supabase Realtime Broadcast Status:', status);
+          console.log('Supabase Realtime Hub Status:', status);
         });
     } catch (e) {
-      console.warn('Realtime broadcast init fallback:', e);
+      console.warn('Realtime subscription fallback:', e);
     }
   }
 
-  // 5. Cloud Database Polling & App-Resume Listener
+  // 6. Multi-Tab Local Storage Sync (For instant tab-to-tab testing)
+  initStorageListener() {
+    if (typeof window === 'undefined') return;
+
+    window.addEventListener('storage', (e) => {
+      if (e.key === BROADCAST_STORAGE_KEY && e.newValue) {
+        try {
+          const payload = JSON.parse(e.newValue);
+          this.handleIncomingBroadcast(payload, 'LOCAL_STORAGE_TAB_SYNC');
+        } catch (err) {}
+      }
+    });
+  }
+
+  // 7. Cloud Polling & App Resume Listener (Active every 2.5 seconds)
   initCloudPolling() {
     if (typeof window === 'undefined') return;
 
@@ -237,7 +278,7 @@ class NotificationService {
     if (!this.pollInterval) {
       this.pollInterval = setInterval(() => {
         this.checkCloudBroadcasts();
-      }, 7000);
+      }, 2500);
     }
   }
 
@@ -259,15 +300,10 @@ class NotificationService {
             const broadcastPayload = JSON.parse(match[1]);
             const lastSeenId = localStorage.getItem(LAST_SEEN_BROADCAST_KEY);
 
-            if (!lastSeenId) {
-              // Mark current cloud broadcast as seen on initial load so it doesn't pop up old alerts on first load
-              localStorage.setItem(LAST_SEEN_BROADCAST_KEY, broadcastPayload.id);
-              return;
-            }
-
-            const isFresh = Date.now() - Number(broadcastPayload.timestamp || 0) < 60 * 60 * 1000;
-            if (broadcastPayload.id && broadcastPayload.id !== lastSeenId && isFresh) {
-              this.handleIncomingBroadcast(broadcastPayload);
+            // If broadcast was created after app boot or in last 30 minutes, and not seen yet
+            const isRecent = Date.now() - Number(broadcastPayload.timestamp || 0) < 30 * 60 * 1000;
+            if (broadcastPayload.id && broadcastPayload.id !== lastSeenId && isRecent) {
+              this.handleIncomingBroadcast(broadcastPayload, 'CLOUD_SYNC');
             }
           }
         }
@@ -275,28 +311,38 @@ class NotificationService {
     } catch (e) {}
   }
 
-  // 6. Handle Incoming Broadcast on Employee Device
-  handleIncomingBroadcast(payload) {
+  // 8. Deliver Incoming Broadcast to Employee Device
+  handleIncomingBroadcast(payload, source = 'UNKNOWN') {
     try {
+      const lastSeenId = localStorage.getItem(LAST_SEEN_BROADCAST_KEY);
+      if (lastSeenId === payload.id) return; // Prevent duplicate triggers
+
       const userStr = localStorage.getItem('msr_active_user') || localStorage.getItem('msr_current_user');
       const currentUser = userStr ? JSON.parse(userStr) : null;
 
+      // Check audience targeting (ALL or specific user)
       const isForMe = !payload.targetUserId || payload.targetUserId === 'ALL' || (currentUser && currentUser.id === payload.targetUserId);
       if (!isForMe) return;
 
+      // Mark as received immediately
       localStorage.setItem(LAST_SEEN_BROADCAST_KEY, payload.id);
 
+      // 🔊 1. Play Loud Attention Chime Siren
       this.playBroadcastChime();
 
+      // 🗣️ 2. Announce Spoken Hindi Voice on Employee Phone
       setTimeout(() => {
-        this.speakHindiVoice(payload.voiceText || payload.body);
-      }, 450);
+        const spokenDirective = payload.voiceText || `Mukul Mishra ji ka message: ${payload.body}`;
+        this.speakHindiVoice(spokenDirective);
+      }, 500);
 
+      // 📱 3. Show System Web Notification
       this.sendLocalNotification({
         title: payload.title || '👑 Admin Important Directive',
         body: payload.body
       });
 
+      // 🌟 4. Pop-up Interactive Screen Alert Modal on Employee Screen
       this.recordNotificationHistory(payload);
       this.notifySubscribers({ type: 'INCOMING_BROADCAST', payload });
     } catch (e) {
@@ -304,7 +350,7 @@ class NotificationService {
     }
   }
 
-  // 7. Admin Send Instant Broadcast
+  // 9. Admin Send Live Broadcast (Pushes worldwide via WebSockets, DB & Storage)
   async sendAdminBroadcast({ title, body, targetUserId = 'ALL', adminName = 'Mukul Mishra' }) {
     const payload = {
       id: `broadcast_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
@@ -314,14 +360,15 @@ class NotificationService {
       targetUserId,
       timestamp: Date.now(),
       speakVoice: true,
-      voiceText: body
+      voiceText: `Mukul Mishra ji ka sandesh: ${body}`
     };
 
+    // Save to Local Storage (Fires Tab Sync on same machine)
     try {
       localStorage.setItem(BROADCAST_STORAGE_KEY, JSON.stringify(payload));
-      localStorage.setItem(LAST_SEEN_BROADCAST_KEY, payload.id);
     } catch (e) {}
 
+    // A. Push via Realtime WebSockets to all connected laptops & phones
     if (this.realtimeChannel) {
       try {
         await this.realtimeChannel.send({
@@ -332,6 +379,7 @@ class NotificationService {
       } catch (err) {}
     }
 
+    // B. Save to Supabase Cloud DB for polling / sleeping devices
     if (isSupabaseConfigured()) {
       try {
         await supabase.from('users').update({
@@ -340,23 +388,15 @@ class NotificationService {
       } catch (err) {}
     }
 
-    this.playBroadcastChime();
-    setTimeout(() => {
-      this.speakHindiVoice(payload.body);
-    }, 400);
-
-    this.sendLocalNotification({
-      title: payload.title,
-      body: payload.body
-    });
-
+    // C. Play confirmation on Admin device
+    this.playSuccessChime();
     this.recordNotificationHistory(payload);
     this.notifySubscribers({ type: 'ADMIN_BROADCAST_SENT', payload });
 
     return { status: 'TRANSMITTED_WORLDWIDE', payload };
   }
 
-  // 8. General Unified Push & Audio Notification
+  // 10. General Unified Push & Audio Notification
   async notify({
     title,
     body,
@@ -412,6 +452,14 @@ class NotificationService {
         });
       } catch (e) {}
     }
+  }
+
+  initNetworkListener() {
+    if (typeof window === 'undefined') return;
+
+    window.addEventListener('online', () => {
+      this.flushOfflineQueue();
+    });
   }
 
   enqueueOfflineNotification(payload) {
