@@ -23,11 +23,19 @@ import { FieldExecutiveDashboard } from './components/dashboards/FieldExecutiveD
 import { OwnerDashboard } from './components/dashboards/OwnerDashboard';
 import { CustomRoleDashboard } from './components/dashboards/CustomRoleDashboard';
 import { TrainingAcademy } from './components/training/TrainingAcademy';
+import { mayaSupervisorAgent } from './services/mayaSupervisorAgent';
+import { notificationService } from './services/notificationService';
+import { useEffect } from 'react';
 
 function MainApp() {
   const { isAuthenticated, currentUser } = useAuth();
   const { dbLoading } = useAppData();
   const [activeTab, setActiveTab] = useState('dashboard');
+
+  useEffect(() => {
+    mayaSupervisorAgent.init();
+    notificationService.initServiceWorker();
+  }, []);
   
   // Modals state
   const [isGpsOpen, setIsGpsOpen] = useState(false);

@@ -6,6 +6,9 @@ import { supabase } from '../../services/supabase';
 import { supervisorAudit } from '../../services/supervisorAudit';
 import { adminTaskService } from '../../services/adminTaskService';
 import { ShopifyCustomersDirectory } from '../admin/ShopifyCustomersDirectory';
+import { telemetryTracker } from '../../services/telemetryTracker';
+import { notificationService } from '../../services/notificationService';
+import { mayaSupervisorAgent } from '../../services/mayaSupervisorAgent';
 import { 
   PhoneCall, 
   AlertCircle, 
@@ -312,8 +315,35 @@ export function ContentCallingDashboard({ onOpenChat, initialSubTab }) {
   });
   const [isArchiveLoading, setIsArchiveLoading] = useState(false);
   const [archiveFilter, setArchiveFilter] = useState('ALL');
-  const [archiveSearch, setArchiveSearch] = useState('');
   const [callDateFilter, setCallDateFilter] = useState('ALL');
+
+  // 🔔 Push Notification & Maya Supervisor Real-Time Directive State
+  const [notifPermission, setNotifPermission] = useState(() => typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted');
+  const [liveGuidance, setLiveGuidance] = useState(() => mayaSupervisorAgent.getSupervisorGuidance(currentUser.id));
+  const [liveTelemetry, setLiveTelemetry] = useState(() => telemetryTracker.getLiveProductivityStats(currentUser.id, 20));
+
+  useEffect(() => {
+    mayaSupervisorAgent.init();
+    const unsub1 = mayaSupervisorAgent.subscribe(() => {
+      setLiveGuidance(mayaSupervisorAgent.getSupervisorGuidance(currentUser.id));
+    });
+    const unsub2 = telemetryTracker.subscribe(() => {
+      setLiveTelemetry(telemetryTracker.getLiveProductivityStats(currentUser.id, 20));
+    });
+    return () => {
+      unsub1();
+      unsub2();
+    };
+  }, [currentUser.id]);
+
+  const handleEnableAlerts = async () => {
+    const granted = await notificationService.requestPermission();
+    setNotifPermission(granted);
+    if (granted) {
+      notificationService.playBroadcastChime();
+      notificationService.speakHindiVoice('Notification aur voice alerts successfully activate ho gaye hain!');
+    }
+  };
 
   const handleFetchArchive = async () => {
     setIsArchiveLoading(true);
@@ -1232,29 +1262,82 @@ Dhanyawad!
           </div>
         </div>
 
-        {/* Smart Advice Feed */}
+        {/* 🌟 Maya AI Real-Time Dynamic Directive & Alert Hub */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-          <div className="p-3.5 rounded-2xl bg-slate-950/80 border border-slate-800 space-y-1">
-            <span className="font-bold text-amber-300 flex items-center gap-1.5">
-              <Zap className="w-3.5 h-3.5 text-yellow-400" />
-              <span>Current Calling Focus:</span>
-            </span>
-            <p className="text-slate-300 leading-relaxed">
-              {urgentCount > 0
-                ? `🚨 ${urgentCount} Urgent NDR Orders queue me hain (+₹50 bounty per saved order). Customer ko call karke kal ke liye Re-Attempt schedule karein!`
-                : '🎉 All urgent NDR calls processed! Continue with regular orders & repeat customer feedback.'}
+          
+          {/* Dynamic Directive Card */}
+          <div className="p-4 rounded-2xl bg-gradient-to-br from-purple-950/80 via-slate-950 to-slate-950 border border-purple-500/40 space-y-2 shadow-lg">
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-purple-300 flex items-center gap-1.5 uppercase tracking-wider text-[11px]">
+                <Bot className="w-4 h-4 text-purple-400 animate-bounce" />
+                <span>Maya AI Live HR Supervisor:</span>
+              </span>
+              {liveGuidance && (
+                <span className="text-[10px] font-mono text-emerald-300 bg-emerald-950/80 px-2 py-0.5 rounded-full border border-emerald-500/40">
+                  Target: {liveGuidance.targetFocus} (+₹{liveGuidance.incentiveBoost})
+                </span>
+              )}
+            </div>
+
+            <p className="text-slate-200 leading-relaxed font-medium">
+              {liveGuidance ? liveGuidance.adviceHindi : (
+                urgentCount > 0
+                  ? `🚨 ${urgentCount} Urgent NDR Orders queue me hain (+₹50 bounty per saved order). Customer ko call karke kal ke liye Re-Attempt schedule karein!`
+                  : '🎉 All urgent NDR calls processed! Continue with regular orders & repeat customer feedback.'
+              )}
             </p>
+
+            {/* 20m Telemetry Meter */}
+            <div className="flex items-center justify-between text-[11px] text-slate-400 bg-slate-900/80 px-3 py-1.5 rounded-xl border border-slate-800">
+              <span>20m Clicks: <strong className="text-white font-mono">{liveTelemetry.clickCountInLast20Min}</strong></span>
+              <span>Productivity: <strong className="text-emerald-400 font-mono">{liveTelemetry.productivityScore}%</strong></span>
+              <span>Idle: <strong className={liveTelemetry.idleMinutes > 15 ? 'text-red-400' : 'text-slate-300'}>{liveTelemetry.idleMinutes}m</strong></span>
+            </div>
           </div>
 
-          <div className="p-3.5 rounded-2xl bg-slate-950/80 border border-slate-800 space-y-1">
-            <span className="font-bold text-cyan-300 flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
-              <span>Objection Pro-Tip:</span>
-            </span>
-            <p className="text-slate-300 leading-relaxed">
-              Jab customer bole "Delivery boy ka call nahi aaya", toh boliye: <em className="text-white">"Maine courier supervisor ko priority delivery instruction daal di hai, kal dopahar tak parcel mil jayega."</em>
-            </p>
+          {/* Audio Alerts & Voice Notification Card */}
+          <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-2 shadow-lg flex flex-col justify-between">
+            <div className="space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-cyan-300 flex items-center gap-1.5 text-[11px]">
+                  <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>Objection Pro-Tip:</span>
+                </span>
+                <span className="text-[10px] text-slate-400 font-mono">11 AM - 5 PM Shift</span>
+              </div>
+              <p className="text-slate-300 leading-relaxed">
+                Jab customer bole "Delivery boy ka call nahi aaya", toh boliye: <em className="text-white">"Maine courier supervisor ko priority delivery instruction daal di hai, kal dopahar tak parcel mil jayega."</em>
+              </p>
+            </div>
+
+            {/* Notification Permission Button */}
+            {!notifPermission ? (
+              <button
+                onClick={handleEnableAlerts}
+                className="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-purple-600 via-pink-600 to-amber-600 hover:from-purple-500 hover:to-amber-500 text-white font-black text-xs flex items-center justify-center gap-2 shadow-lg shadow-purple-600/30 transition active:scale-95 animate-bounce-subtle"
+              >
+                <Volume2 className="w-3.5 h-3.5" />
+                <span>🔔 Enable Loud Voice & Push Alerts</span>
+              </button>
+            ) : (
+              <div className="flex items-center justify-between bg-emerald-950/60 border border-emerald-500/40 px-3 py-1.5 rounded-xl text-[11px] text-emerald-300 font-bold">
+                <span className="flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Loud Sound & Hindi Voice Alerts Active</span>
+                </span>
+                <button
+                  onClick={() => {
+                    notificationService.playSupervisorAlertSound();
+                    notificationService.speakHindiVoice('Test alert successful hai!');
+                  }}
+                  className="text-[10px] bg-emerald-900/80 px-2 py-0.5 rounded text-emerald-200 hover:bg-emerald-800 transition font-mono"
+                >
+                  🔊 Test Sound
+                </button>
+              </div>
+            )}
           </div>
+
         </div>
       </div>
 

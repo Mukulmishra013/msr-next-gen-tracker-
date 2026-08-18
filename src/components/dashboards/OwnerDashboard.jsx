@@ -9,6 +9,8 @@ import { supervisorAudit } from '../../services/supervisorAudit';
 import { adminTaskService } from '../../services/adminTaskService';
 import { ShopifyCustomersDirectory } from '../admin/ShopifyCustomersDirectory';
 import { Staff360DossierModal } from '../admin/Staff360DossierModal';
+import { MayaSupervisorDashboard } from '../admin/MayaSupervisorDashboard';
+import { AdminPushBroadcastModal } from '../admin/AdminPushBroadcastModal';
 import { 
   getOfficeLocation, 
   setOfficeLocation, 
@@ -129,6 +131,7 @@ export function OwnerDashboard({ onOpenUpiModal, onOpenChat }) {
   const [staffModes, setStaffModes] = useState(() => getAllStaffWorkModes());
   const [isCapturingOfficeGps, setIsCapturingOfficeGps] = useState(false);
   const [selectedDossierUser, setSelectedDossierUser] = useState(null);
+  const [showAdminPushModal, setShowAdminPushModal] = useState(false);
 
   useEffect(() => {
     const unsub1 = supervisorAudit.subscribe(() => {
@@ -338,6 +341,14 @@ export function OwnerDashboard({ onOpenUpiModal, onOpenChat }) {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={() => setShowAdminPushModal(true)}
+            className="tap-target px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 via-pink-600 to-amber-600 hover:from-purple-500 hover:to-amber-500 text-white font-extrabold text-xs flex items-center justify-center gap-2 shadow-lg shadow-purple-600/30 transition active:scale-95 animate-bounce-subtle"
+          >
+            <Megaphone className="w-4 h-4 text-white" />
+            <span>👑 Push Broadcast</span>
+          </button>
+
           <button
             onClick={handleAdminBatchDial}
             disabled={isBatchCalling}
@@ -824,8 +835,11 @@ export function OwnerDashboard({ onOpenUpiModal, onOpenChat }) {
 
       {/* 🛡️ Maya AI Supervisor & Staff Watchdog Tab */}
       {activeOwnerTab === 'supervisor' && (
-        <div className="space-y-5">
+        <div className="space-y-6">
           
+          {/* 🌟 Maya Autonomous AI HR & Live Supervisor Command Center */}
+          <MayaSupervisorDashboard staffList={staffList} />
+
           {/* Top Supervisor KPI Ribbon */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div className="glass-card p-4 rounded-2xl border border-emerald-500/40 bg-gradient-to-br from-emerald-950/40 to-slate-900">
@@ -2322,6 +2336,14 @@ export function OwnerDashboard({ onOpenUpiModal, onOpenChat }) {
           isOpen={Boolean(selectedDossierUser)}
           user={selectedDossierUser}
           onClose={() => setSelectedDossierUser(null)}
+        />
+      )}
+
+      {/* 👑 Admin Instant Push Broadcast Modal */}
+      {showAdminPushModal && (
+        <AdminPushBroadcastModal
+          onClose={() => setShowAdminPushModal(false)}
+          staffList={staffList}
         />
       )}
 
