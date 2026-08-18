@@ -1,11 +1,11 @@
 // Training Masterclass Cloud Service - Live Supabase Cloud Sync & Realtime Broadcast
 import { supabase, isSupabaseConfigured } from './supabase';
 
-const TRAINING_STORAGE_KEY = 'msr_training_videos_v6';
+const TRAINING_STORAGE_KEY = 'msr_training_videos_v7';
 
-// 🌟 20-25 Top-Level Real-World Scenario Question Banks
+// 🌟 20 Top-Level Real-World Scenario Question Banks
 const TELECALLER_20_QUESTIONS = [
-  { q: "Telecaller call connect hote hi customer ko pehla sentence kya bolna chahiye?", options: ["A. Namaste Sir, main Amparo Store se bol rahi hoon, aapka parcel / order ke regarding call hai.", "B. Aapne order kyu kiya?", "C. Delivery boy ko paise nahi diye aapne."], correct: 0 },
+  { q: "Telecaller call connect hote hi customer ko pehla sentence kya bolna chahiye?", options: ["A. Namaste Sir, main Amparo Store se bol rahi hoon, aapke order ke regarding ek important update hai.", "B. Aapne order kyu kiya tha?", "C. Delivery boy ko paise nahi diye aapne."], correct: 0 },
   { q: "Customer bole 'Delivery boy ka call nahi aaya', toh best solution kya hai?", options: ["A. Main courier supervisor ko priority instruction daal rahi hoon, kal dopahar tak parcel mil jayega.", "B. Delivery boy ki galti hai, complaint karein.", "C. Order cancel kar dijiye."], correct: 0 },
   { q: "Customer bole 'Mujhe product ki ab zaroorat nahi hai', toh kya offer dekar order save kar sakte hain?", options: ["A. ₹50 instant discount coupon + fresh batch guarantee.", "B. Theek hai cancel kar dete hain.", "C. Phone cut kar dein."], correct: 0 },
   { q: "Shiprocket NDR me 'Customer Not Available' reason par call ka main objective kya hai?", options: ["A. Re-attempt date aur convenient delivery time fix karna.", "B. Customer ko daantna.", "C. Sirf feedback lena."], correct: 0 },
@@ -65,9 +65,21 @@ export const INITIAL_TRAINING_VIDEOS = [
     quiz_questions: TELECALLER_20_QUESTIONS
   },
   {
-    id: 'vid-04-ndr-rescue',
-    title: 'Module #4: NDR & RTO Delivery Rescue Strategy (+₹50 Verified Bounty Per Order)',
-    description: 'Delivery attempt fail hone par courier escalation, customer coordination aur ₹50 extra cash incentive earn karne ki master strategy.',
+    id: 'vid-04-cold-calling',
+    title: 'Module #4: Cold Calling Secrets — Unknown Customers Ko Loyal Buyers Banayein',
+    description: 'Cold call me fear dur karne ka tareeqa, 1st rejection ko interest me badalna aur call drop rate 80% reduce karna.',
+    youtube_url: 'https://www.youtube.com/watch?v=kZMrd0m9eBY',
+    embed_id: 'kZMrd0m9eBY',
+    category: 'Cold Calling & Lead Conversion',
+    duration_minutes: 9,
+    assigned_to: 'ALL',
+    completed_by: [],
+    quiz_questions: TELECALLER_20_QUESTIONS
+  },
+  {
+    id: 'vid-05-rto-reduction',
+    title: 'Module #5: E-Commerce RTO Control & NDR Delivery Rescue (+₹50 Bounty)',
+    description: 'Delivery attempt fail hone par courier supervisor se coordination, customer address correction aur RTO 0% karne ki strategy.',
     youtube_url: 'https://youtu.be/q_DakTijNNw',
     embed_id: 'q_DakTijNNw',
     category: 'NDR Rescue (+₹50 Bounty)',
@@ -77,21 +89,9 @@ export const INITIAL_TRAINING_VIDEOS = [
     quiz_questions: TELECALLER_20_QUESTIONS
   },
   {
-    id: 'vid-05-product-mastery',
-    title: 'Module #5: Amparo Pure Himalayan Shilajit Gummies — USP, Benefits & Dosage Guide',
-    description: 'Shilajit ke laboratory tested benefits, energy & stamina pitch, exact dosage aur customer consultation guide.',
-    youtube_url: 'https://www.youtube.com/watch?v=kZMrd0m9eBY',
-    embed_id: 'kZMrd0m9eBY',
-    category: 'Product Mastery (Amparo Shilajit)',
-    duration_minutes: 7,
-    assigned_to: 'ALL',
-    completed_by: [],
-    quiz_questions: TELECALLER_20_QUESTIONS
-  },
-  {
     id: 'vid-06-cod-verification',
-    title: 'Module #6: COD Order Confirmation & Fake Order Detection Masterclass',
-    description: 'Fake address identify karna, exact landmark lena, pin-code match karna aur RTO 0% karne ki verification calling.',
+    title: 'Module #6: COD Order Confirmation & Fake Address Filter Masterclass',
+    description: 'Pin-code aur landmark match karna, WhatsApp confirmation drop karna aur high delivery rate achieve karna.',
     youtube_url: 'https://youtu.be/6vxmYw90yN4',
     embed_id: '6vxmYw90yN4',
     category: 'COD Verification & Trust',
@@ -140,7 +140,7 @@ class TrainingService {
       const saved = localStorage.getItem(TRAINING_STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length >= 3) {
+        if (Array.isArray(parsed) && parsed.length >= 6) {
           return parsed;
         }
       }
@@ -192,7 +192,7 @@ class TrainingService {
     }
 
     const currentLocal = this.getVideos();
-    const baseList = cloudList && cloudList.length > 0 ? cloudList : currentLocal;
+    const baseList = cloudList && cloudList.length >= 6 ? cloudList : currentLocal;
 
     // Merge with defaults to ensure all 6 modules are present in order
     const merged = [...baseList];
@@ -216,7 +216,7 @@ class TrainingService {
       quiz_questions: videoData.quiz_questions || TELECALLER_20_QUESTIONS
     };
 
-    // Place new video at the very top of the list
+    // Place new video at the top of the list
     const updated = [newEntry, ...current.filter((v) => v.id !== newEntry.id && v.title !== newEntry.title)];
     localStorage.setItem(TRAINING_STORAGE_KEY, JSON.stringify(updated));
     this.notify();
