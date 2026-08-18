@@ -1,10 +1,10 @@
 // Enterprise Realtime Broadcast, Loud Audio Synthesizer, Hindi Voice & Service Worker Alerts
 import { supabase, isSupabaseConfigured } from './supabase';
 
-const OFFLINE_QUEUE_KEY = 'msr_offline_notification_queue_v7';
-const NOTIFICATION_HISTORY_KEY = 'msr_notification_history_v7';
-const BROADCAST_STORAGE_KEY = 'msr_admin_broadcast_channel_v7';
-const LAST_SEEN_BROADCAST_KEY = 'msr_last_seen_broadcast_id_v7';
+const OFFLINE_QUEUE_KEY = 'msr_offline_notification_queue_v8';
+const NOTIFICATION_HISTORY_KEY = 'msr_notification_history_v8';
+const BROADCAST_STORAGE_KEY = 'msr_admin_broadcast_channel_v8';
+const LAST_SEEN_BROADCAST_KEY = 'msr_last_seen_broadcast_id_v8';
 
 class NotificationService {
   constructor() {
@@ -14,6 +14,7 @@ class NotificationService {
     this.realtimeChannel = null;
     this.pollInterval = null;
     this.swRegistration = null;
+    this.sentBroadcastIds = new Set();
 
     if (typeof window !== 'undefined') {
       this.initUserInteractionAudioUnlock();
@@ -70,7 +71,7 @@ class NotificationService {
       if (this.permissionGranted) {
         this.playSuccessChime();
         this.speakHindiVoice('Notification aur voice alerts successfully activate ho gaye hain.');
-        this.sendLocalNotification({
+        await this.sendLocalNotification({
           title: '🔔 Alerts Activated',
           body: 'Admin & Maya AI broadcast alerts ab aapke phone par sound aur voice ke sath milenge!'
         });
@@ -223,8 +224,9 @@ class NotificationService {
     if (!isSupabaseConfigured()) return;
 
     try {
+      // broadcast: self: false so sender never gets its own broadcast
       this.realtimeChannel = supabase.channel('msr_global_broadcast_hub', {
-        config: { broadcast: { self: true } }
+        config: { broadcast: { self: false } }
       });
 
       this.realtimeChannel
@@ -304,24 +306,29 @@ class NotificationService {
     } catch (e) {}
   }
 
-  // 8. Deliver Incoming Broadcast ONLY to Target Employees (Silent on Admin device)
+  // 8. Deliver Incoming Broadcast ONLY to Target Employees (100% Silent on Admin device)
   handleIncomingBroadcast(payload, source = 'UNKNOWN') {
     try {
       const lastSeenId = localStorage.getItem(LAST_SEEN_BROADCAST_KEY);
       if (lastSeenId === payload.id) return;
 
-      const userStr = localStorage.getItem('msr_active_user') || localStorage.getItem('msr_current_user');
-      const currentUser = userStr ? JSON.parse(userStr) : null;
-
-      // 👑 If currently viewing as Owner / Admin, DO NOT play siren or speak on Admin's device!
-      const isOwner = currentUser && (currentUser.role === 'owner' || currentUser.phone?.includes('8887521156'));
-      if (isOwner) {
-        // Just mark as seen silently
+      // If this device itself sent this broadcast, ignore it
+      if (this.sentBroadcastIds.has(payload.id)) {
         localStorage.setItem(LAST_SEEN_BROADCAST_KEY, payload.id);
         return;
       }
 
-      // Check targeting (ALL or specific employee)
+      const userStr = localStorage.getItem('msr_active_user') || localStorage.getItem('msr_current_user');
+      const currentUser = userStr ? JSON.parse(userStr) : null;
+
+      // 👑 If currently viewing as Owner / Admin, DO NOT play siren or speak on Admin's device!
+      const isOwner = currentUser && (currentUser.role === 'owner' || currentUser.phone?.includes('8887521156') || currentUser.name?.includes('Mukul'));
+      if (isOwner) {
+        localStorage.setItem(LAST_SEEN_BROADCAST_KEY, payload.id);
+        return;
+      }
+
+      // Check audience targeting (ALL or specific employee)
       const isForMe = !payload.targetUserId || payload.targetUserId === 'ALL' || (currentUser && currentUser.id === payload.targetUserId);
       if (!isForMe) return;
 
@@ -336,7 +343,7 @@ class NotificationService {
         this.speakHindiVoice(spokenDirective);
       }, 450);
 
-      // 📱 3. Show System Notification
+      // 📱 3. Show System Notification in phone notification bar
       this.sendLocalNotification({
         title: payload.title || '👑 Mukul Mishra (Admin Directive)',
         body: payload.body
@@ -363,7 +370,9 @@ class NotificationService {
       voiceText: `Mukul Mishra ji ka sandesh: ${body}`
     };
 
-    // Save to Local Storage (Fires Tab Sync)
+    // Track as sent on this device so this device NEVER speaks
+    this.sentBroadcastIds.add(payload.id);
+
     try {
       localStorage.setItem(BROADCAST_STORAGE_KEY, JSON.stringify(payload));
       localStorage.setItem(LAST_SEEN_BROADCAST_KEY, payload.id);
@@ -389,7 +398,7 @@ class NotificationService {
       } catch (err) {}
     }
 
-    // C. Silent success confirmation on Admin device (NO loud voice on Admin)
+    // C. Silent confirmation on Admin device (NO voice, NO sound on Admin)
     this.recordNotificationHistory(payload);
     this.notifySubscribers({ type: 'ADMIN_BROADCAST_SENT', payload });
 
@@ -420,7 +429,9 @@ class NotificationService {
         });
         return;
       }
-    } catch (err) {}
+    } catch (err) {
+      console.warn('ServiceWorker showNotification error:', err);
+    }
 
     if ('Notification' in window && Notification.permission === 'granted') {
       try {
