@@ -2,6 +2,7 @@
 import React from 'react';
 import { 
   LayoutDashboard, 
+  GraduationCap, 
   PhoneCall, 
   MapPin, 
   Bot, 
@@ -22,11 +23,9 @@ export function BottomNav({ activeTab, setActiveTab }) {
       icon: LayoutDashboard
     },
     {
-      id: 'work',
-      label: currentUser?.role === 'content_calling' ? 'Calls Queue' :
-             currentUser?.role === 'editor_leads' ? 'Videos/Leads' :
-             currentUser?.role === 'field_executive' ? 'Visits' : 'Operations',
-      icon: PhoneCall
+      id: 'training',
+      label: 'MSR Academy',
+      icon: GraduationCap
     },
     {
       id: 'maya_agent_hub',
@@ -36,7 +35,7 @@ export function BottomNav({ activeTab, setActiveTab }) {
     },
     {
       id: 'attendance',
-      label: 'Attendance',
+      label: 'Haaziri',
       icon: Calendar
     },
     {

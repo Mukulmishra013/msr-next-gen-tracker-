@@ -22,6 +22,7 @@ import { EditorLeadsDashboard } from './components/dashboards/EditorLeadsDashboa
 import { FieldExecutiveDashboard } from './components/dashboards/FieldExecutiveDashboard';
 import { OwnerDashboard } from './components/dashboards/OwnerDashboard';
 import { CustomRoleDashboard } from './components/dashboards/CustomRoleDashboard';
+import { TrainingAcademy } from './components/training/TrainingAcademy';
 
 function MainApp() {
   const { isAuthenticated, currentUser } = useAuth();
@@ -94,6 +95,7 @@ function MainApp() {
         <div className="hidden sm:flex items-center gap-2 pb-2 border-b border-slate-800/80">
           {[
             { id: 'dashboard', label: '📊 Command Dashboard' },
+            { id: 'training', label: '🎓 MSR Training Academy' },
             { id: 'maya_agent_hub', label: '🧠 Maya A2A Graph Hub' },
             { id: 'attendance', label: '📍 GPS Haaziri & Geofence' },
             { id: 'payroll', label: safeUser.role === 'owner' ? '💸 UPI Payroll & Growth Pool' : '💰 Meri Monthly Salary & Payout' }
@@ -115,6 +117,8 @@ function MainApp() {
         {/* View Router */}
         {activeTab === 'dashboard' || activeTab === 'work' ? (
           renderDashboardView()
+        ) : activeTab === 'training' ? (
+          <TrainingAcademy />
         ) : activeTab === 'maya_agent_hub' ? (
           <MayaAgentHub onOpenChat={() => setIsMayaChatOpen(true)} />
         ) : activeTab === 'attendance' ? (
