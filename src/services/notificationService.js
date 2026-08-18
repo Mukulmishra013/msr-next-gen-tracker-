@@ -112,12 +112,19 @@ class NotificationService {
       if (sub && isSupabaseConfigured()) {
         const userStr = localStorage.getItem('msr_active_user') || localStorage.getItem('msr_current_user');
         const currentUser = userStr ? JSON.parse(userStr) : null;
-        if (currentUser && currentUser.id) {
-          const { data: userRecord } = await supabase.from('users').select('role_label').eq('id', currentUser.id).single();
-          const baseLabel = (userRecord?.role_label || '').replace(/\[PUSH_SUB\].*?\[\/PUSH_SUB\]/gs, '').trim();
+        
+        let targetFilter = 'role.eq.content_calling';
+        if (currentUser?.phone) targetFilter += `,phone.eq.${currentUser.phone}`;
+        if (currentUser?.id) targetFilter += `,id.eq.${currentUser.id}`;
+
+        const { data: usersFound } = await supabase.from('users').select('id, role_label').or(targetFilter).limit(1);
+        if (usersFound && usersFound.length > 0) {
+          const userRecord = usersFound[0];
+          const baseLabel = (userRecord.role_label || '').replace(/\[PUSH_SUB\].*?\[\/PUSH_SUB\]/gs, '').trim();
           await supabase.from('users').update({
             role_label: `${baseLabel} [PUSH_SUB]${JSON.stringify(sub)}[/PUSH_SUB]`
-          }).eq('id', currentUser.id);
+          }).eq('id', userRecord.id);
+          console.log('✅ Registered Push Token for user ID:', userRecord.id);
         }
       }
 

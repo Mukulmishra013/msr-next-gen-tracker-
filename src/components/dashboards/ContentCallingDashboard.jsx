@@ -1319,23 +1319,38 @@ Dhanyawad!
                 <span>🔔 Enable Loud Sound & Push Alerts</span>
               </button>
             ) : (
-              <div className="flex items-center justify-between bg-emerald-950/60 border border-emerald-500/40 px-3 py-1.5 rounded-xl text-[11px] text-emerald-300 font-bold">
+              <div className="flex flex-wrap items-center justify-between bg-emerald-950/60 border border-emerald-500/40 px-3 py-2 rounded-xl text-[11px] text-emerald-300 font-bold gap-2">
                 <span className="flex items-center gap-1.5">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Loud Audio Chime Alerts Active</span>
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                  <span>Push Alerts & FCM Active</span>
                 </span>
-                <button
-                  onClick={() => {
-                    notificationService.playBroadcastChime();
-                    notificationService.sendLocalNotification({
-                      title: '🔔 Test Notification',
-                      body: 'MSR Tracker sound alert perfectly working!'
-                    });
-                  }}
-                  className="text-[10px] bg-emerald-900/80 px-2.5 py-1 rounded-lg text-emerald-200 hover:bg-emerald-800 transition font-mono shadow"
-                >
-                  🔊 Test Sound Chime
-                </button>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={async () => {
+                      if (navigator.serviceWorker) {
+                        const reg = await navigator.serviceWorker.ready;
+                        await notificationService.subscribeToPushNotifications(reg);
+                        notificationService.playSuccessChime();
+                        alert('✅ Google FCM Background Push Token Successfully Synced to Cloud!');
+                      }
+                    }}
+                    className="text-[10px] bg-purple-900/90 hover:bg-purple-800 text-purple-200 px-2.5 py-1 rounded-lg transition font-mono border border-purple-500/40 shadow active:scale-95"
+                  >
+                    🔄 Re-Sync Token
+                  </button>
+                  <button
+                    onClick={() => {
+                      notificationService.playBroadcastChime();
+                      notificationService.sendLocalNotification({
+                        title: '🔔 Test Notification',
+                        body: 'MSR Tracker sound alert perfectly working!'
+                      });
+                    }}
+                    className="text-[10px] bg-emerald-900/90 hover:bg-emerald-800 text-emerald-200 px-2.5 py-1 rounded-lg transition font-mono border border-emerald-500/40 shadow active:scale-95"
+                  >
+                    🔊 Test Alert
+                  </button>
+                </div>
               </div>
             )}
           </div>
