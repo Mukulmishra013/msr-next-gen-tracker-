@@ -117,11 +117,40 @@ export function TrainingAcademy() {
     setIsSyncing(false);
   };
 
-  // Helper to extract YouTube ID
+  // Bulletproof YouTube ID extractor (handles youtu.be, ?si=, shorts, watch?v=, mobile links)
   const getYoutubeEmbedId = (url) => {
-    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
-    const match = url?.match(regExp);
-    return match && match[2].length === 11 ? match[2] : 'dQw4w9WgXcQ';
+    if (!url) return 'dQw4w9WgXcQ';
+    const cleanUrl = String(url).trim();
+    
+    // Direct 11 char ID
+    if (/^[a-zA-Z0-9_-]{11}$/.test(cleanUrl)) {
+      return cleanUrl;
+    }
+    
+    // youtu.be/<id>
+    const shortMatch = cleanUrl.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/);
+    if (shortMatch && shortMatch[1]) return shortMatch[1];
+
+    // youtube.com/watch?v=<id>
+    const watchMatch = cleanUrl.match(/[?&]v=([a-zA-Z0-9_-]{11})/);
+    if (watchMatch && watchMatch[1]) return watchMatch[1];
+
+    // youtube.com/embed/<id>
+    const embedMatch = cleanUrl.match(/embed\/([a-zA-Z0-9_-]{11})/);
+    if (embedMatch && embedMatch[1]) return embedMatch[1];
+
+    // youtube.com/shorts/<id>
+    const shortsMatch = cleanUrl.match(/shorts\/([a-zA-Z0-9_-]{11})/);
+    if (shortsMatch && shortsMatch[1]) return shortsMatch[1];
+
+    // Fallback: look for v/ or first 11-char alphanumeric
+    const vMatch = cleanUrl.match(/\/v\/([a-zA-Z0-9_-]{11})/);
+    if (vMatch && vMatch[1]) return vMatch[1];
+
+    const generalMatch = cleanUrl.match(/([a-zA-Z0-9_-]{11})/);
+    if (generalMatch && generalMatch[1] && !generalMatch[1].startsWith('http')) return generalMatch[1];
+
+    return 'dQw4w9WgXcQ';
   };
 
   // Open Edit Modal
@@ -335,7 +364,7 @@ export function TrainingAcademy() {
               <div className="relative aspect-video w-full bg-slate-950">
                 <iframe
                   className="w-full h-full"
-                  src={`https://www.youtube.com/embed/${selectedVideo.embed_id}?autoplay=0&rel=0&modestbranding=1`}
+                  src={`https://www.youtube.com/embed/${getYoutubeEmbedId(selectedVideo.youtube_url || selectedVideo.embed_id)}?autoplay=0&rel=0&modestbranding=1`}
                   title={selectedVideo.title}
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                   allowFullScreen
