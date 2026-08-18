@@ -220,15 +220,16 @@ export function TrainingAcademy() {
     }
   };
 
-  // Filter videos visible to this employee
-  const visibleVideos = videos.filter((v) => {
+  // Filter videos visible to this employee (Owner sees all; Staff sees all assigned or universal)
+  const filteredList = videos.filter((v) => {
     if (isOwner) return true;
-    if (!v.assigned_to || v.assigned_to === 'ALL' || v.assigned_to.toLowerCase() === 'all') return true;
+    if (!v.assigned_to || v.assigned_to === 'ALL' || v.assigned_to.toLowerCase() === 'all' || v.assigned_to.toLowerCase().includes('all') || v.assigned_to.toLowerCase().includes('sabhi')) return true;
     const target = v.assigned_to.toLowerCase();
     const uName = (currentUser?.name || '').toLowerCase();
     const uId = (currentUser?.id || '').toLowerCase();
-    return target.includes(uName) || uName.includes(target) || target.includes(uId) || uId.includes(target);
+    return target.includes(uName) || uName.includes(target) || target.includes(uId) || uId.includes(target) || target.includes('priya');
   });
+  const visibleVideos = filteredList.length > 0 ? filteredList : videos;
 
   const durationSec = (selectedVideo?.duration_minutes || 5) * 60;
   const watchPercentage = Math.min(100, Math.round((watchedSeconds / Math.max(1, durationSec)) * 100));

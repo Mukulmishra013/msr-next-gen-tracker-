@@ -1,4 +1,4 @@
-// Training Masterclass Cloud Service - Live Supabase Sync, Question Banks & Realtime Broadcast
+// Training Masterclass Cloud Service - Live Supabase Cloud Sync & Realtime Broadcast
 import { supabase, isSupabaseConfigured } from './supabase';
 
 const TRAINING_STORAGE_KEY = 'msr_training_videos';
@@ -113,27 +113,49 @@ class TrainingService {
   async fetchCloudVideos() {
     if (!isSupabaseConfigured()) return this.getVideos();
     try {
-      const { data, error } = await supabase.from('training_videos').select('*').order('created_at', { ascending: false });
+      // 1. Try fetching from Supabase 'videos' table where client_name is 'TRAINING_MASTERCLASS'
+      const { data, error } = await supabase
+        .from('videos')
+        .select('*')
+        .eq('client_name', 'TRAINING_MASTERCLASS')
+        .order('created_at', { ascending: false });
+
       if (!error && data && data.length > 0) {
-        const mapped = data.map((d) => ({
-          id: d.id,
-          title: d.title,
-          description: d.description || '',
-          youtube_url: d.youtube_url,
-          embed_id: d.embed_id,
-          category: d.category || 'General Training',
-          duration_minutes: Number(d.duration_minutes) || 5,
-          assigned_to: d.assigned_to || 'ALL',
-          completed_by: Array.isArray(d.completed_by) ? d.completed_by : [],
-          quiz_questions: Array.isArray(d.quiz_questions) && d.quiz_questions.length > 0 ? d.quiz_questions : NDR_20_QUESTIONS
-        }));
-        
-        localStorage.setItem(TRAINING_STORAGE_KEY, JSON.stringify(mapped));
+        const mapped = data.map((row) => {
+          let meta = {};
+          try {
+            meta = JSON.parse(row.type || '{}');
+          } catch (e) {}
+
+          return {
+            id: meta.id || row.id || `vid-${Date.now()}`,
+            title: meta.title || row.title || 'Masterclass Video',
+            description: meta.description || '',
+            youtube_url: row.link || meta.youtube_url || 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+            embed_id: meta.embed_id || 'dQw4w9WgXcQ',
+            category: meta.category || 'General Training',
+            duration_minutes: Number(meta.duration_minutes) || 5,
+            assigned_to: meta.assigned_to || 'ALL',
+            completed_by: Array.isArray(meta.completed_by) ? meta.completed_by : [],
+            quiz_questions: Array.isArray(meta.quiz_questions) && meta.quiz_questions.length > 0 ? meta.quiz_questions : NDR_20_QUESTIONS,
+            supabase_row_id: row.id
+          };
+        });
+
+        // Merge with initial defaults if not already present
+        const combined = [...mapped];
+        INITIAL_TRAINING_VIDEOS.forEach((def) => {
+          if (!combined.some((c) => c.id === def.id || c.title === def.title)) {
+            combined.push(def);
+          }
+        });
+
+        localStorage.setItem(TRAINING_STORAGE_KEY, JSON.stringify(combined));
         this.notify();
-        return mapped;
+        return combined;
       }
     } catch (e) {
-      console.warn('Supabase training fetch fallback to local:', e);
+      console.warn('Supabase training cloud fetch fallback to local:', e);
     }
     return this.getVideos();
   }
@@ -153,17 +175,21 @@ class TrainingService {
 
     if (isSupabaseConfigured()) {
       try {
-        await supabase.from('training_videos').upsert({
-          id: newEntry.id,
-          title: newEntry.title,
-          description: newEntry.description,
-          youtube_url: newEntry.youtube_url,
-          embed_id: newEntry.embed_id,
-          category: newEntry.category,
-          duration_minutes: newEntry.duration_minutes,
-          assigned_to: newEntry.assigned_to,
-          completed_by: newEntry.completed_by,
-          quiz_questions: newEntry.quiz_questions
+        await supabase.from('videos').insert({
+          client_name: 'TRAINING_MASTERCLASS',
+          type: JSON.stringify({
+            id: newEntry.id,
+            title: newEntry.title,
+            description: newEntry.description,
+            embed_id: newEntry.embed_id,
+            category: newEntry.category,
+            duration_minutes: newEntry.duration_minutes,
+            assigned_to: newEntry.assigned_to,
+            completed_by: newEntry.completed_by,
+            quiz_questions: newEntry.quiz_questions
+          }),
+          link: newEntry.youtube_url,
+          status: 'active'
         });
       } catch (e) {
         console.warn('Supabase training video upload fallback:', e);
@@ -191,7 +217,27 @@ class TrainingService {
 
     if (isSupabaseConfigured()) {
       try {
-        await supabase.from('training_videos').update(updatedFields).eq('id', id);
+        const found = updated.find((v) => v.id === id);
+        if (found) {
+          // Delete old and re-insert or update
+          await supabase.from('videos').delete().eq('client_name', 'TRAINING_MASTERCLASS').like('type', `%"id":"${id}"%`);
+          await supabase.from('videos').insert({
+            client_name: 'TRAINING_MASTERCLASS',
+            type: JSON.stringify({
+              id: found.id,
+              title: found.title,
+              description: found.description,
+              embed_id: found.embed_id,
+              category: found.category,
+              duration_minutes: found.duration_minutes,
+              assigned_to: found.assigned_to,
+              completed_by: found.completed_by,
+              quiz_questions: found.quiz_questions
+            }),
+            link: found.youtube_url,
+            status: 'active'
+          });
+        }
       } catch (e) {
         console.warn('Supabase update video error:', e);
       }
@@ -208,7 +254,7 @@ class TrainingService {
 
     if (isSupabaseConfigured()) {
       try {
-        await supabase.from('training_videos').delete().eq('id', id);
+        await supabase.from('videos').delete().eq('client_name', 'TRAINING_MASTERCLASS').like('type', `%"id":"${id}"%`);
       } catch (e) {
         console.warn('Supabase training video delete error:', e);
       }
