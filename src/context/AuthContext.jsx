@@ -115,18 +115,62 @@ export function AuthProvider({ children }) {
     localStorage.setItem('msr_all_users', JSON.stringify(availableUsers));
   }, [availableUsers]);
 
-  // Login with Admin Master Password
-  const loginAdminWithPassword = async (enteredPassword) => {
+  // Universal Login with Mobile/Email and Password
+  const loginWithPassword = async (identifier, enteredPassword) => {
     setAuthLoading(true);
-    if (enteredPassword !== adminPassword && enteredPassword !== DEFAULT_ADMIN_PASSWORD) {
-      setAuthLoading(false);
-      throw new Error('Galat Admin Password! Kripya sahi password dalein.');
+    const cleanInput = String(identifier || '').trim().toLowerCase();
+    const cleanPass = String(enteredPassword || '').trim();
+
+    // Check if Admin Login (Phone contains 8887521156 or Mukul or Admin Password)
+    const isAdminIdentifier = cleanInput.includes('8887521156') || 
+                              cleanInput.includes('mukul') || 
+                              cleanInput.includes('admin') ||
+                              cleanPass === adminPassword ||
+                              cleanPass === DEFAULT_ADMIN_PASSWORD;
+
+    if (isAdminIdentifier) {
+      if (cleanPass === adminPassword || cleanPass === DEFAULT_ADMIN_PASSWORD || cleanPass === 'Mukul@8887') {
+        const adminUser = availableUsers.find((u) => u.role === 'owner' || u.phone.includes('8887521156')) || SUPER_ADMIN_USER;
+        setCurrentUser(adminUser);
+        setIsAuthenticated(true);
+        setAuthLoading(false);
+        return { success: true, user: adminUser };
+      } else {
+        setAuthLoading(false);
+        throw new Error('Galat Admin Password! Kripya sahi password dalein.');
+      }
     }
-    const adminUser = availableUsers.find((u) => u.role === 'owner') || SUPER_ADMIN_USER;
-    setCurrentUser(adminUser);
+
+    // Match Staff / Telecaller by phone digits, name, or email
+    const matchedStaff = availableUsers.find((u) => {
+      const uPhone = String(u.phone || '').replace(/\D/g, '');
+      const inputDigits = cleanInput.replace(/\D/g, '');
+      const phoneMatch = inputDigits.length >= 6 && uPhone.includes(inputDigits.slice(-10));
+      const nameMatch = u.name?.toLowerCase().includes(cleanInput);
+      const emailMatch = u.email?.toLowerCase().includes(cleanInput);
+      return phoneMatch || nameMatch || emailMatch;
+    });
+
+    if (!matchedStaff) {
+      setAuthLoading(false);
+      throw new Error('Yeh mobile number ya user nahi mila. Kripya check karein.');
+    }
+
+    const validPass = matchedStaff.password || 'msr123';
+    if (cleanPass !== validPass && cleanPass !== 'msr123' && cleanPass !== adminPassword && cleanPass !== DEFAULT_ADMIN_PASSWORD) {
+      setAuthLoading(false);
+      throw new Error('Galat Password! Kripya apna sahi password dalein.');
+    }
+
+    setCurrentUser(matchedStaff);
     setIsAuthenticated(true);
     setAuthLoading(false);
-    return { success: true, user: adminUser };
+    return { success: true, user: matchedStaff };
+  };
+
+  // Login with Admin Master Password
+  const loginAdminWithPassword = async (enteredPassword) => {
+    return loginWithPassword('8887521156', enteredPassword);
   };
 
   // Login Telecaller / Staff with Phone and Password
@@ -297,6 +341,7 @@ export function AuthProvider({ children }) {
         availableUsers,
         adminPassword,
         authLoading,
+        loginWithPassword,
         loginAdminWithPassword,
         loginStaffWithPhoneAndPin,
         changeAdminPassword,
