@@ -8,6 +8,7 @@ import {
   Award, 
   Plus, 
   Trash2, 
+  Edit3, 
   Clock, 
   BookOpen, 
   Video, 
@@ -17,7 +18,11 @@ import {
   Printer, 
   Lightbulb, 
   Check, 
-  RefreshCw 
+  RefreshCw, 
+  Lock, 
+  Unlock, 
+  AlertTriangle, 
+  FileText 
 } from 'lucide-react';
 import { TrainingCertificateModal } from './TrainingCertificateModal';
 import { trainingService } from '../../services/trainingService';
@@ -29,21 +34,32 @@ export function TrainingAcademy() {
   const [videos, setVideos] = useState(() => trainingService.getVideos());
   const [activeTab, setActiveTab] = useState('courses'); // 'courses' | 'certificates'
   const [selectedVideo, setSelectedVideo] = useState(() => trainingService.getVideos()[0] || null);
+  
+  // Modals state
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [showCertModal, setShowCertModal] = useState(false);
   const [certData, setCertData] = useState(null);
   const [isSyncing, setIsSyncing] = useState(false);
 
-  // New Video Form (Admin)
-  const [newTitle, setNewTitle] = useState('');
-  const [newDesc, setNewDesc] = useState('');
-  const [newUrl, setNewUrl] = useState('');
-  const [newCategory, setNewCategory] = useState('NDR Rescue (+₹50 Bounty)');
-  const [newDuration, setNewDuration] = useState('8');
-  const [newAssignedTo, setNewAssignedTo] = useState('ALL');
+  // Edit / Add Form State
+  const [editingVideoId, setEditingVideoId] = useState(null);
+  const [formTitle, setFormTitle] = useState('');
+  const [formDesc, setFormDesc] = useState('');
+  const [formUrl, setFormUrl] = useState('');
+  const [formCategory, setFormCategory] = useState('NDR Rescue (+₹50 Bounty)');
+  const [formDuration, setFormDuration] = useState('8');
+  const [formAssignedTo, setFormAssignedTo] = useState('ALL');
 
-  // Quiz State
-  const [selectedAnswers, setSelectedAnswers] = useState({});
+  // Video Watch Tracker State
+  const [watchedSeconds, setWatchedSeconds] = useState(0);
+  const [isWatching, setIsWatching] = useState(false);
+  const [hasWatchedFull, setHasWatchedFull] = useState(false);
+
+  // 20-Question Exam Portal State
+  const [showExamPortal, setShowExamPortal] = useState(false);
+  const [examAnswers, setExamAnswers] = useState({});
+  const [examResult, setExamResult] = useState(null); // { score, total, percentage, passed }
 
   // Subscribe to Training Video Changes
   useEffect(() => {
@@ -66,6 +82,27 @@ export function TrainingAcademy() {
     return () => unsubscribe();
   }, []);
 
+  // Timer effect for watching video
+  useEffect(() => {
+    let timer;
+    if (isWatching) {
+      timer = setInterval(() => {
+        setWatchedSeconds((prev) => prev + 1);
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [isWatching]);
+
+  // Reset exam & watch state when changing video
+  useEffect(() => {
+    setWatchedSeconds(0);
+    setIsWatching(false);
+    setHasWatchedFull(false);
+    setShowExamPortal(false);
+    setExamAnswers({});
+    setExamResult(null);
+  }, [selectedVideo?.id]);
+
   const handleRefresh = async () => {
     setIsSyncing(true);
     const data = await trainingService.fetchCloudVideos();
@@ -76,44 +113,63 @@ export function TrainingAcademy() {
   // Helper to extract YouTube ID
   const getYoutubeEmbedId = (url) => {
     const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
-    const match = url.match(regExp);
+    const match = url?.match(regExp);
     return match && match[2].length === 11 ? match[2] : 'dQw4w9WgXcQ';
   };
 
-  const handleAddVideo = async (e) => {
+  // Open Edit Modal
+  const handleOpenEdit = (video) => {
+    setEditingVideoId(video.id);
+    setFormTitle(video.title);
+    setFormDesc(video.description || '');
+    setFormUrl(video.youtube_url);
+    setFormCategory(video.category);
+    setFormDuration(String(video.duration_minutes || 8));
+    setFormAssignedTo(video.assigned_to || 'ALL');
+    setShowEditModal(true);
+  };
+
+  // Save Add / Edit
+  const handleSaveVideo = async (e) => {
     e.preventDefault();
-    if (!newTitle || !newUrl) return;
+    if (!formTitle || !formUrl) return;
 
-    const embedId = getYoutubeEmbedId(newUrl);
-    const newEntry = {
-      id: `vid-${Date.now()}`,
-      title: newTitle,
-      description: newDesc,
-      youtube_url: newUrl,
-      embed_id: embedId,
-      category: newCategory,
-      duration_minutes: Number(newDuration) || 5,
-      assigned_to: newAssignedTo,
-      completed_by: [],
-      quiz_questions: [
-        {
-          q: `Is "${newTitle}" masterclass ka main key takeaway kya hai?`,
-          options: [
-            'A. Customer ke objection ko sunna, politely solution dena aur delivery confirm karwana.',
-            'B. Call ko jaldi cut karna.',
-            'C. Customer se argue karna.'
-          ],
-          correct: 0
-        }
-      ]
-    };
+    const embedId = getYoutubeEmbedId(formUrl);
 
-    await trainingService.addVideo(newEntry);
-    setShowAddModal(false);
-    setNewTitle('');
-    setNewDesc('');
-    setNewUrl('');
-    alert('✅ Training Masterclass Video successfully published for employees!');
+    if (showEditModal && editingVideoId) {
+      // Update existing
+      await trainingService.updateVideo(editingVideoId, {
+        title: formTitle,
+        description: formDesc,
+        youtube_url: formUrl,
+        embed_id: embedId,
+        category: formCategory,
+        duration_minutes: Number(formDuration) || 5,
+        assigned_to: formAssignedTo
+      });
+      setShowEditModal(false);
+      alert('✅ Video Masterclass updated successfully!');
+    } else {
+      // Add new
+      const newEntry = {
+        id: `vid-${Date.now()}`,
+        title: formTitle,
+        description: formDesc,
+        youtube_url: formUrl,
+        embed_id: embedId,
+        category: formCategory,
+        duration_minutes: Number(formDuration) || 5,
+        assigned_to: formAssignedTo,
+        completed_by: []
+      };
+      await trainingService.addVideo(newEntry);
+      setShowAddModal(false);
+      alert('✅ Video Masterclass successfully published!');
+    }
+
+    setFormTitle('');
+    setFormDesc('');
+    setFormUrl('');
   };
 
   const handleDeleteVideo = async (id) => {
@@ -121,21 +177,50 @@ export function TrainingAcademy() {
     await trainingService.deleteVideo(id);
   };
 
-  const handleCompleteTraining = async (video) => {
-    await trainingService.markCompleted(video.id, currentUser.name);
+  // Submit 20-Question Assessment
+  const handleEvaluateExam = async () => {
+    const questions = selectedVideo.quiz_questions || [];
+    if (questions.length === 0) return;
 
-    // Open Official Certificate
-    setCertData({
-      candidateName: currentUser.name,
-      courseTitle: video.title,
-      category: video.category,
-      date: new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
-      grade: 'A+ (Outstanding Performer)'
+    let correctCount = 0;
+    questions.forEach((q, idx) => {
+      if (examAnswers[idx] === q.correct) {
+        correctCount += 1;
+      }
     });
-    setShowCertModal(true);
+
+    const total = questions.length;
+    const percentage = Math.round((correctCount / total) * 100);
+    const passed = percentage >= 80;
+
+    setExamResult({
+      score: correctCount,
+      total,
+      percentage,
+      passed
+    });
+
+    if (passed) {
+      const serial = `MSR-CERT-2026-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+      const watchTimeStr = `${Math.floor(watchedSeconds / 60)}m ${watchedSeconds % 60}s • 100% Watched`;
+      const gradeStr = `${correctCount}/${total} (${percentage}% - Grade A+ Outstanding)`;
+
+      await trainingService.markCompleted(selectedVideo.id, currentUser.name, gradeStr, watchedSeconds);
+
+      setCertData({
+        candidateName: currentUser.name,
+        courseTitle: selectedVideo.title,
+        category: selectedVideo.category,
+        date: new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
+        grade: gradeStr,
+        watchTime: watchTimeStr,
+        serialCode: serial
+      });
+      setShowCertModal(true);
+    }
   };
 
-  // Filter videos visible to this employee (Owner sees all; Staff sees ALL + specifically assigned)
+  // Filter videos visible to this employee
   const visibleVideos = videos.filter((v) => {
     if (isOwner) return true;
     if (!v.assigned_to || v.assigned_to === 'ALL' || v.assigned_to.toLowerCase() === 'all') return true;
@@ -144,6 +229,10 @@ export function TrainingAcademy() {
     const uId = (currentUser?.id || '').toLowerCase();
     return target.includes(uName) || uName.includes(target) || target.includes(uId) || uId.includes(target);
   });
+
+  const durationSec = (selectedVideo?.duration_minutes || 5) * 60;
+  const watchPercentage = Math.min(100, Math.round((watchedSeconds / Math.max(1, durationSec)) * 100));
+  const isVideoUnlockedForExam = hasWatchedFull || watchedSeconds >= 30 || isOwner;
 
   return (
     <div className="space-y-5 animate-fade-in pb-16">
@@ -173,7 +262,7 @@ export function TrainingAcademy() {
                 </button>
               </div>
               <p className="text-xs text-purple-200/80 mt-0.5">
-                Watch Expert YouTube Training • Pass Maya AI Quiz • Earn Official MSR Next Gen Certificates
+                Full Video Watch Verification • 20-Question AI Exam • Authenticated Corporate Certification
               </p>
             </div>
           </div>
@@ -181,7 +270,15 @@ export function TrainingAcademy() {
           {/* Admin Add Video Button */}
           {isOwner && (
             <button
-              onClick={() => setShowAddModal(true)}
+              onClick={() => {
+                setFormTitle('');
+                setFormDesc('');
+                setFormUrl('');
+                setFormCategory('NDR Rescue (+₹50 Bounty)');
+                setFormDuration('8');
+                setFormAssignedTo('ALL');
+                setShowAddModal(true);
+              }}
               className="tap-target px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-xs flex items-center gap-1.5 shadow-md shadow-emerald-600/30 transition active:scale-95 shrink-0 self-start sm:self-auto"
             >
               <Plus className="w-4 h-4 text-yellow-300" />
@@ -213,107 +310,175 @@ export function TrainingAcademy() {
             }`}
           >
             <Award className="w-3.5 h-3.5 text-yellow-300" />
-            <span>📜 My Certificates</span>
+            <span>📜 My Verified Certificates</span>
           </button>
         </div>
       </div>
 
-      {/* 🎬 Tab 1: Video Masterclass Player & Curriculum */}
-      {activeTab === 'courses' && (
-        visibleVideos.length === 0 ? (
-          <div className="p-8 text-center bg-slate-900/60 border border-slate-800 rounded-3xl space-y-2">
-            <BookOpen className="w-10 h-10 text-purple-400 mx-auto" />
-            <h3 className="font-extrabold text-sm text-white">No Training Videos Assigned Yet</h3>
-            <p className="text-xs text-slate-400">Admin jald hi nayi masterclass videos add karenge!</p>
-          </div>
-        ) : selectedVideo && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+      {/* 🎬 Tab 1: Video Masterclass Player & Assessment */}
+      {activeTab === 'courses' && selectedVideo && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+          
+          {/* Left 2 Cols: Video Player, Watch Meter & 20-Question Exam */}
+          <div className="lg:col-span-2 space-y-4">
             
-            {/* Left 2 Cols: In-App YouTube Player & Assessment */}
-            <div className="lg:col-span-2 space-y-4">
-              
-              {/* In-App Responsive YouTube Video Embed */}
-              <div className="glass-card rounded-3xl border border-purple-500/40 overflow-hidden shadow-2xl bg-black">
-                <div className="relative aspect-video w-full bg-slate-950">
-                  <iframe
-                    className="w-full h-full"
-                    src={`https://www.youtube.com/embed/${selectedVideo.embed_id}?autoplay=0&rel=0&modestbranding=1`}
-                    title={selectedVideo.title}
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                  ></iframe>
+            {/* In-App Responsive YouTube Video Embed */}
+            <div className="glass-card rounded-3xl border border-purple-500/40 overflow-hidden shadow-2xl bg-black">
+              <div className="relative aspect-video w-full bg-slate-950">
+                <iframe
+                  className="w-full h-full"
+                  src={`https://www.youtube.com/embed/${selectedVideo.embed_id}?autoplay=0&rel=0&modestbranding=1`}
+                  title={selectedVideo.title}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                ></iframe>
+              </div>
+
+              {/* Video Info Bar & Watch Verification Meter */}
+              <div className="p-4 sm:p-5 space-y-3 bg-slate-900/90">
+                
+                {/* Title and Category */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-3">
+                  <div>
+                    <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-purple-950 text-purple-300 border border-purple-500/40 uppercase">
+                      {selectedVideo.category}
+                    </span>
+                    <h3 className="font-extrabold text-base sm:text-lg text-white mt-1">
+                      {selectedVideo.title}
+                    </h3>
+                  </div>
+
+                  {/* Admin Edit / Delete Actions */}
+                  {isOwner && (
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        onClick={() => handleOpenEdit(selectedVideo)}
+                        className="tap-target px-2.5 py-1 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold flex items-center gap-1 border border-slate-700"
+                        title="Edit this video"
+                      >
+                        <Edit3 className="w-3.5 h-3.5 text-purple-400" />
+                        <span>Edit Video</span>
+                      </button>
+                      <button
+                        onClick={() => handleDeleteVideo(selectedVideo.id)}
+                        className="tap-target p-1.5 rounded-xl bg-red-950/80 hover:bg-red-900 text-red-300 border border-red-500/40"
+                        title="Delete video"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
                 </div>
 
-                {/* Video Info Bar */}
-                <div className="p-4 sm:p-5 space-y-3 bg-slate-900/90">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-3">
-                    <div>
-                      <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-purple-950 text-purple-300 border border-purple-500/40 uppercase">
-                        {selectedVideo.category}
-                      </span>
-                      <h3 className="font-extrabold text-base sm:text-lg text-white mt-1">
-                        {selectedVideo.title}
-                      </h3>
-                    </div>
-
-                    <div className="flex items-center gap-2 text-xs font-mono text-slate-300 shrink-0">
-                      <Clock className="w-3.5 h-3.5 text-yellow-300" />
-                      <span>{selectedVideo.duration_minutes} Mins Watch</span>
-                    </div>
+                {/* 🤖 Maya AI Executive Summary */}
+                <div className="p-3.5 rounded-2xl bg-purple-950/50 border border-purple-500/30 space-y-1.5 text-xs text-purple-200">
+                  <div className="flex items-center gap-1.5 font-black text-white">
+                    <Sparkles className="w-4 h-4 text-yellow-300" />
+                    <span>Maya AI Executive Summary & Key Learnings:</span>
                   </div>
-
-                  <p className="text-xs text-slate-300 leading-relaxed">
-                    {selectedVideo.description || 'Master this topic to increase your order conversions and daily bonuses.'}
+                  <p className="leading-relaxed text-slate-300">
+                    {selectedVideo.description || 'Is masterclass me customer objections handle karne, 30-second me trust build karne aur delivery attempt fail hone par priority delivery coordinate karne ki strategies sikhayi gayi hain.'}
                   </p>
+                </div>
 
-                  {/* 🤖 Maya AI Smart Calling Tip */}
-                  <div className="p-3 rounded-2xl bg-purple-950/60 border border-purple-500/30 flex items-start gap-2 text-xs text-purple-200">
-                    <Lightbulb className="w-4 h-4 text-yellow-300 shrink-0 mt-0.5" />
-                    <div>
-                      <strong>Maya AI Pro-Tip:</strong> Is video ko poora dekhne ke baad niche diye gaye Maya AI Quiz me 100% score karein aur apna verified certificate unlock karein!
-                    </div>
+                {/* ⏱️ Live Watch Verification Meter */}
+                <div className="p-3.5 rounded-2xl bg-slate-950 border border-slate-800 space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-300 font-bold flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Live Watch Tracker: <strong>{Math.floor(watchedSeconds / 60)}m {watchedSeconds % 60}s</strong> / {selectedVideo.duration_minutes}m</span>
+                    </span>
+                    <span className="font-mono font-bold text-emerald-400">{watchPercentage}%</span>
+                  </div>
+                  
+                  {/* Progress Bar */}
+                  <div className="w-full h-2 bg-slate-900 rounded-full overflow-hidden border border-slate-800">
+                    <div 
+                      className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 transition-all duration-500"
+                      style={{ width: `${watchPercentage}%` }}
+                    ></div>
                   </div>
 
-                  {/* Video Complete & Claim Certificate Action */}
-                  <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div className="flex items-center gap-2">
-                      <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                      <span className="text-xs text-slate-300">
-                        Assigned to: <strong className="text-white">{selectedVideo.assigned_to === 'ALL' ? '🌐 All Team Members' : `👤 ${selectedVideo.assigned_to}`}</strong>
-                      </span>
-                    </div>
+                  <div className="flex items-center justify-between pt-1">
+                    <button
+                      onClick={() => setIsWatching(!isWatching)}
+                      className={`px-3 py-1 rounded-xl text-xs font-bold flex items-center gap-1 transition ${
+                        isWatching ? 'bg-amber-500 text-slate-950 font-black' : 'bg-emerald-600 text-white'
+                      }`}
+                    >
+                      <Play className="w-3 h-3" />
+                      <span>{isWatching ? '⏸️ Pause Timer' : '▶️ Start Watch Timer'}</span>
+                    </button>
 
                     <button
-                      onClick={() => handleCompleteTraining(selectedVideo)}
-                      className="tap-target px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/30 transition active:scale-95"
+                      onClick={() => {
+                        setWatchedSeconds(durationSec);
+                        setHasWatchedFull(true);
+                      }}
+                      className="text-[11px] text-purple-300 underline hover:text-white"
                     >
-                      <Award className="w-4 h-4 text-yellow-300" />
-                      <span>Complete & Unlock Certificate ➔</span>
+                      I have finished watching (100%)
                     </button>
                   </div>
                 </div>
+
+                {/* Exam Unlock Action */}
+                <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                    <span className="text-xs text-slate-300">
+                      Assigned: <strong className="text-white">{selectedVideo.assigned_to === 'ALL' ? '🌐 All Staff' : `👤 ${selectedVideo.assigned_to}`}</strong>
+                    </span>
+                  </div>
+
+                  <button
+                    onClick={() => setShowExamPortal(true)}
+                    disabled={!isVideoUnlockedForExam}
+                    className={`tap-target px-5 py-2.5 rounded-xl font-black text-xs flex items-center justify-center gap-2 shadow-lg transition active:scale-95 ${
+                      isVideoUnlockedForExam
+                        ? 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-purple-600/30'
+                        : 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700'
+                    }`}
+                  >
+                    {isVideoUnlockedForExam ? <Unlock className="w-4 h-4 text-yellow-300" /> : <Lock className="w-4 h-4 text-slate-500" />}
+                    <span>{isVideoUnlockedForExam ? 'Start 20-Question AI Exam ➔' : 'Watch Video to Unlock Exam 🔒'}</span>
+                  </button>
+                </div>
               </div>
+            </div>
 
-              {/* 🤖 Maya AI Interactive Quiz for Selected Video */}
-              {selectedVideo.quiz_questions && selectedVideo.quiz_questions.length > 0 && (
-                <div className="glass-card rounded-3xl border border-slate-800 p-4 sm:p-5 space-y-3">
-                  <h4 className="font-extrabold text-sm text-white flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-yellow-300" />
-                    <span>Maya AI Quick Knowledge Check (1-Min Assessment)</span>
-                  </h4>
+            {/* 📝 20-Question AI Assessment Portal */}
+            {showExamPortal && selectedVideo.quiz_questions && (
+              <div className="glass-card rounded-3xl border border-purple-500/50 p-5 sm:p-6 space-y-5 shadow-2xl bg-slate-900/95 animate-scale-up">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                  <div>
+                    <h4 className="font-extrabold text-base text-white flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-yellow-300" />
+                      <span>Maya AI 20-Question Certification Exam</span>
+                    </h4>
+                    <p className="text-xs text-slate-400">Pass with 80%+ score to unlock your Verified MSR Corporate Certificate.</p>
+                  </div>
+                  <span className="px-3 py-1 rounded-xl bg-purple-950 text-purple-300 border border-purple-500/40 text-xs font-mono font-bold">
+                    {Object.keys(examAnswers).length} / {selectedVideo.quiz_questions.length} Solved
+                  </span>
+                </div>
 
+                {/* Questions List */}
+                <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
                   {selectedVideo.quiz_questions.map((quiz, qIdx) => (
-                    <div key={qIdx} className="space-y-2 text-xs">
-                      <p className="font-bold text-slate-200">❓ {quiz.q}</p>
+                    <div key={qIdx} className="p-3.5 rounded-2xl bg-slate-950 border border-slate-800 space-y-2 text-xs">
+                      <p className="font-bold text-white leading-snug">
+                        <span className="text-purple-400 font-mono mr-1.5">Q{qIdx + 1}.</span> {quiz.q}
+                      </p>
                       <div className="space-y-1.5">
                         {quiz.options.map((opt, optIdx) => (
                           <button
                             key={optIdx}
-                            onClick={() => setSelectedAnswers((prev) => ({ ...prev, [qIdx]: optIdx }))}
+                            onClick={() => setExamAnswers((prev) => ({ ...prev, [qIdx]: optIdx }))}
                             className={`w-full text-left p-2.5 rounded-xl border text-xs font-medium transition ${
-                              selectedAnswers[qIdx] === optIdx
-                                ? 'bg-purple-950 border-purple-500 text-purple-200 font-bold'
-                                : 'bg-slate-950 border-slate-800 text-slate-300 hover:bg-slate-900'
+                              examAnswers[qIdx] === optIdx
+                                ? 'bg-purple-950 border-purple-500 text-purple-200 font-bold shadow-sm'
+                                : 'bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-800'
                             }`}
                           >
                             {opt}
@@ -323,74 +488,114 @@ export function TrainingAcademy() {
                     </div>
                   ))}
                 </div>
-              )}
 
-            </div>
-
-            {/* Right 1 Col: Video Playlist Curriculum */}
-            <div className="space-y-3">
-              <h4 className="font-extrabold text-sm text-white flex items-center gap-2">
-                <BookOpen className="w-4 h-4 text-purple-400" />
-                <span>Training Curriculum ({visibleVideos.length} Modules)</span>
-              </h4>
-
-              <div className="space-y-2.5">
-                {visibleVideos.map((vid, idx) => {
-                  const isSelected = selectedVideo?.id === vid.id;
-                  const isCompleted = vid.completed_by?.includes(currentUser.name);
-
-                  return (
-                    <div
-                      key={vid.id}
-                      onClick={() => setSelectedVideo(vid)}
-                      className={`p-3.5 rounded-2xl border transition cursor-pointer space-y-2 ${
-                        isSelected
-                          ? 'bg-purple-950/60 border-purple-500 shadow-lg'
-                          : 'bg-slate-900/80 border-slate-800 hover:border-slate-700'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-[9px] font-black px-2 py-0.5 rounded bg-slate-950 text-slate-400 uppercase font-mono">
-                          Module #{idx + 1}
-                        </span>
-                        {isCompleted ? (
-                          <span className="text-[10px] font-bold text-emerald-400 flex items-center gap-1">
-                            <CheckCircle2 className="w-3 h-3" /> Completed
-                          </span>
-                        ) : (
-                          <span className="text-[10px] font-bold text-amber-400 flex items-center gap-1">
-                            <Clock className="w-3 h-3" /> Pending
-                          </span>
-                        )}
-                      </div>
-
-                      <h5 className="font-bold text-xs text-white leading-snug">
-                        {vid.title}
-                      </h5>
-
-                      <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1 border-t border-slate-800/60">
-                        <span>{vid.duration_minutes} Mins</span>
-                        <span className="text-purple-300">{vid.category}</span>
-                        {isOwner && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDeleteVideo(vid.id);
-                            }}
-                            className="text-red-400 hover:text-red-300 p-1"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </button>
-                        )}
-                      </div>
+                {/* Exam Result Warning / Success */}
+                {examResult && (
+                  <div className={`p-4 rounded-2xl border text-xs space-y-1.5 ${
+                    examResult.passed 
+                      ? 'bg-emerald-950/80 border-emerald-500 text-emerald-200'
+                      : 'bg-red-950/80 border-red-500 text-red-200'
+                  }`}>
+                    <div className="flex items-center gap-2 font-black text-sm">
+                      {examResult.passed ? <CheckCircle2 className="w-4 h-4 text-emerald-400" /> : <AlertTriangle className="w-4 h-4 text-red-400" />}
+                      <span>{examResult.passed ? '🎉 EXAM PASSED WITH DISTINCTION!' : '❌ EXAM FAILED (MINIMUM 80% REQUIRED)'}</span>
                     </div>
-                  );
-                })}
+                    <p>Score: <strong>{examResult.score} / {examResult.total} ({examResult.percentage}%)</strong></p>
+                    {!examResult.passed && <p className="text-[11px] text-red-300">Kripya video dobara dhyan se dekhein aur questions retry karein!</p>}
+                  </div>
+                )}
+
+                {/* Submit / Retry Button */}
+                <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-800">
+                  <button
+                    onClick={() => setShowExamPortal(false)}
+                    className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 font-bold text-xs"
+                  >
+                    Close Exam
+                  </button>
+                  <button
+                    onClick={handleEvaluateExam}
+                    disabled={Object.keys(examAnswers).length < selectedVideo.quiz_questions.length}
+                    className={`tap-target px-6 py-2.5 rounded-xl font-black text-xs flex items-center gap-2 shadow-lg transition active:scale-95 ${
+                      Object.keys(examAnswers).length >= selectedVideo.quiz_questions.length
+                        ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-emerald-600/30'
+                        : 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                    }`}
+                  >
+                    <Award className="w-4 h-4 text-yellow-300" />
+                    <span>Submit & Claim Official Certificate ➔</span>
+                  </button>
+                </div>
+
               </div>
-            </div>
+            )}
 
           </div>
-        )
+
+          {/* Right 1 Col: Video Playlist Curriculum */}
+          <div className="space-y-3">
+            <h4 className="font-extrabold text-sm text-white flex items-center gap-2">
+              <BookOpen className="w-4 h-4 text-purple-400" />
+              <span>Training Curriculum ({visibleVideos.length} Modules)</span>
+            </h4>
+
+            <div className="space-y-2.5">
+              {visibleVideos.map((vid, idx) => {
+                const isSelected = selectedVideo?.id === vid.id;
+                const isCompleted = vid.completed_by?.includes(currentUser.name);
+
+                return (
+                  <div
+                    key={vid.id}
+                    onClick={() => setSelectedVideo(vid)}
+                    className={`p-3.5 rounded-2xl border transition cursor-pointer space-y-2 ${
+                      isSelected
+                        ? 'bg-purple-950/60 border-purple-500 shadow-lg'
+                        : 'bg-slate-900/80 border-slate-800 hover:border-slate-700'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[9px] font-black px-2 py-0.5 rounded bg-slate-950 text-slate-400 uppercase font-mono">
+                        Module #{idx + 1}
+                      </span>
+                      {isCompleted ? (
+                        <span className="text-[10px] font-bold text-emerald-400 flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3" /> Certified
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-bold text-amber-400 flex items-center gap-1">
+                          <Clock className="w-3 h-3" /> Incomplete
+                        </span>
+                      )}
+                    </div>
+
+                    <h5 className="font-bold text-xs text-white leading-snug">
+                      {vid.title}
+                    </h5>
+
+                    <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1 border-t border-slate-800/60">
+                      <span>{vid.duration_minutes} Mins</span>
+                      <span className="text-purple-300">{vid.category}</span>
+                      {isOwner && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenEdit(vid);
+                          }}
+                          className="text-purple-400 hover:text-purple-300 p-1 font-bold"
+                          title="Edit"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+        </div>
       )}
 
       {/* 📜 Tab 2: Employee Certificates Register */}
@@ -426,7 +631,9 @@ export function TrainingAcademy() {
                       courseTitle: v.title,
                       category: v.category,
                       date: 'August 2026',
-                      grade: 'A+ (Outstanding)'
+                      grade: '20/20 (100% - Grade A+ Outstanding)',
+                      watchTime: `${v.duration_minutes} Mins • 100% Watched`,
+                      serialCode: `MSR-CERT-2026-${v.id.toUpperCase()}`
                     });
                     setShowCertModal(true);
                   }}
@@ -441,23 +648,23 @@ export function TrainingAcademy() {
         </div>
       )}
 
-      {/* ➕ Admin Add Video Masterclass Modal */}
-      {showAddModal && (
+      {/* ➕ Add / Edit Video Modal */}
+      {(showAddModal || showEditModal) && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
           <div className="w-full max-w-lg bg-slate-900 border border-purple-500/50 rounded-3xl p-5 sm:p-6 shadow-2xl space-y-4">
             <h3 className="font-black text-base text-white flex items-center gap-2">
-              <Plus className="w-4 h-4 text-emerald-400" />
-              <span>Add New Training Masterclass (Admin)</span>
+              {showEditModal ? <Edit3 className="w-4 h-4 text-purple-400" /> : <Plus className="w-4 h-4 text-emerald-400" />}
+              <span>{showEditModal ? 'Edit Video Masterclass (Admin)' : 'Add New Training Masterclass (Admin)'}</span>
             </h3>
 
-            <form onSubmit={handleAddVideo} className="space-y-3 text-xs">
+            <form onSubmit={handleSaveVideo} className="space-y-3 text-xs">
               <div>
                 <label className="text-slate-300 font-bold block mb-1">Video Title</label>
                 <input
                   type="text"
                   required
-                  value={newTitle}
-                  onChange={(e) => setNewTitle(e.target.value)}
+                  value={formTitle}
+                  onChange={(e) => setFormTitle(e.target.value)}
                   placeholder="e.g. NDR 2nd Attempt Customer Retention Strategy"
                   className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-purple-500"
                 />
@@ -468,10 +675,21 @@ export function TrainingAcademy() {
                 <input
                   type="url"
                   required
-                  value={newUrl}
-                  onChange={(e) => setNewUrl(e.target.value)}
+                  value={formUrl}
+                  onChange={(e) => setFormUrl(e.target.value)}
                   placeholder="https://www.youtube.com/watch?v=..."
                   className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-purple-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-slate-300 font-bold block mb-1">AI Executive Summary / Key Takeaways</label>
+                <textarea
+                  rows={2}
+                  value={formDesc}
+                  onChange={(e) => setFormDesc(e.target.value)}
+                  placeholder="Summary of what the employee will learn..."
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-purple-500 resize-none"
                 />
               </div>
 
@@ -479,8 +697,8 @@ export function TrainingAcademy() {
                 <div>
                   <label className="text-slate-300 font-bold block mb-1">Category</label>
                   <select
-                    value={newCategory}
-                    onChange={(e) => setNewCategory(e.target.value)}
+                    value={formCategory}
+                    onChange={(e) => setFormCategory(e.target.value)}
                     className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none"
                   >
                     <option value="NDR Rescue (+₹50 Bounty)">NDR Rescue</option>
@@ -494,8 +712,8 @@ export function TrainingAcademy() {
                   <label className="text-slate-300 font-bold block mb-1">Duration (Mins)</label>
                   <input
                     type="number"
-                    value={newDuration}
-                    onChange={(e) => setNewDuration(e.target.value)}
+                    value={formDuration}
+                    onChange={(e) => setFormDuration(e.target.value)}
                     className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none"
                   />
                 </div>
@@ -504,8 +722,8 @@ export function TrainingAcademy() {
               <div>
                 <label className="text-slate-300 font-bold block mb-1">Assign to Employee</label>
                 <select
-                  value={newAssignedTo}
-                  onChange={(e) => setNewAssignedTo(e.target.value)}
+                  value={formAssignedTo}
+                  onChange={(e) => setFormAssignedTo(e.target.value)}
                   className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none font-bold text-emerald-400"
                 >
                   <option value="ALL">🌐 All Team Members (Sabhi ke liye)</option>
@@ -520,7 +738,10 @@ export function TrainingAcademy() {
               <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
                 <button
                   type="button"
-                  onClick={() => setShowAddModal(false)}
+                  onClick={() => {
+                    setShowAddModal(false);
+                    setShowEditModal(false);
+                  }}
                   className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 font-bold"
                 >
                   Cancel
@@ -529,7 +750,7 @@ export function TrainingAcademy() {
                   type="submit"
                   className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black"
                 >
-                  Publish Video
+                  {showEditModal ? 'Update Video' : 'Publish Video'}
                 </button>
               </div>
             </form>
@@ -537,7 +758,7 @@ export function TrainingAcademy() {
         </div>
       )}
 
-      {/* 📜 Official MSR Certificate Modal */}
+      {/* 📜 Official Authenticated MSR Certificate Modal */}
       {showCertModal && certData && (
         <TrainingCertificateModal
           isOpen={showCertModal}

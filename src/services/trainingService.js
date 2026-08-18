@@ -1,7 +1,31 @@
-// Training Masterclass Cloud Service - Live Supabase Sync & Realtime Broadcast
+// Training Masterclass Cloud Service - Live Supabase Sync, Question Banks & Realtime Broadcast
 import { supabase, isSupabaseConfigured } from './supabase';
 
 const TRAINING_STORAGE_KEY = 'msr_training_videos';
+
+// 🌟 20-25 Top-Level Real-World Scenario Question Banks
+const NDR_20_QUESTIONS = [
+  { q: "NDR call connect hote hi customer ko pehla sentence kya bolna chahiye?", options: ["A. Namaste Sir, main Amparo Store se bol rahi hoon, aapka parcel aane wala tha.", "B. Aapne parcel kyu nahi liya?", "C. Delivery boy ko paise nahi diye aapne."], correct: 0 },
+  { q: "Customer bole 'Delivery boy ka call nahi aaya', toh best solution kya hai?", options: ["A. Main courier supervisor ko priority instruction daal rahi hoon, kal dopahar tak parcel mil jayega.", "B. Delivery boy ki galti hai, complaint karein.", "C. Order cancel kar dijiye."], correct: 0 },
+  { q: "Customer bole 'Mujhe product ki ab zaroorat nahi hai', toh kya offer dekar order save kar sakte hain?", options: ["A. ₹50 instant discount coupon + fresh batch guarantee.", "B. Theek hai cancel kar dete hain.", "C. Police complaint ki baat karein."], correct: 0 },
+  { q: "Shiprocket NDR me 'Customer Not Available' reason par call ka main objective kya hai?", options: ["A. Re-attempt date aur convenient delivery time fix karna.", "B. Customer ko daantna.", "C. Sirf feedback lena."], correct: 0 },
+  { q: "Agar customer bole 'Cash nahi hai mere paas kal aana', toh telecaller kya karegi?", options: ["A. Courier boy ko online UPI QR code scan karne ka option batayein ya kal ka re-attempt daalein.", "B. Order cancel mark kar dein.", "C. Delivery boy ko gaali dein."], correct: 0 },
+  { q: "NDR order save karne par telecaller ko kitna verified cash incentive milta hai?", options: ["A. ₹50 per delivered parcel", "B. ₹10", "C. ₹0"], correct: 0 },
+  { q: "Customer bole 'Address galat hai', toh telecaller ko kya karna chahiye?", options: ["A. Correct landmark aur house number lekar Shiprocket portal par address update karna.", "B. Customer ko bole khud courier office jaye.", "C. Cancel kar dein."], correct: 0 },
+  { q: "Agar delivery boy 'Fake Attempt / Customer Refused' mark kare, toh telecaller kya karegi?", options: ["A. Customer se confirm karke Courier Escalation raise karegi aur kal re-attempt schedule karegi.", "B. Chup chap cancel maan legi.", "C. Customer ko block karegi."], correct: 0 },
+  { q: "Repeat customer calling me sabse pehla focus kya hona chahiye?", options: ["A. Previous experience kaisa raha aur stock khatam hone se pehle special discount offer karna.", "B. Sirf rate batana.", "C. Bina baat kiye cut karna."], correct: 0 },
+  { q: "Customer ko delivery ke din kitne time pehle alert message bhejna chahiye?", options: ["A. Subah 09:00 AM WhatsApp notification with amount & OTP.", "B. Shaam ko.", "C. Kabhi nahi."], correct: 0 },
+  { q: "Amparo Shilajit Gummies kitne din me visible energy aur stamina result deti hain?", options: ["A. 2 se 3 hafte regular use karne par.", "B. 1 minute me.", "C. Kabhi nahi."], correct: 0 },
+  { q: "Shilajit Gummies ka dose kya hai?", options: ["A. 1 ya 2 gummies daily khana khane ke baad doodh ya paani ke sath.", "B. Poora box 1 din me.", "C. Khaali pet 10 gummies."], correct: 0 },
+  { q: "COD customer ko phone par order confirm karte waqt kya confirm karna zaroori hai?", options: ["A. Exact Pin Code, Full Landmark, COD Amount aur delivery date.", "B. Sirf naam.", "C. Bank password."], correct: 0 },
+  { q: "Telecaller ko call par voice pitch aur tone kaisi rakhni chahiye?", options: ["A. Calm, Confident, Polite aur Energetic.", "B. Bahut slow aur sleepy.", "C. Tez aur aggressive."], correct: 0 },
+  { q: "Agar customer call pick na kare toh pehla action kya hona chahiye?", options: ["A. Official WhatsApp template drop karna with tracking details.", "B. Number delete karna.", "C. 50 baar lagatar dial karna."], correct: 0 },
+  { q: "RTO hone se company ka kya nuksan hota hai?", options: ["A. Double courier shipping charge + inventory block + operational cost.", "B. Koi nuksan nahi hota.", "C. Profit hota hai."], correct: 0 },
+  { q: "Customer bole 'Product fake toh nahi hai?', toh kya bolna chahiye?", options: ["A. Amparo 100% Lab-Tested, GMP certified aur original Himalayan Shilajit extract se bana hai.", "B. Fake hai toh return kar dena.", "C. Mujhe nahi pata."], correct: 0 },
+  { q: "Agar customer 'Out of Town' hai, toh re-attempt kab ka schedule karein?", options: ["A. Jis din customer wapas aane wala ho us specific date ka.", "B. Kal subah ka.", "C. 1 saal baad."], correct: 0 },
+  { q: "Shiprocket tracking me 'Out for Delivery' hone par telecaller ka kya role hai?", options: ["A. Customer ko call/SMS karke cash/UPI ready rakhne ko bolna.", "B. Kuch nahi karna.", "C. Delivery boy ko phone band karne bolna."], correct: 0 },
+  { q: "Successful Delivery hone par incentive kab credit hota hai?", options: ["A. Shiprocket par parcel 'Delivered' mark hote hi live salary breakdown me add hota hai.", "B. 6 mahine baad.", "C. Kabhi nahi."], correct: 0 }
+];
 
 export const INITIAL_TRAINING_VIDEOS = [
   {
@@ -13,18 +37,8 @@ export const INITIAL_TRAINING_VIDEOS = [
     category: 'NDR Rescue (+₹50 Bounty)',
     duration_minutes: 8,
     assigned_to: 'ALL',
-    completed_by: ['Priya Singh'],
-    quiz_questions: [
-      {
-        q: 'Jab customer bole "Delivery boy ka call nahi aaya", toh best response kya hai?',
-        options: [
-          'A. Maine courier supervisor ko priority instruction daal di hai, kal 12 baje parcel deliver ho jayega.',
-          'B. Delivery boy ki galti hai, aap courier office jaakar parcel le lijiye.',
-          'C. Theek hai order cancel kar dete hain.'
-        ],
-        correct: 0
-      }
-    ]
+    completed_by: [],
+    quiz_questions: NDR_20_QUESTIONS
   },
   {
     id: 'vid-02',
@@ -36,17 +50,7 @@ export const INITIAL_TRAINING_VIDEOS = [
     duration_minutes: 6,
     assigned_to: 'ALL',
     completed_by: [],
-    quiz_questions: [
-      {
-        q: 'Amparo Shilajit Gummies ka sabse bada USP customer ko kya batana hai?',
-        options: [
-          'A. 100% Shuddh Himalayan Shilajit, Tasty Gummy Format me bina kisi kadwe swad ke.',
-          'B. Normal toffee jaisa hai kabhi bhi khao.',
-          'C. Isme koi shilajit nahi hai.'
-        ],
-        correct: 0
-      }
-    ]
+    quiz_questions: NDR_20_QUESTIONS
   },
   {
     id: 'vid-03',
@@ -58,17 +62,7 @@ export const INITIAL_TRAINING_VIDEOS = [
     duration_minutes: 5,
     assigned_to: 'ALL',
     completed_by: [],
-    quiz_questions: [
-      {
-        q: 'Call start karte hi telecaller ki tone kaisi honi chahiye?',
-        options: [
-          'A. Confident, Energetic, Respectful aur Hindi/Hinglish me natural.',
-          'B. Bahut tez chillakar bolna.',
-          'C. Robot ki tarah jaldi-jaldi script padhna.'
-        ],
-        correct: 0
-      }
-    ]
+    quiz_questions: NDR_20_QUESTIONS
   }
 ];
 
@@ -131,10 +125,9 @@ class TrainingService {
           duration_minutes: Number(d.duration_minutes) || 5,
           assigned_to: d.assigned_to || 'ALL',
           completed_by: Array.isArray(d.completed_by) ? d.completed_by : [],
-          quiz_questions: Array.isArray(d.quiz_questions) ? d.quiz_questions : []
+          quiz_questions: Array.isArray(d.quiz_questions) && d.quiz_questions.length > 0 ? d.quiz_questions : NDR_20_QUESTIONS
         }));
         
-        // Merge with initial defaults if needed
         localStorage.setItem(TRAINING_STORAGE_KEY, JSON.stringify(mapped));
         this.notify();
         return mapped;
@@ -150,7 +143,8 @@ class TrainingService {
     const newEntry = {
       ...videoData,
       id: videoData.id || `vid-${Date.now()}`,
-      completed_by: videoData.completed_by || []
+      completed_by: videoData.completed_by || [],
+      quiz_questions: videoData.quiz_questions || NDR_20_QUESTIONS
     };
 
     const updated = [newEntry, ...current];
@@ -169,10 +163,37 @@ class TrainingService {
           duration_minutes: newEntry.duration_minutes,
           assigned_to: newEntry.assigned_to,
           completed_by: newEntry.completed_by,
-          quiz_questions: newEntry.quiz_questions || []
+          quiz_questions: newEntry.quiz_questions
         });
       } catch (e) {
         console.warn('Supabase training video upload fallback:', e);
+      }
+    }
+
+    return updated;
+  }
+
+  async updateVideo(id, updatedFields) {
+    const current = this.getVideos();
+    const updated = current.map((v) => {
+      if (v.id === id) {
+        return {
+          ...v,
+          ...updatedFields,
+          quiz_questions: updatedFields.quiz_questions || v.quiz_questions || NDR_20_QUESTIONS
+        };
+      }
+      return v;
+    });
+
+    localStorage.setItem(TRAINING_STORAGE_KEY, JSON.stringify(updated));
+    this.notify();
+
+    if (isSupabaseConfigured()) {
+      try {
+        await supabase.from('training_videos').update(updatedFields).eq('id', id);
+      } catch (e) {
+        console.warn('Supabase update video error:', e);
       }
     }
 
@@ -196,7 +217,7 @@ class TrainingService {
     return updated;
   }
 
-  async markCompleted(videoId, userName) {
+  async markCompleted(videoId, userName, examScore, watchTimeSeconds) {
     const current = this.getVideos();
     const updated = current.map((v) => {
       if (v.id === videoId) {
@@ -212,18 +233,20 @@ class TrainingService {
     localStorage.setItem(TRAINING_STORAGE_KEY, JSON.stringify(updated));
     this.notify();
 
-    if (isSupabaseConfigured()) {
-      try {
-        const matched = updated.find((v) => v.id === videoId);
-        if (matched) {
-          await supabase.from('training_videos').update({
-            completed_by: matched.completed_by
-          }).eq('id', videoId);
-        }
-      } catch (e) {
-        console.warn('Supabase training complete error:', e);
-      }
-    }
+    // Store local verified certificate record
+    const certRecord = {
+      id: `cert-${Date.now()}`,
+      videoId,
+      userName,
+      examScore,
+      watchTimeSeconds,
+      timestamp: Date.now()
+    };
+    try {
+      const certs = JSON.parse(localStorage.getItem('msr_earned_certificates') || '[]');
+      certs.push(certRecord);
+      localStorage.setItem('msr_earned_certificates', JSON.stringify(certs));
+    } catch (e) {}
 
     return updated;
   }
