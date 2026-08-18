@@ -1,9 +1,9 @@
 // Training Masterclass Cloud Service - Live Supabase Cloud Sync & Realtime Broadcast
 import { supabase, isSupabaseConfigured } from './supabase';
 
-const TRAINING_STORAGE_KEY = 'msr_training_videos_v7';
+const TRAINING_STORAGE_KEY = 'msr_training_videos_v8';
 
-// 🌟 20 Top-Level Real-World Scenario Question Banks
+// 🌟 20-25 Top-Level Real-World Scenario Question Banks
 const TELECALLER_20_QUESTIONS = [
   { q: "Telecaller call connect hote hi customer ko pehla sentence kya bolna chahiye?", options: ["A. Namaste Sir, main Amparo Store se bol rahi hoon, aapke order ke regarding ek important update hai.", "B. Aapne order kyu kiya tha?", "C. Delivery boy ko paise nahi diye aapne."], correct: 0 },
   { q: "Customer bole 'Delivery boy ka call nahi aaya', toh best solution kya hai?", options: ["A. Main courier supervisor ko priority instruction daal rahi hoon, kal dopahar tak parcel mil jayega.", "B. Delivery boy ki galti hai, complaint karein.", "C. Order cancel kar dijiye."], correct: 0 },
@@ -44,7 +44,7 @@ export const INITIAL_TRAINING_VIDEOS = [
     id: 'vid-02-telecalling-script',
     title: 'Module #2: Telecalling Mastery — 30-Second Hook, Pitch Script & Rapport Building',
     description: 'Customer se pehle 30 second me connect banane ka formula, pitch opening, trust building aur voice modulation.',
-    youtube_url: 'https://youtu.be/q_DakTijNNw',
+    youtube_url: 'https://www.youtube.com/watch?v=q_DakTijNNw',
     embed_id: 'q_DakTijNNw',
     category: 'Telecalling Script & Hook',
     duration_minutes: 10,
@@ -56,7 +56,7 @@ export const INITIAL_TRAINING_VIDEOS = [
     id: 'vid-03-objection-handling',
     title: "Module #3: Objection Handling — 'Soch Kar Bataunga / Mehenga Hai' Ko Close Karein",
     description: "Price objections, 'ghar par puch kar bataunga', delivery delay aur customer doubts ko confidentally solve karke order close karne ka live method.",
-    youtube_url: 'https://youtu.be/6vxmYw90yN4',
+    youtube_url: 'https://www.youtube.com/watch?v=6vxmYw90yN4',
     embed_id: '6vxmYw90yN4',
     category: 'Objection Handling & Closing',
     duration_minutes: 12,
@@ -66,34 +66,34 @@ export const INITIAL_TRAINING_VIDEOS = [
   },
   {
     id: 'vid-04-cold-calling',
-    title: 'Module #4: Cold Calling Secrets — Unknown Customers Ko Loyal Buyers Banayein',
-    description: 'Cold call me fear dur karne ka tareeqa, 1st rejection ko interest me badalna aur call drop rate 80% reduce karna.',
-    youtube_url: 'https://www.youtube.com/watch?v=kZMrd0m9eBY',
-    embed_id: 'kZMrd0m9eBY',
+    title: 'Module #4: Cold Calling Masterclass — A to Z of Cold Calling & Customer Pitch (TS Madaan)',
+    description: 'Cold call me fear aur hesitation dur karna, initial rejection ko interest me badalna aur call closing rate 3X boost karna.',
+    youtube_url: 'https://www.youtube.com/watch?v=k5Sg84v2f0s',
+    embed_id: 'k5Sg84v2f0s',
     category: 'Cold Calling & Lead Conversion',
-    duration_minutes: 9,
+    duration_minutes: 11,
     assigned_to: 'ALL',
     completed_by: [],
     quiz_questions: TELECALLER_20_QUESTIONS
   },
   {
     id: 'vid-05-rto-reduction',
-    title: 'Module #5: E-Commerce RTO Control & NDR Delivery Rescue (+₹50 Bounty)',
-    description: 'Delivery attempt fail hone par courier supervisor se coordination, customer address correction aur RTO 0% karne ki strategy.',
-    youtube_url: 'https://youtu.be/q_DakTijNNw',
-    embed_id: 'q_DakTijNNw',
+    title: 'Module #5: E-Commerce RTO Control & NDR Delivery Rescue Strategy (+₹50 Bounty)',
+    description: 'Delivery attempt fail hone par courier supervisor se coordination, customer address correction aur RTO 0% karne ki live telecalling.',
+    youtube_url: 'https://www.youtube.com/watch?v=7uVmsE3n8g4',
+    embed_id: '7uVmsE3n8g4',
     category: 'NDR Rescue (+₹50 Bounty)',
-    duration_minutes: 8,
+    duration_minutes: 9,
     assigned_to: 'ALL',
     completed_by: [],
     quiz_questions: TELECALLER_20_QUESTIONS
   },
   {
     id: 'vid-06-cod-verification',
-    title: 'Module #6: COD Order Confirmation & Fake Address Filter Masterclass',
+    title: 'Module #6: COD Order Confirmation, Address Verification & 0% RTO Masterclass',
     description: 'Pin-code aur landmark match karna, WhatsApp confirmation drop karna aur high delivery rate achieve karna.',
-    youtube_url: 'https://youtu.be/6vxmYw90yN4',
-    embed_id: '6vxmYw90yN4',
+    youtube_url: 'https://www.youtube.com/watch?v=3g_l_YxY-B0',
+    embed_id: '3g_l_YxY-B0',
     category: 'COD Verification & Trust',
     duration_minutes: 9,
     assigned_to: 'ALL',
@@ -140,7 +140,7 @@ class TrainingService {
       const saved = localStorage.getItem(TRAINING_STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length >= 6) {
+        if (Array.isArray(parsed) && parsed.length >= 6 && parsed.some((p) => p.id === 'vid-04-cold-calling')) {
           return parsed;
         }
       }
@@ -192,9 +192,9 @@ class TrainingService {
     }
 
     const currentLocal = this.getVideos();
-    const baseList = cloudList && cloudList.length >= 6 ? cloudList : currentLocal;
+    const baseList = cloudList && cloudList.length >= 6 && cloudList.some((p) => p.id === 'vid-04-cold-calling') ? cloudList : currentLocal;
 
-    // Merge with defaults to ensure all 6 modules are present in order
+    // Merge with defaults to ensure all 6 distinct modules are present in order
     const merged = [...baseList];
     INITIAL_TRAINING_VIDEOS.forEach((def) => {
       if (!merged.some((m) => m.id === def.id || m.title === def.title)) {
