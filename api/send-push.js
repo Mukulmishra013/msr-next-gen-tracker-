@@ -18,24 +18,24 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { title, body, targetUserId, url, icon } = req.body || {};
+    const { title, body, targetUserId, url } = req.body || {};
 
     const pushPayload = JSON.stringify({
-      title: title || '👑 MSR Next-Gen Alert',
-      body: body || 'New update from MSR Agency Tracker',
-      icon: icon || '/favicon.svg',
-      badge: '/favicon.svg',
+      title: title || '👑 Mukul Mishra (Admin Directive)',
+      body: body || 'MSR Agency Tracker ne urgent update send kiya hai.',
+      icon: '/assets/maya_avatar.jpg',
+      badge: '/assets/maya_avatar.jpg',
       url: url || '/',
       timestamp: Date.now()
     });
 
-    // 1. Fetch all registered push subscriptions from Supabase users
+    // 1. Fetch all registered push subscriptions from Supabase users role_label
     const { data: users, error } = await supabase
       .from('users')
-      .select('id, name, phone, notes');
+      .select('id, name, phone, role_label');
 
     if (error || !users) {
-      return res.status(200).json({ success: true, delivered: 0, message: 'No users table found' });
+      return res.status(200).json({ success: true, delivered: 0, message: 'No users found in database' });
     }
 
     const deliveryPromises = [];
@@ -46,14 +46,17 @@ export default async function handler(req, res) {
         return;
       }
 
-      if (u.notes && u.notes.includes('[PUSH_SUB]')) {
+      if (u.role_label && u.role_label.includes('[PUSH_SUB]')) {
         try {
-          const match = u.notes.match(/\[PUSH_SUB\](.*?)\[\/PUSH_SUB\]/s);
+          const match = u.role_label.match(/\[PUSH_SUB\](.*?)\[\/PUSH_SUB\]/s);
           if (match && match[1]) {
             const sub = JSON.parse(match[1]);
             if (sub && sub.endpoint) {
               deliveryPromises.push(
-                webpush.sendNotification(sub, pushPayload).catch((err) => {
+                webpush.sendNotification(sub, pushPayload, {
+                  TTL: 60 * 60 * 24, // 24 hours queue in Google FCM if phone offline
+                  urgency: 'high'
+                }).catch((err) => {
                   console.warn('Push delivery failed for user:', u.name, err.statusCode);
                 })
               );

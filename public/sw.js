@@ -1,5 +1,5 @@
 // MSR Next-Gen Enterprise PWA Service Worker & Native Web Push Hub
-const CACHE_NAME = 'msr-pwa-v3';
+const CACHE_NAME = 'msr-pwa-v4';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
@@ -9,13 +9,13 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(self.clients.claim());
 });
 
-// 🔔 Handle Incoming Native OS Push Notifications (Fires when app is closed or screen is locked)
+// 🔔 Handle Incoming Native OS Push Notifications (Fires when app is closed or removed from recent apps)
 self.addEventListener('push', (event) => {
   let data = {};
   try {
     data = event.data ? event.data.json() : {};
   } catch (e) {
-    data = { title: '👑 MSR Admin Alert', body: event.data ? event.data.text() : 'New message from Mukul Mishra' };
+    data = { title: '👑 Mukul Mishra (Admin Directive)', body: event.data ? event.data.text() : 'New message received' };
   }
 
   const title = data.title || '👑 Mukul Mishra (Admin Directive)';
@@ -26,8 +26,9 @@ self.addEventListener('push', (event) => {
     image: '/assets/sales_trophy.jpg',
     vibrate: [300, 100, 400, 100, 300],
     requireInteraction: true,
-    tag: 'msr-broadcast-alert',
+    tag: 'msr-push-alert-' + Date.now(),
     renotify: true,
+    silent: false,
     data: {
       url: data.url || '/',
       timestamp: Date.now()
@@ -51,13 +52,11 @@ self.addEventListener('notificationclick', (event) => {
 
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-      // If portal tab is already open, focus it
       for (const client of clientList) {
         if (client.url.includes(self.location.origin) && 'focus' in client) {
           return client.focus();
         }
       }
-      // If portal is closed, open a new window
       if (self.clients.openWindow) {
         return self.clients.openWindow(targetUrl);
       }

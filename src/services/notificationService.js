@@ -1,10 +1,10 @@
 // Enterprise Web Push Subscription, VAPID Push Dispatcher, Loud Audio & Cross-Device Sync
 import { supabase, isSupabaseConfigured } from './supabase';
 
-const OFFLINE_QUEUE_KEY = 'msr_offline_notification_queue_v5';
-const NOTIFICATION_HISTORY_KEY = 'msr_notification_history_v5';
-const BROADCAST_STORAGE_KEY = 'msr_admin_broadcast_channel_v5';
-const LAST_SEEN_BROADCAST_KEY = 'msr_last_seen_broadcast_id_v5';
+const OFFLINE_QUEUE_KEY = 'msr_offline_notification_queue_v6';
+const NOTIFICATION_HISTORY_KEY = 'msr_notification_history_v6';
+const BROADCAST_STORAGE_KEY = 'msr_admin_broadcast_channel_v6';
+const LAST_SEEN_BROADCAST_KEY = 'msr_last_seen_broadcast_id_v6';
 
 const VAPID_PUBLIC_KEY = 'BENbeoBz5MJIMzlqyUeTyOMEuHZLnXlkdMfF8X_kbSmGZvjaWJAd0jDed5_6cGZdkUsKF_vXpM_uTiVDslhVboI';
 
@@ -34,7 +34,7 @@ class NotificationService {
       this.initCrossDeviceRealtime();
       this.initCloudPolling();
       this.initNetworkListener();
-      setTimeout(() => this.initServiceWorker(), 500);
+      setTimeout(() => this.initServiceWorker(), 300);
     }
   }
 
@@ -63,7 +63,7 @@ class NotificationService {
 
     try {
       this.swRegistration = await navigator.serviceWorker.register('/sw.js');
-      console.log('MSR ServiceWorker registered:', this.swRegistration.scope);
+      console.log('MSR ServiceWorker active:', this.swRegistration.scope);
 
       if ('Notification' in window && Notification.permission === 'granted') {
         this.permissionGranted = true;
@@ -121,9 +121,10 @@ class NotificationService {
         const userStr = localStorage.getItem('msr_active_user') || localStorage.getItem('msr_current_user');
         const currentUser = userStr ? JSON.parse(userStr) : null;
         if (currentUser && currentUser.id) {
-          const subJson = JSON.stringify(sub);
+          const { data: userRecord } = await supabase.from('users').select('role_label').eq('id', currentUser.id).single();
+          const baseLabel = (userRecord?.role_label || '').replace(/\[PUSH_SUB\].*?\[\/PUSH_SUB\]/gs, '').trim();
           await supabase.from('users').update({
-            notes: `[PUSH_SUB]${subJson}[/PUSH_SUB]`
+            role_label: `${baseLabel} [PUSH_SUB]${JSON.stringify(sub)}[/PUSH_SUB]`
           }).eq('id', currentUser.id);
         }
       }
@@ -399,7 +400,7 @@ class NotificationService {
   async sendAdminBroadcast({ title, body, targetUserId = 'ALL', adminName = 'Mukul Mishra' }) {
     const payload = {
       id: `broadcast_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
-      title: title || '👑 Admin Important Directive',
+      title: title || '👑 Mukul Mishra (Admin Directive)',
       body,
       adminName,
       targetUserId,
@@ -427,8 +428,11 @@ class NotificationService {
     // B. Save to Supabase Cloud DB
     if (isSupabaseConfigured()) {
       try {
+        const { data: userRecord } = await supabase.from('users').select('role_label').or('phone.eq.+918887521156,role.eq.owner').limit(1);
+        const existingLabel = (userRecord && userRecord[0]?.role_label) || '';
+        const pushTokens = existingLabel.match(/\[PUSH_SUB\].*?\[\/PUSH_SUB\]/gs)?.join(' ') || '';
         await supabase.from('users').update({
-          role_label: `[ADMIN_BROADCAST]${JSON.stringify(payload)}[/ADMIN_BROADCAST]`
+          role_label: `[ADMIN_BROADCAST]${JSON.stringify(payload)}[/ADMIN_BROADCAST] ${pushTokens}`
         }).or('phone.eq.+918887521156,role.eq.owner');
       } catch (err) {}
     }
@@ -455,42 +459,43 @@ class NotificationService {
     return { status: 'TRANSMITTED_WORLDWIDE', payload };
   }
 
-  sendLocalNotification({ title, body, url = '/' }) {
+  async sendLocalNotification({ title, body, url = '/' }) {
     if (typeof window === 'undefined') return;
 
-    if (this.swRegistration && this.swRegistration.showNotification) {
-      this.swRegistration.showNotification(title, {
-        body,
-        icon: '/assets/maya_avatar.jpg',
-        badge: '/assets/maya_avatar.jpg',
-        image: '/assets/sales_trophy.jpg',
-        vibrate: [300, 100, 400, 100, 300],
-        requireInteraction: true,
-        tag: 'msr-admin-alert',
-        renotify: true,
-        data: { url }
-      }).catch(() => {
-        try {
-          const n = new Notification(title, { 
-            body, 
-            icon: '/assets/maya_avatar.jpg', 
-            badge: '/assets/maya_avatar.jpg',
-            requireInteraction: true
-          });
-          n.onclick = () => {
-            window.focus();
-            n.close();
-          };
-        } catch (err) {}
-      });
-    } else if ('Notification' in window && Notification.permission === 'granted') {
+    try {
+      let reg = this.swRegistration;
+      if (!reg && navigator.serviceWorker) {
+        reg = await navigator.serviceWorker.ready;
+      }
+
+      if (reg && reg.showNotification) {
+        await reg.showNotification(title, {
+          body,
+          icon: '/assets/maya_avatar.jpg',
+          badge: '/assets/maya_avatar.jpg',
+          image: '/assets/sales_trophy.jpg',
+          vibrate: [300, 100, 400, 100, 300],
+          requireInteraction: true,
+          tag: 'msr-alert-' + Date.now(),
+          renotify: true,
+          silent: false,
+          data: { url }
+        });
+        return;
+      }
+    } catch (err) {
+      console.warn('ServiceWorker showNotification fallback:', err);
+    }
+
+    if ('Notification' in window && Notification.permission === 'granted') {
       try {
         const n = new Notification(title, {
           body,
           icon: '/assets/maya_avatar.jpg',
           badge: '/assets/maya_avatar.jpg',
           vibrate: [300, 100, 400],
-          requireInteraction: true
+          requireInteraction: true,
+          tag: 'msr-alert-' + Date.now()
         });
         n.onclick = () => {
           window.focus();
