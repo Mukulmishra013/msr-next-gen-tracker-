@@ -22,7 +22,8 @@ import {
   Lock, 
   Unlock, 
   AlertTriangle, 
-  FileText 
+  FileText,
+  ExternalLink
 } from 'lucide-react';
 import { TrainingCertificateModal } from './TrainingCertificateModal';
 import { trainingService } from '../../services/trainingService';
@@ -364,9 +365,9 @@ export function TrainingAcademy() {
               <div className="relative aspect-video w-full bg-slate-950">
                 <iframe
                   className="w-full h-full"
-                  src={`https://www.youtube.com/embed/${getYoutubeEmbedId(selectedVideo.youtube_url || selectedVideo.embed_id)}?autoplay=0&rel=0&modestbranding=1`}
+                  src={`https://www.youtube-nocookie.com/embed/${getYoutubeEmbedId(selectedVideo.youtube_url || selectedVideo.embed_id)}?enablejsapi=1&rel=0&modestbranding=1`}
                   title={selectedVideo.title}
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                   allowFullScreen
                 ></iframe>
               </div>
@@ -385,26 +386,38 @@ export function TrainingAcademy() {
                     </h3>
                   </div>
 
-                  {/* Admin Edit / Delete Actions */}
-                  {isOwner && (
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <button
-                        onClick={() => handleOpenEdit(selectedVideo)}
-                        className="tap-target px-2.5 py-1 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold flex items-center gap-1 border border-slate-700"
-                        title="Edit this video"
-                      >
-                        <Edit3 className="w-3.5 h-3.5 text-purple-400" />
-                        <span>Edit Video</span>
-                      </button>
-                      <button
-                        onClick={() => handleDeleteVideo(selectedVideo.id)}
-                        className="tap-target p-1.5 rounded-xl bg-red-950/80 hover:bg-red-900 text-red-300 border border-red-500/40"
-                        title="Delete video"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  )}
+                  {/* Actions & Direct YouTube Button */}
+                  <div className="flex items-center gap-2 flex-wrap shrink-0">
+                    <a
+                      href={selectedVideo.youtube_url || `https://www.youtube.com/watch?v=${getYoutubeEmbedId(selectedVideo.youtube_url || selectedVideo.embed_id)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="tap-target px-3 py-1.5 rounded-xl bg-red-950/90 hover:bg-red-900 border border-red-500/50 text-red-200 font-black text-xs flex items-center gap-1.5 shadow-md shadow-red-950/40 transition active:scale-95"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5 text-red-400" />
+                      <span>Watch in YouTube App</span>
+                    </a>
+
+                    {isOwner && (
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => handleOpenEdit(selectedVideo)}
+                          className="tap-target px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold flex items-center gap-1 border border-slate-700"
+                          title="Edit this video"
+                        >
+                          <Edit3 className="w-3.5 h-3.5 text-purple-400" />
+                          <span>Edit</span>
+                        </button>
+                        <button
+                          onClick={() => handleDeleteVideo(selectedVideo.id)}
+                          className="tap-target p-1.5 rounded-xl bg-red-950/80 hover:bg-red-900 text-red-300 border border-red-500/40"
+                          title="Delete video"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* 🤖 Maya AI Executive Summary */}
