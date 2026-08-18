@@ -3,8 +3,16 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.jsx'
 
+// Permanently Neutralize Speech Synthesis Across Entire Application (Sound Chimes Only)
+if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+  try {
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak = function() {};
+  } catch (e) {}
+}
+
 // Auto-Purge Stale PWA Cache on Version Upgrade (Guarantees fresh code on all employee phones)
-const CURRENT_VERSION = 'v15_sound_only_clean';
+const CURRENT_VERSION = 'v16_speech_disabled_permanent';
 try {
   const cachedVersion = localStorage.getItem('msr_app_build_version');
   if (cachedVersion !== CURRENT_VERSION) {
@@ -17,9 +25,6 @@ try {
       navigator.serviceWorker.getRegistrations().then((regs) => {
         regs.forEach((reg) => reg.update());
       });
-    }
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
     }
     localStorage.setItem('msr_app_build_version', CURRENT_VERSION);
   }

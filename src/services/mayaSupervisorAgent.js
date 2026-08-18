@@ -119,8 +119,7 @@ class MayaSupervisorAgent {
         title: `🚨 Maya Supervisor: Work Alert for ${userName}`,
         body: warnMsg,
         sound: 'alert',
-        speakVoice: true,
-        voiceText: `${userName} ji, pichle 20 minute se koi call ya click nahi hua hai. Kripya customer calls start karein.`,
+        speakVoice: false,
         priority: 'urgent',
         targetUserId: userId
       });
