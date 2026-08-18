@@ -1,7 +1,7 @@
 // Training Masterclass Cloud Service - Live Supabase Cloud Sync & Realtime Broadcast
 import { supabase, isSupabaseConfigured } from './supabase';
 
-const TRAINING_STORAGE_KEY = 'msr_training_videos';
+const TRAINING_STORAGE_KEY = 'msr_training_videos_v4';
 
 // 🌟 20-25 Top-Level Real-World Scenario Question Banks
 const NDR_20_QUESTIONS = [
@@ -31,7 +31,7 @@ export const INITIAL_TRAINING_VIDEOS = [
   {
     id: 'vid-bindra-01',
     title: 'Sales दुनिया का सबसे आसान काम है | 4 Sales Secrets | Hindi Video | Dr Vivek Bindra',
-    description: 'Dr Vivek Bindra 4 Golden Sales Secrets, Customer Psychology & Closing Strategies.',
+    description: 'Dr Vivek Bindra 4 Golden Sales Secrets, Customer Psychology, Objection Handling & Closing Strategies.',
     youtube_url: 'https://www.youtube.com/watch?v=F_fP45O_uI0',
     embed_id: 'F_fP45O_uI0',
     category: 'Sales Psychology',
@@ -104,9 +104,13 @@ class TrainingService {
       const saved = localStorage.getItem(TRAINING_STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0 && parsed.some((p) => p.title?.includes('Vivek Bindra') || p.title?.includes('Sales'))) {
+          return parsed;
+        }
       }
     } catch (e) {}
+
+    localStorage.setItem(TRAINING_STORAGE_KEY, JSON.stringify(INITIAL_TRAINING_VIDEOS));
     return INITIAL_TRAINING_VIDEOS;
   }
 
@@ -158,7 +162,7 @@ class TrainingService {
     const merged = [...baseList];
     INITIAL_TRAINING_VIDEOS.forEach((def) => {
       if (!merged.some((m) => m.id === def.id || m.title === def.title)) {
-        merged.push(def);
+        merged.unshift(def);
       }
     });
 
