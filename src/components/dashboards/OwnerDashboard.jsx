@@ -55,7 +55,8 @@ import {
   Calendar,
   Compass,
   Home,
-  Building2
+  Building2,
+  Megaphone
 } from 'lucide-react';
 
 export function OwnerDashboard({ onOpenUpiModal, onOpenChat }) {
